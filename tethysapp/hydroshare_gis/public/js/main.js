@@ -4,6 +4,10 @@
  * AUTHOR:  Shawn Crawley
  * COPYRIGHT: (c) 2015 Brigham Young University
  * LICENSE: BSD 2-Clause
+ * CONTRIBUTIONS:   http://ignitersworld.com/lab/contextMenu.html
+ *                  http://openlayers.org/
+ *                  https://www.npmjs.com/package/reproject
+ *
  *****************************************************************************/
 
 /*****************************************************************************
@@ -17,31 +21,73 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     "use strict"; // And enable strict mode for this library
 
-    /*
-     **************GLOBAL VARIABLES*******************
-     */
+    /******************************************************
+     ****************GLOBAL VARIABLES**********************
+     ******************************************************/
     var currentLayers = [],
-        layers,
-        map,
         emptyBar,
+        layers,
+        layersContextMenu,
+        map,
         progressBar,
         progressText,
-        layersContextMenu,
         updateProgressBar,
     // Functions
-        changeBaseMap,
-        getUploadProgress,
-        getCookie,
-        checkCsrfSafe,
+        addDefaultBeforeSendToAjax,
+        addInitialEventHandlers,
         areValidFiles,
-        prepareFilesForAjax,
+        changeBaseMap,
+        checkCsrfSafe,
         editLayerName,
+        getCookie,
+        getUploadProgress,
+        initializeLayersContextMenu,
+        initializeMap,
+        prepareFilesForAjax,
     //jQuery Selectors
         $currentLayersList = $('#current-layers-list');
 
-    /*
+    /******************************************************
      **************FUNCTION DECLARATIONS*******************
-     */
+     ******************************************************/
+
+    addDefaultBeforeSendToAjax = function () {
+        // Add CSRF token to appropriate ajax requests
+        $.ajaxSetup({
+            beforeSend: function (xhr, settings) {
+                if (!checkCsrfSafe(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+                }
+            }
+        });
+    };
+
+    addInitialEventHandlers = function () {
+        $('.basemap-option').on('click', changeBaseMap);
+
+        $('.import-btn').on('click', function () {
+            var modalTitle = $(this).text();
+            $('.modal-title').text(modalTitle);
+            if (modalTitle.indexOf('computer') !== -1) {
+                $('#btn-upload-file')
+                    .text('Upload')
+                    .removeAttr('disabled');
+                $('.modal-body')
+                    .html('<input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj">' +
+                        '<br>' +
+                        '<div id="empty-bar" class="hidden">.</div>' +
+                        '<div id="progress-bar" class="hidden">.</div>' +
+                        '<div id="progress-text" class="hidden">0%</div>'
+                        );
+                emptyBar = $('#empty-bar');
+                progressBar = $('#progress-bar');
+                progressText = $('#progress-text');
+            } else {
+                $('.modal-body').html('');
+            }
+            $('#uploadModal').modal('show');
+        });
+    };
 
     areValidFiles = function (files) {
         var file,
@@ -145,39 +191,48 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
     };
 
-    prepareFilesForAjax = function (files) {
-        var file,
-            data = new FormData();
+    initializeLayersContextMenu = function () {
+        layersContextMenu = [
+            {
+                name: 'Rename',
+                title: 'Rename',
+                fun: function (e) {
+                    var clickedElement = e.trigger.context,
+                        layerIndex = Number($currentLayersList.find('li').index(clickedElement)) + 3,
+                        $LayerNameSpan = $(clickedElement).find('span');
 
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                data.append('shapefiles', files[file]);
-            }
-        }
-        return data;
-    };
+                    $LayerNameSpan.addClass('hidden');
+                    $(clickedElement).find('input')
+                        .removeClass('hidden')
+                        .select()
+                        .on('keyup', function (e) {
+                            editLayerName(e, $(this), $LayerNameSpan, layerIndex);
+                        });
+                }
+            }, {
+                name: 'Zoom to',
+                title: 'Zoom to',
+                fun: function (e) {
+                    var clickedElement = e.trigger.context,
+                        ceIndex = Number($currentLayersList.find('li').index(clickedElement)),
+                        layerExtent = map.getLayers().item(ceIndex + 3).getSource().getExtent(); // Ignore 3 base maps
+                    map.getView().fit(layerExtent, map.getSize());
+                }
+            }, {
+                name: 'Delete',
+                title: 'Delete',
+                fun: function (e) {
+                    var clickedElement = e.trigger.context,
+                        ceIndex = Number($currentLayersList.find('li').index(clickedElement));
 
-    updateProgressBar = function (value) {
-        progressBar.css('width', value);
-        progressText.text(value);
-    };
-
-    /*
-     **************ONLOAD FUNCTIONS*******************
-     */
-
-// Add CSRF token to appropriate ajax requests
-    $(function () {
-        $.ajaxSetup({
-            beforeSend: function (xhr, settings) {
-                if (!checkCsrfSafe(settings.type) && !this.crossDomain) {
-                    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+                    map.getLayers().removeAt(ceIndex + 3);  // Ignore 3 base maps
+                    $currentLayersList.find('li:nth-child(' + (ceIndex + 1) + ')').remove();
                 }
             }
-        });
-    });
+        ];
+    };
 
-    $(function () {
+    initializeMap = function () {
         // Base Layer options
         layers = [
             new ol.layer.Tile({
@@ -212,102 +267,34 @@ var HS_GIS = (function packageHydroShareGIS() {
                 zoom: 2
             })
         });
+    };
 
-        layersContextMenu = [
-            {
-                name: 'Rename',
-                title: 'Rename button',
-                fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        layerIndex = Number($currentLayersList.find('li').index(clickedElement)) + 3,
-                        $LayerNameSpan = $(clickedElement).find('span');
+    prepareFilesForAjax = function (files) {
+        var file,
+            data = new FormData();
 
-                    $LayerNameSpan.addClass('hidden');
-                    $(clickedElement).find('input')
-                        .removeClass('hidden')
-                        .select()
-                        .on('keyup', function (e) {
-                            editLayerName(e, $(this), $LayerNameSpan, layerIndex);
-                        });
-                }
-            }, {
-                name: 'Zoom to',
-                title: 'Zoom button',
-                fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        ceIndex = Number($currentLayersList.find('li').index(clickedElement)),
-                        layerExtent = map.getLayers().item(ceIndex + 3).getSource().getExtent(); // Ignore 3 base maps
-                    map.getView().fit(layerExtent, map.getSize());
-                }
-            }, {
-                name: 'Delete',
-                title: 'Delete button',
-                fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        ceIndex = Number($currentLayersList.find('li').index(clickedElement));
-
-                    map.getLayers().removeAt(ceIndex + 3);  // Ignore 3 base maps
-                    $currentLayersList.find('li:nth-child(' + (ceIndex + 1) + ')').remove();
-                }
-                /* {
-                 name: 'update',
-                 title: 'update button',
-                 subMenu: [{
-                 name: 'merge',
-                 title: 'It will merge row',
-                 fun: function () {
-                 console.log("It works!");
-                 }
-                 }, {
-                 name: 'replace',
-                 title: 'It will replace row',
-                 subMenu: [{
-                 name: 'replace top 100',
-                 fun: function () {
-                 console.log("It works!");
-                 }
-
-                 }, {
-                 name: 'replace all',
-                 fun: function () {
-                 console.log("It works!");
-                 }
-                 }]
-                 }]
-                 },*/
+        for (file in files) {
+            if (files.hasOwnProperty(file)) {
+                data.append('shapefiles', files[file]);
             }
-        ];
+        }
+        return data;
+    };
 
+    updateProgressBar = function (value) {
+        progressBar.css('width', value);
+        progressText.text(value);
+    };
 
-        /*
-         **************EVENT HANDLERS*******************
-         */
+    /*
+     **************ONLOAD FUNCTION*******************
+     */
 
-        $('.basemap-option').on('click', changeBaseMap);
-
-        // Show upload modal
-        $('.import-btn').on('click', function () {
-            var modalTitle = $(this).text();
-            $('.modal-title').text(modalTitle);
-            if (modalTitle.indexOf('computer') !== -1) {
-                $('#btn-upload-file')
-                    .text('Upload')
-                    .removeAttr('disabled');
-                $('.modal-body')
-                    .html('<input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj">' +
-                        '<br>' +
-                        '<div id="empty-bar" class="hidden">.</div>' +
-                        '<div id="progress-bar" class="hidden">.</div>' +
-                        '<div id="progress-text" class="hidden">0%</div>'
-                        );
-                emptyBar = $('#empty-bar');
-                progressBar = $('#progress-bar');
-                progressText = $('#progress-text');
-            } else {
-                $('.modal-body').html('');
-            }
-            $('#uploadModal').modal('show');
-        });
+    $(function () {
+        addDefaultBeforeSendToAjax();
+        initializeMap();
+        initializeLayersContextMenu();
+        addInitialEventHandlers();
     });
 
     $(document).on('click', '#btn-upload-file', function () {

@@ -1,0 +1,60 @@
+.import-btn {
+    cursor: pointer;
+}
+.basemap-option {
+    cursor: pointer;
+    padding: 5px;
+}
+.basemap-option:hover {
+    background-color: darkturquoise;
+    color: white;
+}
+.selected-basemap-option {
+    font-weight: bold;
+}
+.current-basemap-label {
+    font-weight: normal;
+    color: lightgray;
+}
+#progress-bar {
+    position: relative;
+    top: -20px;
+    width: 0;
+    background-color: blue;
+    z-index: 1;
+    color: blue;
+}
+#empty-bar {
+    background-color: grey;
+    color: grey;
+}
+#progress-text {
+    position: relative;
+    top: -40px;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    z-index: 2;
+}
+#current-layers {
+    width: 100%;
+    height: 300px;
+    background-color: lightgrey;
+}
+#current-layers ul {
+    -webkit-padding-start: 0;
+}
+#current-layers li {
+    background-color: white;
+    list-style: none;
+    padding: 3px;
+    cursor: default;
+}
+#current-layers li::before {
+    padding-right: 1em;
+    content: " >";
+    cursor: pointer;
+}
+#current-layers li:hover {
+    background-color: #1abc9c;
+}

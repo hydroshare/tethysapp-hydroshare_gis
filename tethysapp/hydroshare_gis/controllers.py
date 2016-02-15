@@ -130,6 +130,30 @@ def load_file(request):
     })
 
 
+def get_hs_res_list(request):
+    if request.is_ajax() and request.method == 'GET':
+        valid_res_list = []
+
+        # hs = get_oauth_hs(request)
+        hs = HydroShare()
+        for resource in hs.getResourceList():
+            if resource['resource_type'] == 'GeographicFeatureResource' \
+                    or resource['resource_type'] == 'RasterResource':
+
+                valid_res_list.append({
+                    'title': resource['resource_title'],
+                    'type': resource['resource_type'],
+                    'id': resource['resource_id']
+                })
+
+        valid_res_json = dumps(valid_res_list)
+
+        return JsonResponse({
+            'success': 'Resources obtained successfully.',
+            'resources': valid_res_json
+        })
+
+
 def get_oauth_hs(request):
     global hs_hostname
 

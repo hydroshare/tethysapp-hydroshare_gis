@@ -67,3 +67,11 @@
 #current-layers li:hover {
     background-color: #1abc9c;
 }
+
+.modal-body td, .modal-body th {
+    padding: 10px;
+}
+.modal-body tr:hover {
+    background-color: #1abc9c;
+    color: white;
+}

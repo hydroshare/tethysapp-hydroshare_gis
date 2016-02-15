@@ -26,12 +26,9 @@ class HydroshareGis(TethysAppBase):
         url_maps = (url_map(name='home',
                             url='hydroshare-gis',
                             controller='hydroshare_gis.controllers.home'),
-                    url_map(name='upload_file',
-                            url='hydroshare-gis/upload-file',
-                            controller='hydroshare_gis.controllers.upload_file'),
-                    url_map(name='get_upload_progress',
-                            url='hydroshare-gis/get-upload-progress',
-                            controller='hydroshare_gis.controllers.get_upload_progress')
+                    url_map(name='load_file',
+                            url='hydroshare-gis/load-file',
+                            controller='hydroshare_gis.controllers.load_file')
                     )
 
         return url_maps

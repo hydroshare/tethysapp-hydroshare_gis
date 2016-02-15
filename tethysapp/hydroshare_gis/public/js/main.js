@@ -15,7 +15,7 @@
  *****************************************************************************/
 
 // Global directives for JSLint/JSHint
-/*global document, $, console, FormData, ol, window, setTimeout, reproject, proj4, pageX, pageY */
+/*global document, $, console, FormData, ol, window, setTimeout, reproject, proj4, pageX, pageY, clearInterval */
 
 var HS_GIS = (function packageHydroShareGIS() {
 
@@ -32,17 +32,22 @@ var HS_GIS = (function packageHydroShareGIS() {
         progressBar,
         progressText,
         updateProgressBar,
+        fileLoaded,
     // Functions
+        addDataToMap,
         addDefaultBeforeSendToAjax,
         addInitialEventHandlers,
         areValidFiles,
         changeBaseMap,
         checkCsrfSafe,
+        checkURLForParameters,
         editLayerName,
         getCookie,
-        getUploadProgress,
+        getFilesSize,
+        updateUploadProgress,
         initializeLayersContextMenu,
         initializeMap,
+        loadHSResource,
         prepareFilesForAjax,
     //jQuery Selectors
         $currentLayersList = $('#current-layers-list');
@@ -50,6 +55,57 @@ var HS_GIS = (function packageHydroShareGIS() {
     /******************************************************
      **************FUNCTION DECLARATIONS*******************
      ******************************************************/
+
+    addDataToMap = function (response) {
+        var geojsonObject,
+            newLayer,
+            projection,
+            reprojectedGeoJson,
+            fileName,
+            $lastLayerListElement;
+
+        if (response.hasOwnProperty('success')) {
+            fileName = response.filename;
+            projection = response.projection;
+            proj4.defs('new_projection', projection);
+            geojsonObject = JSON.parse(response.geojson);
+            if (projection) {
+                reprojectedGeoJson = reproject(geojsonObject, proj4('new_projection'), proj4('EPSG:3857'));
+                newLayer = new ol.layer.Vector({
+                    name: fileName,
+                    source: new ol.source.Vector({
+                        features: (new ol.format.GeoJSON()).readFeatures(reprojectedGeoJson)
+                    })
+                });
+                map.addLayer(newLayer);
+                currentLayers.push(newLayer);
+                $currentLayersList.append(
+                    '<li><span class="layer-name">' + fileName + '</span><input type="text" class="edit-layer-name hidden" value="' + fileName + '"></li>'
+                );
+                $lastLayerListElement = $('#current-layers-list').find(':last-child');
+                // Apply the dropdown-on-right-click menu to new layer in list
+                $lastLayerListElement.contextMenu('menu', layersContextMenu, {
+                    triggerOn: 'click',
+                    displayAround: 'cursor',
+                    mouseClick: 'right'
+                });
+                $lastLayerListElement.find('.layer-name').on('dblclick', function () {
+                    var $layerNameSpan = $(this),
+                        layerIndex = Number($currentLayersList.find('li').index($lastLayerListElement)) + 3;
+
+                    $layerNameSpan.addClass('hidden');
+                    $lastLayerListElement.find('input')
+                        .removeClass('hidden')
+                        .select()
+                        .on('keyup', function (e) {
+                            editLayerName(e, $(this), $layerNameSpan, layerIndex);
+                        });
+                });
+            } else {
+                console.error('There is insufficient projection information to plot the shapefile.');
+            }
+        }
+    };
 
     addDefaultBeforeSendToAjax = function () {
         // Add CSRF token to appropriate ajax requests
@@ -91,6 +147,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     areValidFiles = function (files) {
         var file,
+            fileCount = 0,
             hasShp = false,
             hasShx = false,
             hasPrj = false,
@@ -98,17 +155,21 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         for (file in files) {
             if (files.hasOwnProperty(file)) {
-                if (files[file].name.endsWith('.shp')) {
-                    hasShp = true;
-                } else if (files[file].name.endsWith('.shx')) {
-                    hasShx = true;
-                } else if (files[file].name.endsWith('.prj')) {
-                    hasPrj = true;
-                } else if (files[file].name.endsWith('.dbf')) {
-                    hasDbf = true;
+                if (++fileCount > 4) {
+                    return false;
+                }
+                if (files.hasOwnProperty(file)) {
+                    if (files[file].name.endsWith('.shp')) {
+                        hasShp = true;
+                    } else if (files[file].name.endsWith('.shx')) {
+                        hasShx = true;
+                    } else if (files[file].name.endsWith('.prj')) {
+                        hasPrj = true;
+                    } else if (files[file].name.endsWith('.dbf')) {
+                        hasDbf = true;
+                    }
                 }
             }
-
         }
         return (hasShp && hasShx && hasPrj && hasDbf);
     };
@@ -132,6 +193,32 @@ var HS_GIS = (function packageHydroShareGIS() {
     checkCsrfSafe = function (method) {
         // these HTTP methods do not require CSRF protection
         return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+    };
+
+    checkURLForParameters = function () {
+        var transformToAssocArray = function (prmstr) {
+                var i,
+                    params = {},
+                    prmArr = prmstr.split("&"),
+                    tmpArr;
+
+                for (i = 0; i < prmArr.length; i++) {
+                    tmpArr = prmArr[i].split("=");
+                    params[tmpArr[0]] = tmpArr[1];
+                }
+                return params;
+            },
+            getSearchParameters = function () {
+                var prmstr = window.location.search.substr(1);
+                return prmstr !== null && prmstr !== "" ? transformToAssocArray(prmstr) : {};
+            },
+            params = getSearchParameters();
+
+        if (params.res_id !== undefined || params.res_id !== null) {
+            if (params.src === 'hs') {
+                loadHSResource(params.res_id);
+            }
+        }
     };
 
     editLayerName = function (e, $layerNameInput, $layerNameSpan, layerIndex) {
@@ -171,24 +258,33 @@ var HS_GIS = (function packageHydroShareGIS() {
         return cookieValue;
     };
 
-    getUploadProgress = function () {
-        $.ajax({
-            url: 'get-upload-progress',
-            type: 'GET',
-            dataType: 'json',
-            success: function (data) {
-                if (data.hasOwnProperty('success')) {
-                    var progress = Math.round(data.progress);
-                    if (progress !== 100) {
-                        updateProgressBar(parseInt(progress, 10) + '%');
-                        setTimeout(getUploadProgress, 1000);
-                    }
-                }
-            },
-            error: function () {
-                console.error("Error while retrieving progress");
+    getFilesSize = function (files) {
+        var file,
+            fileSize = 0;
+
+        for (file in files) {
+            if (files.hasOwnProperty(file)) {
+                fileSize += files[file].size;
             }
-        });
+        }
+        return fileSize;
+    };
+
+    updateUploadProgress = function (fileSize, currProg) {
+        var progress;
+
+        currProg = currProg === undefined ? 0 : currProg;
+        if (!fileLoaded) {
+            currProg += 1000000;
+            progress = Math.round(currProg / fileSize * 100);
+            progress = progress > 100 ? 100 : progress;
+            updateProgressBar(parseInt(progress, 10) + '%');
+            setTimeout(function () {
+                updateUploadProgress(fileSize, currProg);
+            }, 1000);
+        } else {
+            updateProgressBar('100%');
+        }
     };
 
     initializeLayersContextMenu = function () {
@@ -269,6 +365,23 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
     };
 
+    loadHSResource = function (res_id) {
+        $.ajax({
+            type: 'GET',
+            url: 'load-file',
+            dataType: 'json',
+            data: {
+                'res_id': res_id
+            },
+            error: function () {
+                console.error('Failure!');
+            },
+            success: function (response) {
+                addDataToMap(response);
+            }
+        });
+    };
+
     prepareFilesForAjax = function (files) {
         var file,
             data = new FormData();
@@ -295,12 +408,15 @@ var HS_GIS = (function packageHydroShareGIS() {
         initializeMap();
         initializeLayersContextMenu();
         addInitialEventHandlers();
+        checkURLForParameters();
+
     });
 
     $(document).on('click', '#btn-upload-file', function () {
         var fileInputNode = $('#input-files')[0],
             files = fileInputNode.files,
-            data;
+            data,
+            fileSize;
 
         if (!areValidFiles(files)) {
             console.error("Invalid files. Please include four total files: .shp, .shx, .prj, and .dbf.");
@@ -308,9 +424,10 @@ var HS_GIS = (function packageHydroShareGIS() {
             $('#btn-upload-file').text('...')
                 .attr('disabled', 'true');
             data = prepareFilesForAjax(files);
-
+            fileSize = getFilesSize(files);
+            fileLoaded = false;
             $.ajax({
-                url: 'upload-file/',
+                url: 'load-file/',
                 type: 'POST',
                 data: data,
                 dataType: 'json',
@@ -321,64 +438,17 @@ var HS_GIS = (function packageHydroShareGIS() {
                     console.error("Error!");
                 },
                 success: function (response) {
-                    var geojsonObject,
-                        newLayer,
-                        projection,
-                        reprojectedGeoJson,
-                        fileName,
-                        $lastLayerListElement;
-
+                    fileLoaded = true;
                     updateProgressBar('100%');
                     $('#btn-upload-file').text('Done');
-
-                    if (response.hasOwnProperty('success')) {
-                        fileName = response.filename;
-                        projection = response.projection;
-                        proj4.defs('new_projection', projection);
-                        geojsonObject = JSON.parse(response.geojson);
-                        if (projection) {
-                            reprojectedGeoJson = reproject(geojsonObject, proj4('new_projection'), proj4('EPSG:3857'));
-                            newLayer = new ol.layer.Vector({
-                                name: fileName,
-                                source: new ol.source.Vector({
-                                    features: (new ol.format.GeoJSON()).readFeatures(reprojectedGeoJson)
-                                })
-                            });
-                            map.addLayer(newLayer);
-                            currentLayers.push(newLayer);
-                            $currentLayersList.append(
-                                '<li><span class="layer-name">' + fileName + '</span><input type="text" class="edit-layer-name hidden" value="' + fileName + '"></li>'
-                            );
-                            $lastLayerListElement = $('#current-layers-list').find(':last-child');
-                            // Apply the dropdown-on-right-click menu to new layer in list
-                            $lastLayerListElement.contextMenu('menu', layersContextMenu, {
-                                triggerOn: 'click',
-                                displayAround: 'cursor',
-                                mouseClick: 'right'
-                            });
-                            $lastLayerListElement.find('.layer-name').on('dblclick', function () {
-                                var $layerNameSpan = $(this),
-                                    layerIndex = Number($currentLayersList.find('li').index($lastLayerListElement)) + 3;
-
-                                $layerNameSpan.addClass('hidden');
-                                $lastLayerListElement.find('input')
-                                    .removeClass('hidden')
-                                    .select()
-                                    .on('keyup', function (e) {
-                                        editLayerName(e, $(this), $layerNameSpan, layerIndex);
-                                    });
-                            });
-                        } else {
-                            console.error('There is insufficient projection information to plot the shapefile.');
-                        }
-                    }
+                    addDataToMap(response);
                 }
             });
 
             emptyBar.removeClass('hidden');
             progressBar.removeClass('hidden');
             progressText.removeClass('hidden');
-            getUploadProgress();
+            updateUploadProgress(fileSize);
         }
     });
 }());

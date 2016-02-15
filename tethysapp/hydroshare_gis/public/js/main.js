@@ -313,6 +313,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                         ceIndex = Number($currentLayersList.find('li').index(clickedElement)),
                         layerExtent = map.getLayers().item(ceIndex + 3).getSource().getExtent(); // Ignore 3 base maps
                     map.getView().fit(layerExtent, map.getSize());
+                    if (map.getView().getZoom() > 16) {
+                        map.getView().setZoom(16);
+                    }
                 }
             }, {
                 name: 'Delete',

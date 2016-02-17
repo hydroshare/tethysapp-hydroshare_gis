@@ -67,11 +67,18 @@
 #current-layers li:hover {
     background-color: #1abc9c;
 }
-
+.modal-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
 .modal-body td, .modal-body th {
     padding: 10px;
 }
-.modal-body tr:hover {
-    background-color: #1abc9c;
+.modal-body tr:not(:first-child):hover {
+    background-color: #0099ff;
     color: white;
+    cursor: pointer;
+}
+input[type="radio"] {
+    cursor: pointer;
 }

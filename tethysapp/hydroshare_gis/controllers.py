@@ -63,13 +63,15 @@ def load_file(request):
 
     elif request.is_ajax() and request.method == 'GET':
         try:
+            if not os.path.exists(hs_tempdir):
+                os.mkdir(hs_tempdir)
+
             res_id = request.GET['res_id']
-            print "res_id: %s" % res_id
             # hs = get_oauth_hs(request)
             hs = HydroShare()
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
-            print "res_contents_dir: %s" % res_contents_dir
+
             if os.path.exists(res_contents_dir):
                 for file_name in os.listdir(res_contents_dir):
                     if file_name.endswith('.shp'):
@@ -137,8 +139,8 @@ def get_hs_res_list(request):
         # hs = get_oauth_hs(request)
         hs = HydroShare()
         for resource in hs.getResourceList():
-            if resource['resource_type'] == 'GeographicFeatureResource' \
-                    or resource['resource_type'] == 'RasterResource':
+            if resource['resource_type'] == 'GeographicFeatureResource':
+                    # or resource['resource_type'] == 'RasterResource':
 
                 valid_res_list.append({
                     'title': resource['resource_title'],

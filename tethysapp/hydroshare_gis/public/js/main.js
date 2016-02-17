@@ -35,8 +35,8 @@ var HS_GIS = (function packageHydroShareGIS() {
         fileLoaded,
     // Functions
         addDataToMap,
-        addDefaultBeforeSendToAjax,
-        addInitialEventHandlers,
+        addDefaultBehaviorToAjax,
+        addInitialEventListeners,
         areValidFiles,
         changeBaseMap,
         checkCsrfSafe,
@@ -44,12 +44,14 @@ var HS_GIS = (function packageHydroShareGIS() {
         editLayerName,
         getCookie,
         getFilesSize,
-        updateUploadProgress,
         initializeJqueryVariables,
         initializeLayersContextMenu,
         initializeMap,
         loadHSResource,
         prepareFilesForAjax,
+        updateUploadProgress,
+        uploadFileButtonHandler,
+        uploadResourceButtonHandler,
     //jQuery Selectors
         $currentLayersList,
         $modalBody;
@@ -109,7 +111,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         }
     };
 
-    addDefaultBeforeSendToAjax = function () {
+    addDefaultBehaviorToAjax = function () {
         // Add CSRF token to appropriate ajax requests
         $.ajaxSetup({
             beforeSend: function (xhr, settings) {
@@ -120,7 +122,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
     };
 
-    addInitialEventHandlers = function () {
+    addInitialEventListeners = function () {
         $('.basemap-option').on('click', changeBaseMap);
 
         $('.import-btn').on('click', function () {
@@ -140,9 +142,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                 progressBar = $('#progress-bar');
                 progressText = $('#progress-text');
             } else {
-                if ($modalBody.html() === '') {
+                if ($modalBody.find('table').length === 0) {
                     $modalBody.html('<img src="/static/hydroshare_gis/images/loading-animation.gif">' +
-                        '<br><p><b>Loading resources...</b></p>');
+                        '<br><p><b>Loading resource list...</b></p>');
                     $.ajax({
                         type: 'GET',
                         url: 'get-hs-res-list',
@@ -152,13 +154,14 @@ var HS_GIS = (function packageHydroShareGIS() {
                         },
                         success: function (response) {
                             var resources,
-                                resTableHtml = '<table><th>Title</th><th>Type</th>';
+                                resTableHtml = '<table><th></th><th>Title</th><th>Type</th>';
 
                             if (response.hasOwnProperty('success')) {
                                 if (response.hasOwnProperty('resources')) {
                                     resources = JSON.parse(response.resources);
                                     resources.forEach(function (resource) {
-                                        resTableHtml += '<tr id="' + resource.id + '">' +
+                                        resTableHtml += '<tr>' +
+                                            '<td><input type="radio" name="resource" value="' + resource.id + '"></td>' +
                                             '<td>' + resource.title + '</td>' +
                                             '<td>' + resource.type + '</td>' +
                                             '</tr>';
@@ -166,6 +169,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                                     resTableHtml += '</table>';
 
                                     $modalBody.html(resTableHtml);
+                                    $('tr').on('click', function () {
+                                        $(this)
+                                            .css({
+                                                'background-color': '#1abc9c',
+                                                'color': 'white'
+                                            })
+                                            .find('input').prop('checked', true);
+                                        $('tr').not($(this)).css({
+                                            'background-color': '',
+                                            'color': ''
+                                        });
+                                    });
                                 }
                             }
                         }
@@ -173,6 +188,14 @@ var HS_GIS = (function packageHydroShareGIS() {
                 }
             }
             $('#uploadModal').modal('show');
+        });
+
+        $(document).on('click', '#btn-upload-file', function () {
+            if ($modalBody.find('table').length !== 0) {
+                uploadResourceButtonHandler();
+            } else {
+                uploadFileButtonHandler();
+            }
         });
     };
 
@@ -417,6 +440,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 addDataToMap(response);
+                $('#btn-upload-file').text('Done');
             }
         });
     };
@@ -438,20 +462,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         progressText.text(value);
     };
 
-    /*
-     **************ONLOAD FUNCTION*******************
-     */
-
-    $(function () {
-        addDefaultBeforeSendToAjax();
-        initializeMap();
-        initializeLayersContextMenu();
-        addInitialEventHandlers();
-        checkURLForParameters();
-        initializeJqueryVariables();
-    });
-
-    $(document).on('click', '#btn-upload-file', function () {
+    uploadFileButtonHandler = function () {
         var fileInputNode = $('#input-files')[0],
             files = fileInputNode.files,
             data,
@@ -489,5 +500,25 @@ var HS_GIS = (function packageHydroShareGIS() {
             progressText.removeClass('hidden');
             updateUploadProgress(fileSize);
         }
+    };
+
+    uploadResourceButtonHandler = function () {
+        $('#btn-upload-file').text('...')
+                .attr('disabled', 'true');
+        var res_id = $('input:checked').val();
+        loadHSResource(res_id);
+    };
+
+    /*
+     **************ONLOAD FUNCTION*******************
+     */
+
+    $(function () {
+        addDefaultBehaviorToAjax();
+        initializeMap();
+        initializeLayersContextMenu();
+        addInitialEventListeners();
+        checkURLForParameters();
+        initializeJqueryVariables();
     });
 }());

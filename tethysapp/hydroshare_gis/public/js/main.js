@@ -62,53 +62,66 @@ var HS_GIS = (function packageHydroShareGIS() {
      ******************************************************/
 
     addDataToMap = function (response) {
-        var geojsonObject,
-            newLayer,
-            projection,
-            reprojectedGeoJson,
-            fileName,
+        //var geojsonObject,
+        var newLayer,
+        //projection,
+        //reprojectedGeoJson,
+            layerName,
+            layerId,
+            geoserverUrl,
             $lastLayerListElement;
 
         if (response.hasOwnProperty('success')) {
-            fileName = response.filename;
-            projection = response.projection;
-            proj4.defs('new_projection', projection);
-            geojsonObject = JSON.parse(response.geojson);
-            if (projection) {
-                reprojectedGeoJson = reproject(geojsonObject, proj4('new_projection'), proj4('EPSG:3857'));
-                newLayer = new ol.layer.Vector({
-                    name: fileName,
-                    source: new ol.source.Vector({
-                        features: (new ol.format.GeoJSON()).readFeatures(reprojectedGeoJson)
-                    })
-                });
-                map.addLayer(newLayer);
-                currentLayers.push(newLayer);
-                $currentLayersList.append(
-                    '<li><span class="layer-name">' + fileName + '</span><input type="text" class="edit-layer-name hidden" value="' + fileName + '"></li>'
-                );
-                $lastLayerListElement = $('#current-layers-list').find(':last-child');
-                // Apply the dropdown-on-right-click menu to new layer in list
-                $lastLayerListElement.contextMenu('menu', layersContextMenu, {
-                    triggerOn: 'click',
-                    displayAround: 'cursor',
-                    mouseClick: 'right'
-                });
-                $lastLayerListElement.find('.layer-name').on('dblclick', function () {
-                    var $layerNameSpan = $(this),
-                        layerIndex = Number($currentLayersList.find('li').index($lastLayerListElement)) + 3;
+            layerName = response.layer_name;
+            layerId = response.layer_id;
+            geoserverUrl = response.geoserver_url;
 
-                    $layerNameSpan.addClass('hidden');
-                    $lastLayerListElement.find('input')
-                        .removeClass('hidden')
-                        .select()
-                        .on('keyup', function (e) {
-                            editLayerName(e, $(this), $layerNameSpan, layerIndex);
-                        });
-                });
-            } else {
-                console.error('There is insufficient projection information to plot the shapefile.');
-            }
+            //projection = response.projection;
+            //proj4.defs('new_projection', projection);
+            //geojsonObject = JSON.parse(response.geojson);
+            //if (projection) {
+            //    reprojectedGeoJson = reproject(geojsonObject, proj4('new_projection'), proj4('EPSG:3857'));
+            //    newLayer = new ol.layer.Vector({
+            //        name: layerName,
+            //        source: new ol.source.Vector({
+            //            features: (new ol.format.GeoJSON()).readFeatures(reprojectedGeoJson)
+            //        })
+            //    });
+            console.log(geoserverUrl);
+            newLayer = new ol.layer.Tile({
+                source: new ol.source.TileWMS({
+                    url: geoserverUrl,
+                    params: {'LAYERS': layerId, 'TILED': true},
+                    serverType: 'geoserver'
+                })
+            });
+            map.addLayer(newLayer);
+            currentLayers.push(newLayer);
+            $currentLayersList.append(
+                '<li><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
+            );
+            $lastLayerListElement = $('#current-layers-list').find(':last-child');
+            // Apply the dropdown-on-right-click menu to new layer in list
+            $lastLayerListElement.contextMenu('menu', layersContextMenu, {
+                triggerOn: 'click',
+                displayAround: 'cursor',
+                mouseClick: 'right'
+            });
+            $lastLayerListElement.find('.layer-name').on('dblclick', function () {
+                var $layerNameSpan = $(this),
+                    layerIndex = Number($currentLayersList.find('li').index($lastLayerListElement)) + 3;
+
+                $layerNameSpan.addClass('hidden');
+                $lastLayerListElement.find('input')
+                    .removeClass('hidden')
+                    .select()
+                    .on('keyup', function (e) {
+                        editLayerName(e, $(this), $layerNameSpan, layerIndex);
+                    });
+            });
+            //} else {
+            //    console.error('There is insufficient projection information to plot the shapefile.');
+            //}
         }
     };
 
@@ -453,7 +466,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         for (file in files) {
             if (files.hasOwnProperty(file)) {
-                data.append('shapefiles', files[file]);
+                data.append('files', files[file]);
             }
         }
         return data;
@@ -506,7 +519,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     uploadResourceButtonHandler = function () {
         $uploadButton.text('...')
-                .attr('disabled', 'true');
+            .attr('disabled', 'true');
         var res_id = $('input:checked').val();
         loadHSResource(res_id);
     };

@@ -1,18 +1,15 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
 from oauthlib.oauth2 import TokenExpiredError
-from hs_restclient import HydroShare, HydroShareAuthOAuth2
+from utilities import *
 
-import shapefile
+# import shapefile
 import os
 import shutil
 from json import dumps
 
-hs_hostname = 'www.hydroshare.org'
 hs_tempdir = '/tmp/hs_gis_files/'
 
 
@@ -37,52 +34,63 @@ def load_file(request):
     :returns JsonResponse: a JSON formatted response containing success value and GeoJSON object if successful
     """
     global hs_tempdir
-    shp_file_object = None
-    dbf_file_object = None
-    shx_file_obejct = None
-    prj_file_content = None
-    filename = 'shapefile'
+    # shp_file_object = None
+    # dbf_file_object = None
+    # shx_file_obejct = None
+    # prj_file_content = None
     res_id = None
+    res_type = None
+    res_path_or_obj = None
+    is_zip = None
+
+    if not os.path.exists(hs_tempdir):
+        os.mkdir(hs_tempdir)
 
     if request.is_ajax() and request.method == 'POST':
 
         # Get/check files from AJAX request
-        shp_files = request.FILES.getlist('shapefiles')
+        res_path_or_obj = request.FILES.getlist('files')
 
-        for shp_file in shp_files:
-            file_name = shp_file.name
-            if file_name.endswith('.shp'):
-                shp_file_object = shp_file
-                filename = file_name
-            elif file_name.endswith('.dbf'):
-                dbf_file_object = shp_file
-            elif file_name.endswith('.shx'):
-                shx_file_obejct = shp_file
-            elif file_name.endswith('.prj'):
-                prj_file_content = shp_file.read()
+        if len(res_path_or_obj) == 1:
+            is_zip = True
+        else:
+            for shp_file in res_path_or_obj:
+                file_name = shp_file.name
+                if file_name.endswith('.shp'):
+                    res_id = str(file_name[:-4].__hash__())
+                    res_type = 'GeographicFeatureResource'
+                elif file_name.endswith('.tif'):
+                    res_id = str(file_name[:-4].__hash__())
+                    res_type = 'RasterResource'
+
+        # for shp_file in res_path_or_obj:
+        #     file_name = shp_file.name
+        #     if file_name.endswith('.shp'):
+        #         shp_file_object = shp_file
+        #         filename = file_name
+        #     elif file_name.endswith('.dbf'):
+        #         dbf_file_object = shp_file
+        #     elif file_name.endswith('.shx'):
+        #         shx_file_obejct = shp_file
+        #     elif file_name.endswith('.prj'):
+        #         prj_file_content = shp_file.read()
 
     elif request.is_ajax() and request.method == 'GET':
         try:
-            if not os.path.exists(hs_tempdir):
-                os.mkdir(hs_tempdir)
-
             res_id = request.GET['res_id']
             # hs = get_oauth_hs(request)
             hs = HydroShare()
+            res_type = hs.getSystemMetadata(res_id)['resource_type']
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
+            is_zip = False
 
             if os.path.exists(res_contents_dir):
                 for file_name in os.listdir(res_contents_dir):
                     if file_name.endswith('.shp'):
-                        shp_file_object = open(os.path.join(res_contents_dir, file_name))
-                        filename = file_name
-                    elif file_name.endswith('.dbf'):
-                        dbf_file_object = open(os.path.join(res_contents_dir, file_name))
-                    elif file_name.endswith('.shx'):
-                        shx_file_obejct = open(os.path.join(res_contents_dir, file_name))
-                    elif file_name.endswith('.prj'):
-                        prj_file_content = open(os.path.join(res_contents_dir, file_name)).read()
+                        res_path_or_obj = os.path.join(res_contents_dir, file_name[:-4])
+                    elif file_name.endswith('.tif'):
+                        res_path_or_obj = os.path.join(res_contents_dir, file_name)
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -97,38 +105,47 @@ def load_file(request):
     else:
         return get_json_response('error', 'Invalid request made.')
 
-    '''
-    Credit: The following code was adapted from https://gist.github.com/frankrowe/6071443
-    '''
-    # Read the shapefile-like object
-    shp_reader = shapefile.Reader(shp=shp_file_object, dbf=dbf_file_object, shx=shx_file_obejct)
-    fields = shp_reader.fields[1:]
-    field_names = [field[0] for field in fields]
-    shp_buffer = []
-    for sr in shp_reader.shapeRecords():
-        atr = dict(zip(field_names, sr.record))
-        geom = sr.shape.__geo_interface__
-        shp_buffer.append(dict(type="Feature", geometry=geom, properties=atr))
+    layer_name, layer_id = store_file_on_geoserver(res_id, res_type, res_path_or_obj, is_zip)
 
-    shp_file_object.close()
-    dbf_file_object.close()
-    shx_file_obejct.close()
+    # '''
+    # Credit: The following code was adapted from https://gist.github.com/frankrowe/6071443
+    # '''
+    # # Read the shapefile-like object
+    # shp_reader = shapefile.Reader(shp=shp_file_object, dbf=dbf_file_object, shx=shx_file_obejct)
+    # fields = shp_reader.fields[1:]
+    # field_names = [field[0] for field in fields]
+    # shp_buffer = []
+    # for sr in shp_reader.shapeRecords():
+    #     atr = dict(zip(field_names, sr.record))
+    #     geom = sr.shape.__geo_interface__
+    #     shp_buffer.append(dict(type="Feature", geometry=geom, properties=atr))
+    #
+    # shp_file_object.close()
+    # dbf_file_object.close()
+    # shx_file_obejct.close()
 
-    # Write the GeoJSON object
-    geojson = dumps({"type": "FeatureCollection", "features": shp_buffer}, indent=2) + "\n"
-    '''
-    End credit
-    '''
+    # # Write the GeoJSON object
+    # geojson = dumps({"type": "FeatureCollection", "features": shp_buffer}, indent=2) + "\n"
+    # '''
+    # End credit
+    # '''
 
     if res_id:
         if os.path.exists(os.path.join(hs_tempdir, res_id)):
             shutil.rmtree(os.path.join(hs_tempdir, res_id))
 
+    # return JsonResponse({
+    #     'success': 'Files uploaded successfully.',
+    #     'geojson': geojson,
+    #     'projection': prj_file_content,
+    #     'filename': filename
+    # })
+
     return JsonResponse({
         'success': 'Files uploaded successfully.',
-        'geojson': geojson,
-        'projection': prj_file_content,
-        'filename': filename
+        'geoserver_url': geoserver_url,
+        'layer_name': layer_name,
+        'layer_id': layer_id
     })
 
 
@@ -154,20 +171,3 @@ def get_hs_res_list(request):
             'success': 'Resources obtained successfully.',
             'resources': valid_res_json
         })
-
-
-def get_oauth_hs(request):
-    global hs_hostname
-
-    client_id = getattr(settings, "SOCIAL_AUTH_HYDROSHARE_KEY", "None")
-    client_secret = getattr(settings, "SOCIAL_AUTH_HYDROSHARE_SECRET", "None")
-
-    # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
-    token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
-    auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
-
-    return HydroShare(auth=auth, hostname=hs_hostname)
-
-
-def get_json_response(response_type, message):
-    return JsonResponse({response_type: message})

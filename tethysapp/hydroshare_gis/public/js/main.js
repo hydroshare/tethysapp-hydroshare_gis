@@ -25,13 +25,9 @@ var HS_GIS = (function packageHydroShareGIS() {
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
     var currentLayers = [],
-        emptyBar,
         layers,
         layersContextMenu,
         map,
-        progressBar,
-        progressText,
-        updateProgressBar,
         fileLoaded,
     // Functions
         addDataToMap,
@@ -49,12 +45,17 @@ var HS_GIS = (function packageHydroShareGIS() {
         initializeMap,
         loadHSResource,
         prepareFilesForAjax,
+        updateProgressBar,
         updateUploadProgress,
         uploadFileButtonHandler,
         uploadResourceButtonHandler,
     //jQuery Selectors
         $currentLayersList,
-        $modalBody;
+        $emptyBar,
+        $modalBody,
+        $progressBar,
+        $progressText,
+        $uploadButton;
 
     /******************************************************
      **************FUNCTION DECLARATIONS*******************
@@ -129,18 +130,15 @@ var HS_GIS = (function packageHydroShareGIS() {
             var modalTitle = $(this).text();
             $('.modal-title').text(modalTitle);
             if ($(this).attr('id') === 'import-from-pc') {
-                $('#btn-upload-file')
-                    .text('Upload')
-                    .removeAttr('disabled');
                 $modalBody.html('<input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj">' +
                     '<br>' +
                     '<div id="empty-bar" class="hidden">.</div>' +
                     '<div id="progress-bar" class="hidden">.</div>' +
                     '<div id="progress-text" class="hidden">0%</div>'
                     );
-                emptyBar = $('#empty-bar');
-                progressBar = $('#progress-bar');
-                progressText = $('#progress-text');
+                $emptyBar = $('#empty-bar');
+                $progressBar = $('#progress-bar');
+                $progressText = $('#progress-text');
             } else {
                 if ($modalBody.find('table').length === 0) {
                     $modalBody.html('<img src="/static/hydroshare_gis/images/loading-animation.gif">' +
@@ -187,6 +185,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                     });
                 }
             }
+            $uploadButton
+                .removeAttr('disabled')
+                .text('Upload');
             $('#uploadModal').modal('show');
         });
 
@@ -344,6 +345,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeJqueryVariables = function () {
         $currentLayersList = $('#current-layers-list');
         $modalBody = $('.modal-body');
+        $uploadButton = $('#btn-upload-file');
     };
 
     initializeLayersContextMenu = function () {
@@ -440,7 +442,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 addDataToMap(response);
-                $('#btn-upload-file').text('Done');
+                $uploadButton.text('Done');
             }
         });
     };
@@ -458,8 +460,8 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     updateProgressBar = function (value) {
-        progressBar.css('width', value);
-        progressText.text(value);
+        $progressBar.css('width', value);
+        $progressText.text(value);
     };
 
     uploadFileButtonHandler = function () {
@@ -471,7 +473,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         if (!areValidFiles(files)) {
             console.error("Invalid files. Please include four total files: .shp, .shx, .prj, and .dbf.");
         } else {
-            $('#btn-upload-file').text('...')
+            $uploadButton.text('...')
                 .attr('disabled', 'true');
             data = prepareFilesForAjax(files);
             fileSize = getFilesSize(files);
@@ -484,26 +486,26 @@ var HS_GIS = (function packageHydroShareGIS() {
                 processData: false,
                 contentType: false,
                 error: function () {
-                    progressBar.addClass('hidden');
+                    $progressBar.addClass('hidden');
                     console.error("Error!");
                 },
                 success: function (response) {
                     fileLoaded = true;
                     updateProgressBar('100%');
-                    $('#btn-upload-file').text('Done');
+                    $uploadButton.text('Done');
                     addDataToMap(response);
                 }
             });
 
-            emptyBar.removeClass('hidden');
-            progressBar.removeClass('hidden');
-            progressText.removeClass('hidden');
+            $emptyBar.removeClass('hidden');
+            $progressBar.removeClass('hidden');
+            $progressText.removeClass('hidden');
             updateUploadProgress(fileSize);
         }
     };
 
     uploadResourceButtonHandler = function () {
-        $('#btn-upload-file').text('...')
+        $uploadButton.text('...')
                 .attr('disabled', 'true');
         var res_id = $('input:checked').val();
         loadHSResource(res_id);

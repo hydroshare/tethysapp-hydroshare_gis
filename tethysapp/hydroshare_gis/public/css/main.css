@@ -29,6 +29,7 @@
     position: relative;
     top: -20px;
     width: 0;
+    height: 20px;
     background-color: blue;
     z-index: 1;
     color: blue;
@@ -36,10 +37,12 @@
 #empty-bar {
     background-color: grey;
     color: grey;
+    height: 20px;
 }
 #progress-text {
     position: relative;
     top: -40px;
+    height: 20px;
     color: black;
     text-align: center;
     font-weight: bold;

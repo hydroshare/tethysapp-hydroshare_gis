@@ -13,19 +13,50 @@
     <script src="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.min.js' %}" type="text/javascript"></script>
     {{ block.super }}
 
-    <!-- Modal -->
-    <div id="uploadModal" class="modal fade" role="dialog">
+    <!-- Load File Modal -->
+    <div id="modalLoadFile" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <!-- Modal content-->
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">#####</h4>
+                    <h4 class="modal-title">Load File</h4>
                 </div>
-                <div class="modal-body"></div>
+                <div class="modal-body">
+                    <input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj, .tif, .zip">
+                    <br>
+                    <div id="empty-bar" class="hidden"></div>
+                    <div id="progress-bar" class="hidden"></div>
+                    <div id="progress-text" class="hidden">0%</div>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-default" id="btn-upload-file">Upload</button>
+                    <button type="button" class="btn btn-default btn-upload" id="btn-upload-file">Upload</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
+    <!-- Load HS Resource Modal -->
+    <div id="modalLoadHSRes" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Load HydroShare Resource</h4>
+                </div>
+                <div class="modal-body">
+                    <img src="/static/hydroshare_gis/images/loading-animation.gif">
+                    <br>
+                    <p><b>Loading resource list...</b></p>
+                    <p>Note: Loading will continue until complete whether you close or not.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-default btn-upload hidden" id="btn-upload-res">Upload</button>
                 </div>
             </div>
             <!--End modal content-->

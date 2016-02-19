@@ -40,10 +40,12 @@ var HS_GIS = (function packageHydroShareGIS() {
         editLayerName,
         getCookie,
         getFilesSize,
+        hideProgressBar,
         initializeJqueryVariables,
         initializeLayersContextMenu,
         initializeMap,
         loadHSResource,
+        populateHSResourceList,
         prepareFilesForAjax,
         updateProgressBar,
         updateUploadProgress,
@@ -52,7 +54,8 @@ var HS_GIS = (function packageHydroShareGIS() {
     //jQuery Selectors
         $currentLayersList,
         $emptyBar,
-        $modalBody,
+        $modalLoadFile,
+        $modalLoadHSRes,
         $progressBar,
         $progressText,
         $uploadButton;
@@ -63,32 +66,50 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     addDataToMap = function (response) {
         //var geojsonObject,
-        var newLayer,
-        //projection,
-        //reprojectedGeoJson,
+        var extentMaxX,
+            extentMaxY,
+            extentMinX,
+            extentMinY,
+            geoserverUrl,
+            layerExtents,
             layerName,
             layerId,
-            geoserverUrl,
+            layerXmlUrl,
+            newLayer,
+            projectedExtents = [],
+            resId,
+            tempLatLon1,
+            tempLatLon2,
             $lastLayerListElement;
 
         if (response.hasOwnProperty('success')) {
             layerName = response.layer_name;
             layerId = response.layer_id;
+            resId = 'res_' + response.res_id;
             geoserverUrl = response.geoserver_url;
+            layerXmlUrl = geoserverUrl.slice(0, -3) + 'rest/workspaces/hydroshare_gis/datastores/' + resId + '/featuretypes/' + layerName + '.xml';
 
-            //projection = response.projection;
-            //proj4.defs('new_projection', projection);
-            //geojsonObject = JSON.parse(response.geojson);
-            //if (projection) {
-            //    reprojectedGeoJson = reproject(geojsonObject, proj4('new_projection'), proj4('EPSG:3857'));
-            //    newLayer = new ol.layer.Vector({
-            //        name: layerName,
-            //        source: new ol.source.Vector({
-            //            features: (new ol.format.GeoJSON()).readFeatures(reprojectedGeoJson)
-            //        })
-            //    });
-            console.log(geoserverUrl);
+            //$.ajax({
+            //    url: layerXmlUrl,
+            //    dataType: 'xml',
+            //    data: {'username': 'default', 'password': 'geoserver'},
+            //    error: function () {
+            //        console.error('An error occurred while obtaining XML of layer');
+            //    },
+            //    success: function (response) {
+            //        console.log(response);
+            //    }
+            //});
+            //extentMinX = Number(layerExtents[0]);
+            //extentMaxX = Number(layerExtents[1]);
+            //extentMinY = Number(layerExtents[2]);
+            //extentMaxY = Number(layerExtents[3]);
+            //tempLatLon1 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMinX, extentMinY]);
+            //tempLatLon2 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
+            //projectedExtents = tempLatLon1.concat(tempLatLon2);
+
             newLayer = new ol.layer.Tile({
+                //extent: projectedExtents,
                 source: new ol.source.TileWMS({
                     url: geoserverUrl,
                     params: {'LAYERS': layerId, 'TILED': true},
@@ -139,78 +160,24 @@ var HS_GIS = (function packageHydroShareGIS() {
     addInitialEventListeners = function () {
         $('.basemap-option').on('click', changeBaseMap);
 
-        $('.import-btn').on('click', function () {
-            var modalTitle = $(this).text();
-            $('.modal-title').text(modalTitle);
-            if ($(this).attr('id') === 'import-from-pc') {
-                $modalBody.html('<input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj">' +
-                    '<br>' +
-                    '<div id="empty-bar" class="hidden">.</div>' +
-                    '<div id="progress-bar" class="hidden">.</div>' +
-                    '<div id="progress-text" class="hidden">0%</div>'
-                    );
-                $emptyBar = $('#empty-bar');
-                $progressBar = $('#progress-bar');
-                $progressText = $('#progress-text');
-            } else {
-                if ($modalBody.find('table').length === 0) {
-                    $modalBody.html('<img src="/static/hydroshare_gis/images/loading-animation.gif">' +
-                        '<br><p><b>Loading resource list...</b></p>');
-                    $.ajax({
-                        type: 'GET',
-                        url: 'get-hs-res-list',
-                        dataType: 'json',
-                        error: function () {
-                            console.error("The ajax request failed.");
-                        },
-                        success: function (response) {
-                            var resources,
-                                resTableHtml = '<table><th></th><th>Title</th><th>Type</th>';
-
-                            if (response.hasOwnProperty('success')) {
-                                if (response.hasOwnProperty('resources')) {
-                                    resources = JSON.parse(response.resources);
-                                    resources.forEach(function (resource) {
-                                        resTableHtml += '<tr>' +
-                                            '<td><input type="radio" name="resource" value="' + resource.id + '"></td>' +
-                                            '<td>' + resource.title + '</td>' +
-                                            '<td>' + resource.type + '</td>' +
-                                            '</tr>';
-                                    });
-                                    resTableHtml += '</table>';
-
-                                    $modalBody.html(resTableHtml);
-                                    $('tr').on('click', function () {
-                                        $(this)
-                                            .css({
-                                                'background-color': '#1abc9c',
-                                                'color': 'white'
-                                            })
-                                            .find('input').prop('checked', true);
-                                        $('tr').not($(this)).css({
-                                            'background-color': '',
-                                            'color': ''
-                                        });
-                                    });
-                                }
-                            }
-                        }
-                    });
-                }
-            }
+        $modalLoadFile.on('hidden.bs.modal', function () {
+            $('#input-files').val('');
+            hideProgressBar();
             $uploadButton
                 .removeAttr('disabled')
                 .text('Upload');
-            $('#uploadModal').modal('show');
         });
 
-        $(document).on('click', '#btn-upload-file', function () {
-            if ($modalBody.find('table').length !== 0) {
-                uploadResourceButtonHandler();
-            } else {
-                uploadFileButtonHandler();
-            }
+        $modalLoadHSRes.on('hidden.bs.modal', function () {
+            $uploadButton
+                .removeAttr('disabled')
+                .text('Upload');
         });
+
+        $('#btn-upload-res').on('click', uploadResourceButtonHandler);
+
+        $('#btn-upload-file').on('click', uploadFileButtonHandler);
+
     };
 
     areValidFiles = function (files) {
@@ -219,7 +186,8 @@ var HS_GIS = (function packageHydroShareGIS() {
             hasShp = false,
             hasShx = false,
             hasPrj = false,
-            hasDbf = false;
+            hasDbf = false,
+            hasTif = false;
 
         for (file in files) {
             if (files.hasOwnProperty(file)) {
@@ -235,11 +203,13 @@ var HS_GIS = (function packageHydroShareGIS() {
                         hasPrj = true;
                     } else if (files[file].name.endsWith('.dbf')) {
                         hasDbf = true;
+                    } else if (files[file].name.endsWith('.tif')) {
+                        hasTif = true;
                     }
                 }
             }
         }
-        return (hasShp && hasShx && hasPrj && hasDbf);
+        return ((hasTif && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
     };
 
     changeBaseMap = function () {
@@ -257,7 +227,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         }
     };
 
-    // Find if method is CSRF safe
+// Find if method is CSRF safe
     checkCsrfSafe = function (method) {
         // these HTTP methods do not require CSRF protection
         return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
@@ -338,27 +308,22 @@ var HS_GIS = (function packageHydroShareGIS() {
         return fileSize;
     };
 
-    updateUploadProgress = function (fileSize, currProg) {
-        var progress;
-
-        currProg = currProg === undefined ? 0 : currProg;
-        if (!fileLoaded) {
-            currProg += 1000000;
-            progress = Math.round(currProg / fileSize * 100);
-            progress = progress > 100 ? 100 : progress;
-            updateProgressBar(parseInt(progress, 10) + '%');
-            setTimeout(function () {
-                updateUploadProgress(fileSize, currProg);
-            }, 1000);
-        } else {
-            updateProgressBar('100%');
-        }
+    hideProgressBar = function () {
+        $progressBar.addClass('hidden');
+        $progressText
+            .addClass('hidden')
+            .text('0%');
+        $emptyBar.addClass('hidden');
     };
 
     initializeJqueryVariables = function () {
         $currentLayersList = $('#current-layers-list');
-        $modalBody = $('.modal-body');
-        $uploadButton = $('#btn-upload-file');
+        $emptyBar = $('#empty-bar');
+        $modalLoadFile = $('#modalLoadFile');
+        $modalLoadHSRes = $('#modalLoadHSRes');
+        $progressBar = $('#progress-bar');
+        $progressText = $('#progress-text');
+        $uploadButton = $('.btn-upload');
     };
 
     initializeLayersContextMenu = function () {
@@ -385,7 +350,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 fun: function (e) {
                     var clickedElement = e.trigger.context,
                         ceIndex = Number($currentLayersList.find('li').index(clickedElement)),
-                        layerExtent = map.getLayers().item(ceIndex + 3).getSource().getExtent(); // Ignore 3 base maps
+                        layerExtent = map.getLayers().item(ceIndex + 3).getExtent(); // Ignore 3 base maps
                     map.getView().fit(layerExtent, map.getSize());
                     if (map.getView().getZoom() > 16) {
                         map.getView().setZoom(16);
@@ -455,7 +420,51 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 addDataToMap(response);
-                $uploadButton.text('Done');
+            }
+        });
+    };
+
+    populateHSResourceList = function () {
+        $.ajax({
+            type: 'GET',
+            url: 'get-hs-res-list',
+            dataType: 'json',
+            error: function () {
+                console.error("The ajax request failed.");
+            },
+            success: function (response) {
+                var resources,
+                    resTableHtml = '<table><th></th><th>Title</th><th>Type</th>';
+
+                if (response.hasOwnProperty('success')) {
+                    if (response.hasOwnProperty('resources')) {
+                        resources = JSON.parse(response.resources);
+                        resources.forEach(function (resource) {
+                            resTableHtml += '<tr>' +
+                                '<td><input type="radio" name="resource" value="' + resource.id + '"></td>' +
+                                '<td>' + resource.title + '</td>' +
+                                '<td>' + resource.type + '</td>' +
+                                '</tr>';
+                        });
+                        resTableHtml += '</table>';
+
+                        $modalLoadHSRes.find('.modal-body').html(resTableHtml);
+                        $('#btn-upload-res').removeClass('hidden');
+
+                        $('tr').on('click', function () {
+                            $(this)
+                                .css({
+                                    'background-color': '#1abc9c',
+                                    'color': 'white'
+                                })
+                                .find('input').prop('checked', true);
+                            $('tr').not($(this)).css({
+                                'background-color': '',
+                                'color': ''
+                            });
+                        });
+                    }
+                }
             }
         });
     };
@@ -477,6 +486,23 @@ var HS_GIS = (function packageHydroShareGIS() {
         $progressText.text(value);
     };
 
+    updateUploadProgress = function (fileSize, currProg) {
+        var progress;
+
+        currProg = currProg === undefined ? 0 : currProg;
+        if (!fileLoaded) {
+            currProg += 1000000;
+            progress = Math.round(currProg / fileSize * 100);
+            progress = progress > 100 ? 100 : progress;
+            updateProgressBar(parseInt(progress, 10) + '%');
+            setTimeout(function () {
+                updateUploadProgress(fileSize, currProg);
+            }, 1000);
+        } else {
+            updateProgressBar('100%');
+        }
+    };
+
     uploadFileButtonHandler = function () {
         var fileInputNode = $('#input-files')[0],
             files = fileInputNode.files,
@@ -486,8 +512,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         if (!areValidFiles(files)) {
             console.error("Invalid files. Please include four total files: .shp, .shx, .prj, and .dbf.");
         } else {
-            $uploadButton.text('...')
-                .attr('disabled', 'true');
+            $uploadButton.attr('disabled', 'true');
             data = prepareFilesForAjax(files);
             fileSize = getFilesSize(files);
             fileLoaded = false;
@@ -505,7 +530,6 @@ var HS_GIS = (function packageHydroShareGIS() {
                 success: function (response) {
                     fileLoaded = true;
                     updateProgressBar('100%');
-                    $uploadButton.text('Done');
                     addDataToMap(response);
                 }
             });
@@ -529,11 +553,12 @@ var HS_GIS = (function packageHydroShareGIS() {
      */
 
     $(function () {
+        initializeJqueryVariables();
         addDefaultBehaviorToAjax();
         initializeMap();
+        populateHSResourceList();
         initializeLayersContextMenu();
         addInitialEventListeners();
         checkURLForParameters();
-        initializeJqueryVariables();
     });
 }());

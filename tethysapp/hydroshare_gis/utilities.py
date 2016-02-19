@@ -87,7 +87,12 @@ def create_zipfile_from_file(res_file, filename, zip_path):
 
 
 def return_spatial_dataset_engine():
+    global geoserver_name, workspace_id, uri
+    print 'geoserver_name: %s' % geoserver_name
+    print 'workspace_id: %s' % workspace_id
+    print 'uri: %s' % uri
     engine = get_spatial_dataset_engine(name=geoserver_name)
     if not engine.get_workspace(workspace_id)['success']:
+        print 'Workspace does not exist and must be created'
         engine.create_workspace(workspace_id=workspace_id, uri=uri)
     return engine

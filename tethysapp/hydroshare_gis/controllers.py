@@ -1,11 +1,10 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
-
 from oauthlib.oauth2 import TokenExpiredError
 from utilities import *
+from geoserver.catalog import FailedRequestError
 
-# import shapefile
 import shutil
 from json import dumps
 
@@ -71,20 +70,27 @@ def load_file(request):
         try:
             res_id = request.GET['res_id']
             store_id = 'res_%s' % res_id
-            if engine.list_resources(store=store_id)['success']:
-                layer_name = engine.list_resources(store=store_id)['result'][0]
-                layer_id = '%s:%s' % (workspace_id, layer_name)
-                return JsonResponse({
-                    'success': 'Files uploaded successfully.',
-                    'geoserver_url': geoserver_url,
-                    'layer_name': layer_name,
-                    'layer_id': layer_id,
-                    'res_id': res_id
-                })
 
+            try:
+                if engine.list_resources(store=store_id)['success']:
+                    # RESOURCE ALREADY STORED ON GEOSERVER
+                    layer_name = engine.list_resources(store=store_id)['result'][0]
+                    layer_id = '%s:%s' % (workspace_id, layer_name)
+                    return JsonResponse({
+                        'success': 'Files uploaded successfully.',
+                        'geoserver_url': geoserver_url,
+                        'layer_name': layer_name,
+                        'layer_id': layer_id,
+                        'res_id': res_id
+                    })
+            except FailedRequestError:
+                pass
+
+            # RESOURCE NOT ALREADY STORED ON GEOSERVER
             # hs = get_oauth_hs(request)
             hs = HydroShare()
             res_type = hs.getSystemMetadata(res_id)['resource_type']
+            print 'RES_TYPE: %s' % res_type
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 

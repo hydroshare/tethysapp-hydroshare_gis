@@ -7,10 +7,11 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'hydroshare_gis/vendor/openlayers/v3.13.0/ol.js' %}" type="text/javascript"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.12/proj4.js" type="text/javascript"></script>
-    <script src="{% static 'hydroshare_gis/vendor/reproject/reproject.js' %}" type="text/javascript"></script>
-    <script src="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.min.js' %}" type="text/javascript"></script>
+    <script src="{% static 'hydroshare_gis/vendor/openlayers/v3.13.0/ol.js' %}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.12/proj4.js"></script>
+    <script src="{% static 'hydroshare_gis/vendor/reproject/reproject.js' %}"></script>
+    <script src="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.min.js' %}"></script>
+    <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
     {{ block.super }}
 
     <!-- Load File Modal -->
@@ -68,6 +69,7 @@
 
 {% block styles %}
     {{ block.super }}
-    <link href="{% static 'hydroshare_gis/vendor/openlayers/v3.13.0/ol.css' %}" rel="stylesheet" />
-    <link href="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.css' %}" rel="stylesheet" />
+    <link href="{% static 'hydroshare_gis/vendor/openlayers/v3.13.0/ol.css' %}" rel="stylesheet"/>
+    <link href="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.css' %}" rel="stylesheet"/>
+    <link href="http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css" rel="stylesheet"/>
 {% endblock %}

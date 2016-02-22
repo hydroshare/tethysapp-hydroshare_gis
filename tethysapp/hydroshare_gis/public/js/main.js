@@ -71,7 +71,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             layerId,
             newLayer,
             rawLayerExtents,
-            $lastLayerListElement;
+            $firstLayerListElement;
 
         if (response.hasOwnProperty('success')) {
             layerName = response.layer_name;
@@ -88,23 +88,23 @@ var HS_GIS = (function packageHydroShareGIS() {
                 })
             });
             map.addLayer(newLayer);
-            currentLayers.push(newLayer);
-            $currentLayersList.append(
-                '<li><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
+            currentLayers.unshift(newLayer);
+            $currentLayersList.prepend(
+                '<li class="ui-state-default"><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
             );
-            $lastLayerListElement = $('#current-layers-list').find(':last-child');
+            $firstLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
-            $lastLayerListElement.contextMenu('menu', layersContextMenu, {
+            $firstLayerListElement.contextMenu('menu', layersContextMenu, {
                 triggerOn: 'click',
                 displayAround: 'cursor',
                 mouseClick: 'right'
             });
-            $lastLayerListElement.find('.layer-name').on('dblclick', function () {
+            $firstLayerListElement.find('.layer-name').on('dblclick', function () {
                 var $layerNameSpan = $(this),
-                    layerIndex = Number($currentLayersList.find('li').index($lastLayerListElement)) + 3;
+                    layerIndex = Number($currentLayersList.find('li').index($firstLayerListElement)) + 3;
 
                 $layerNameSpan.addClass('hidden');
-                $lastLayerListElement.find('input')
+                $firstLayerListElement.find('input')
                     .removeClass('hidden')
                     .select()
                     .on('keyup', function (e) {
@@ -557,5 +557,13 @@ var HS_GIS = (function packageHydroShareGIS() {
         initializeLayersContextMenu();
         addInitialEventListeners();
         checkURLForParameters();
+
+        $currentLayersList.sortable({
+            placeholder: "ui-state-highlight",
+            stop: function () {
+                //TODO: Write change layer order function
+            }
+        });
+        $currentLayersList.disableSelection();
     });
 }());

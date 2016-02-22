@@ -59,14 +59,14 @@
 #current-layers li {
     background-color: white;
     list-style: none;
-    padding: 3px;
+    padding: 5px;
     cursor: default;
 }
-#current-layers li::before {
-    padding-right: 1em;
-    content: " >";
-    cursor: pointer;
-}
+/*#current-layers li::before {*/
+    /*padding-right: 1em;*/
+    /*content: " >";*/
+    /*cursor: pointer;*/
+/*}*/
 #current-layers li:hover {
     background-color: #1abc9c;
 }
@@ -84,4 +84,8 @@
 }
 input[type="radio"] {
     cursor: pointer;
+}
+.ui-state-highlight {
+    height: 1.5em;
+    line-height: 1.2em;
 }

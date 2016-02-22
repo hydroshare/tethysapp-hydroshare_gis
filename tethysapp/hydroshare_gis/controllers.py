@@ -76,12 +76,13 @@ def load_file(request):
                     # RESOURCE ALREADY STORED ON GEOSERVER
                     layer_name = engine.list_resources(store=store_id)['result'][0]
                     layer_id = '%s:%s' % (workspace_id, layer_name)
+                    layer_extents = get_layer_extents(res_id, layer_name, res_type)
                     return JsonResponse({
                         'success': 'Files uploaded successfully.',
                         'geoserver_url': geoserver_url,
                         'layer_name': layer_name,
                         'layer_id': layer_id,
-                        'res_id': res_id
+                        'layer_extents': dumps(layer_extents)
                     })
             except FailedRequestError:
                 pass
@@ -117,6 +118,8 @@ def load_file(request):
 
     layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
 
+    layer_extents = get_layer_extents(res_id, layer_name, res_type)
+
     if res_id:
         if os.path.exists(os.path.join(hs_tempdir, res_id)):
             shutil.rmtree(os.path.join(hs_tempdir, res_id))
@@ -126,7 +129,7 @@ def load_file(request):
         'geoserver_url': geoserver_url,
         'layer_name': layer_name,
         'layer_id': layer_id,
-        'res_id': res_id
+        'layer_extents': layer_extents
     })
 
 

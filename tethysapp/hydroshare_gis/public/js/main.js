@@ -47,6 +47,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         loadHSResource,
         populateHSResourceList,
         prepareFilesForAjax,
+        reprojectExtents,
         updateProgressBar,
         updateUploadProgress,
         uploadFileButtonHandler,
@@ -65,53 +66,23 @@ var HS_GIS = (function packageHydroShareGIS() {
      ******************************************************/
 
     addDataToMap = function (response) {
-        //var geojsonObject,
-        var extentMaxX,
-            extentMaxY,
-            extentMinX,
-            extentMinY,
-            geoserverUrl,
-            layerExtents,
+        var geoserverUrl,
             layerName,
             layerId,
-            layerXmlUrl,
             newLayer,
-            projectedExtents = [],
-            resId,
-            tempLatLon1,
-            tempLatLon2,
+            rawLayerExtents,
             $lastLayerListElement;
 
         if (response.hasOwnProperty('success')) {
             layerName = response.layer_name;
             layerId = response.layer_id;
-            resId = 'res_' + response.res_id;
+            rawLayerExtents = response.layer_extents;
             geoserverUrl = response.geoserver_url;
-            layerXmlUrl = geoserverUrl.slice(0, -3) + 'rest/workspaces/hydroshare_gis/datastores/' + resId + '/featuretypes/' + layerName + '.xml';
-
-            //$.ajax({
-            //    url: layerXmlUrl,
-            //    dataType: 'xml',
-            //    data: {'username': 'default', 'password': 'geoserver'},
-            //    error: function () {
-            //        console.error('An error occurred while obtaining XML of layer');
-            //    },
-            //    success: function (response) {
-            //        console.log(response);
-            //    }
-            //});
-            //extentMinX = Number(layerExtents[0]);
-            //extentMaxX = Number(layerExtents[1]);
-            //extentMinY = Number(layerExtents[2]);
-            //extentMaxY = Number(layerExtents[3]);
-            //tempLatLon1 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMinX, extentMinY]);
-            //tempLatLon2 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
-            //projectedExtents = tempLatLon1.concat(tempLatLon2);
 
             newLayer = new ol.layer.Tile({
-                //extent: projectedExtents,
+                extent: reprojectExtents(rawLayerExtents),
                 source: new ol.source.TileWMS({
-                    url: geoserverUrl,
+                    url: geoserverUrl + '/wms',
                     params: {'LAYERS': layerId, 'TILED': true},
                     serverType: 'geoserver'
                 })
@@ -479,6 +450,32 @@ var HS_GIS = (function packageHydroShareGIS() {
             }
         }
         return data;
+    };
+
+    reprojectExtents = function (rawExtents) {
+        var crs,
+            extentMaxX,
+            extentMaxY,
+            extentMinX,
+            extentMinY,
+            extents,
+            tempCoord1,
+            tempCoord2;
+
+        extentMinX = Number(rawExtents.minx);
+        extentMaxX = Number(rawExtents.maxx);
+        extentMinY = Number(rawExtents.miny);
+        extentMaxY = Number(rawExtents.maxy);
+
+        crs = rawExtents.crs;
+        proj4.defs('new_projection', crs);
+
+        tempCoord1 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMinX, extentMinY]);
+        tempCoord2 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
+
+        extents = tempCoord1.concat(tempCoord2);
+
+        return extents;
     };
 
     updateProgressBar = function (value) {

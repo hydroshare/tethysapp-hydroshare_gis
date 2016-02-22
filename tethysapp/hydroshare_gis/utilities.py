@@ -1,5 +1,5 @@
+import requests
 import zipfile
-
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from hs_restclient import HydroShare, HydroShareAuthOAuth2
 from django.http import JsonResponse
@@ -10,7 +10,7 @@ import os
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'localhost_geoserver'
-geoserver_url = 'http://127.0.0.1:8181/geoserver/wms'
+geoserver_url = 'http://127.0.0.1:8181/geoserver'
 workspace_id = 'hydroshare_gis'
 uri = 'http://127.0.0.1:8000/apps/hydroshare-gis'
 
@@ -88,11 +88,32 @@ def create_zipfile_from_file(res_file, filename, zip_path):
 
 def return_spatial_dataset_engine():
     global geoserver_name, workspace_id, uri
-    print 'geoserver_name: %s' % geoserver_name
-    print 'workspace_id: %s' % workspace_id
-    print 'uri: %s' % uri
+
     engine = get_spatial_dataset_engine(name=geoserver_name)
     if not engine.get_workspace(workspace_id)['success']:
-        print 'Workspace does not exist and must be created'
+        # Workspace does not exist and must be created
         engine.create_workspace(workspace_id=workspace_id, uri=uri)
     return engine
+
+
+def get_layer_extents(res_id, layer_name, res_type):
+    global geoserver_url
+
+    if res_type == 'GeographicFeatureResource':
+        url = geoserver_url + '/rest/workspaces/hydroshare_gis/datastores/res_' + res_id + \
+              '/featuretypes/' + layer_name + '.json'
+    else:
+        url = geoserver_url + '/rest/workspaces/hydroshare_gis/coveragestores/res_' + res_id + \
+              '/coverages/' + layer_name + '.json'
+
+    username = 'admin'
+    password = 'geoserver'
+    r = requests.get(url, auth=(username, password))
+    json = r.json()
+
+    if res_type == 'GeographicFeatureResource':
+        extents = json['featureType']['latLonBoundingBox']
+    else:
+        extents = json['coverage']['latLonBoundingBox']
+
+    return extents

@@ -70,13 +70,16 @@ def load_file(request):
         try:
             res_id = request.GET['res_id']
             store_id = 'res_%s' % res_id
+            res_type = request.GET['res_type']
 
             try:
                 if engine.list_resources(store=store_id)['success']:
                     # RESOURCE ALREADY STORED ON GEOSERVER
+                    print 'res_type: %s' % res_type
                     layer_name = engine.list_resources(store=store_id)['result'][0]
                     layer_id = '%s:%s' % (workspace_id, layer_name)
                     layer_extents = get_layer_extents(res_id, layer_name, res_type)
+
                     return JsonResponse({
                         'success': 'Files uploaded successfully.',
                         'geoserver_url': geoserver_url,
@@ -86,12 +89,13 @@ def load_file(request):
                     })
             except FailedRequestError:
                 pass
+            except Exception, e:
+                print e
 
             # RESOURCE NOT ALREADY STORED ON GEOSERVER
             # hs = get_oauth_hs(request)
             hs = HydroShare()
             res_type = hs.getSystemMetadata(res_id)['resource_type']
-            print 'RES_TYPE: %s' % res_type
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 

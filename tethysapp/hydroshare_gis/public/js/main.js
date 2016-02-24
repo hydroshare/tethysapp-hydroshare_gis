@@ -31,7 +31,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         map,
         fileLoaded,
     // Functions
-        addDataToMap,
+        addLayerToUI,
         addDefaultBehaviorToAjax,
         addInitialEventListeners,
         areValidFiles,
@@ -66,7 +66,7 @@ var HS_GIS = (function packageHydroShareGIS() {
      **************FUNCTION DECLARATIONS*******************
      ******************************************************/
 
-    addDataToMap = function (response) {
+    addLayerToUI = function (response) {
         var geoserverUrl,
             layerName,
             layerId,
@@ -89,9 +89,10 @@ var HS_GIS = (function packageHydroShareGIS() {
                 })
             });
             map.addLayer(newLayer);
+            map.getView().fit(newLayer.getExtent(), map.getSize());
             currentLayers.unshift(newLayer);
             $currentLayersList.prepend(
-                '<li class="ui-state-default" data-layer-index="' + layerCount.get() + '"><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
+                '<li class="ui-state-default" data-layer-index="' + layerCount.get() + '"><input class="chkbx-layer" type="checkbox" checked><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
             );
             $firstLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
@@ -155,6 +156,16 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
         map.getLayers().on('remove', function () {
             layerCount.decrease();
+        });
+
+        $(document).on('change', '.chkbx-layer', function () {
+            var index = Number($(this).parent().attr('data-layer-index'));
+
+            if ($(this).is(':checked')) {
+                map.getLayers().item(index).setVisible(true);
+            } else {
+                map.getLayers().item(index).setVisible(false);
+            }
         });
 
     };
@@ -424,7 +435,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 console.error('Failure!');
             },
             success: function (response) {
-                addDataToMap(response);
+                addLayerToUI(response);
             }
         });
     };
@@ -567,7 +578,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 success: function (response) {
                     fileLoaded = true;
                     updateProgressBar('100%');
-                    addDataToMap(response);
+                    addLayerToUI(response);
                 }
             });
 

@@ -24,8 +24,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     /******************************************************
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
-    var currentLayers = [],
-        layers,
+    var layers,
         layersContextMenu,
         layerCount,
         map,
@@ -53,6 +52,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         updateUploadProgress,
         uploadFileButtonHandler,
         uploadResourceButtonHandler,
+        zoomToLayer,
     //jQuery Selectors
         $currentLayersList,
         $emptyBar,
@@ -89,8 +89,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                 })
             });
             map.addLayer(newLayer);
-            map.getView().fit(newLayer.getExtent(), map.getSize());
-            currentLayers.unshift(newLayer);
+            zoomToLayer(newLayer.getExtent(), map.getSize());
+
             $currentLayersList.prepend(
                 '<li class="ui-state-default" data-layer-index="' + layerCount.get() + '"><input class="chkbx-layer" type="checkbox" checked><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
             );
@@ -342,27 +342,29 @@ var HS_GIS = (function packageHydroShareGIS() {
                         index = Number($(clickedElement).attr('data-layer-index')),
                         layerExtent = map.getLayers().item(index).getExtent();
 
-                    map.getView().fit(layerExtent, map.getSize());
-                    if (map.getView().getZoom() > 16) {
-                        map.getView().setZoom(16);
-                    }
+                    zoomToLayer(layerExtent, map.getSize());
                 }
             }, {
                 name: 'Delete',
                 title: 'Delete',
                 fun: function (e) {
                     var clickedElement = e.trigger.context,
-                        count = layerCount.get(),
+                        count,
+                        deleteIndex = Number($(clickedElement).attr('data-layer-index')),
                         i,
-                        index = Number($(clickedElement).attr('data-layer-index')),
+                        index,
                         layer;
 
-                    map.getLayers().removeAt(index);
+                    map.getLayers().removeAt(deleteIndex);
                     $(clickedElement).remove();
 
-                    for (i = index + 1; i <= count; i++) {
+                    count = layerCount.get();
+                    for (i = 3; i <= count; i++) {
                         layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                        layer.attr('data-layer-index', i);
+                        index = Number(layer.attr('data-layer-index'));
+                        if (index > deleteIndex) {
+                            layer.attr('data-layer-index', index - 1);
+                        }
                     }
                 }
             }
@@ -598,6 +600,13 @@ var HS_GIS = (function packageHydroShareGIS() {
         loadHSResource(res_id, res_type);
     };
 
+    zoomToLayer = function (layerExtent, mapSize) {
+        map.getView().fit(layerExtent, mapSize);
+        if (map.getView().getZoom() > 16) {
+            map.getView().setZoom(16);
+        }
+    };
+
     /*-----------------------------------------------
      **************ONLOAD FUNCTION*******************
      ----------------------------------------------*/
@@ -621,7 +630,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 count = layerCount.get();
                 for (i = 3; i <= count; i++) {
                     layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                    index = layer.attr('data-layer-index');
+                    index = Number(layer.attr('data-layer-index'));
                     zIndex = count - i;
                     map.getLayers().item(index).setZIndex(zIndex);
                 }

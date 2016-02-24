@@ -341,10 +341,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                 title: 'Delete',
                 fun: function (e) {
                     var clickedElement = e.trigger.context,
-                        index = Number($(clickedElement).attr('data-layer-index'));
+                        count = layerCount.get(),
+                        i,
+                        index = Number($(clickedElement).attr('data-layer-index')),
+                        layer;
 
                     map.getLayers().removeAt(index);
                     $(clickedElement).remove();
+
+                    for (i = index + 1; i <= count; i++) {
+                        layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+                        layer.attr('data-layer-index', i);
+                    }
                 }
             }
         ];
@@ -421,13 +429,16 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
     };
 
-    populateHSResourceList = function () {
+    populateHSResourceList = function (numRequests) {
         $.ajax({
             type: 'GET',
             url: 'get-hs-res-list',
             dataType: 'json',
             error: function () {
-                setTimeout(populateHSResourceList(), 2000);
+                if (numRequests < 5) {
+                    numRequests += 1;
+                    setTimeout(populateHSResourceList, 3000, numRequests);
+                }
             },
             success: function (response) {
                 var resources,

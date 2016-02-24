@@ -625,7 +625,6 @@ var HS_GIS = (function packageHydroShareGIS() {
                     zIndex = count - i;
                     map.getLayers().item(index).setZIndex(zIndex);
                 }
-
             }
         });
         $currentLayersList.disableSelection();

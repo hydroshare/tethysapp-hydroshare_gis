@@ -6,12 +6,8 @@
     <div id="map"></div>
 {% endblock %}
 
-{% block scripts %}
-    <script src="{% static 'hydroshare_gis/vendor/openlayers/v3.13.0/ol.js' %}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.12/proj4.js"></script>
-    <script src="{% static 'hydroshare_gis/vendor/reproject/reproject.js' %}"></script>
-    <script src="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.min.js' %}"></script>
-    <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+{% block app_content_wrapper_override %}
+
     {{ block.super }}
 
     <!-- Load File Modal -->
@@ -65,11 +61,4 @@
     </div>
     <!--End modal-->
 
-{% endblock %}
-
-{% block styles %}
-    {{ block.super }}
-    <link href="{% static 'hydroshare_gis/vendor/openlayers/v3.13.0/ol.css' %}" rel="stylesheet"/>
-    <link href="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.css' %}" rel="stylesheet"/>
-    <link href="http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css" rel="stylesheet"/>
 {% endblock %}

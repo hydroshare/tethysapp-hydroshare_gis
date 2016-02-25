@@ -7,6 +7,7 @@ from geoserver.catalog import FailedRequestError
 
 import shutil
 from json import dumps
+from StringIO import StringIO
 
 hs_tempdir = '/tmp/hs_gis_files/'
 
@@ -37,6 +38,7 @@ def load_file(request):
     global hs_tempdir, engine
     res_id = None
     res_type = None
+    res_title = None
     res_files = None
     is_zip = False
 
@@ -63,20 +65,53 @@ def load_file(request):
                 break
             elif file_name.endswith('.zip'):
                 is_zip = True
-                # TODO: Add unzip functionality
-                break
+                res_id = 'temp_id'
+                res_zip = os.path.join(hs_tempdir, res_id, file_name)
+                if not os.path.exists(res_zip):
+                    if not os.path.exists(os.path.dirname(res_zip)):
+                        os.mkdir(os.path.dirname(res_zip))
+                with zipfile.ZipFile(res_zip, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
+                    with zipfile.ZipFile(StringIO(res_file.read())) as z:
+                        for name in z.namelist():
+                            zip_object.writestr(name, z.read(name))
+                            if name.endswith('.shp'):
+                                res_id = str(name[:-4].__hash__())
+                                res_type = 'GeographicFeatureResource'
+                            elif name.endswith('.tif'):
+                                res_id = str(name[:-4].__hash__())
+                                res_type = 'RasterResource'
+                os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
+                res_files = os.path.join(hs_tempdir, res_id, file_name)
 
     elif request.is_ajax() and request.method == 'GET':
         try:
+            # CLEAR ALL OF THE GEOSERVER RESOURCES
+            # stores = engine.list_stores(workspace_id)
+            # for store in stores['result']:
+            #     engine.delete_store(store, True, True)
+
+            # hs = get_oauth_hs(request)
+            hs = HydroShare()
+
             res_id = request.GET['res_id']
+
+            if 'res_type' in request.GET:
+                res_type = request.GET['res_type']
+            else:
+                res_type = hs.getSystemMetadata(res_id)['resource_type']
+
+            if 'res_title' in request.GET:
+                res_title = request.GET['res_title']
+            else:
+                res_title = hs.getSystemMetadata(res_id)['resource_title']
+
             store_id = 'res_%s' % res_id
-            res_type = request.GET['res_type']
 
             try:
-                if engine.list_resources(store=store_id)['success']:
+                if engine.list_resources(store=store_id, debug=True)['success']:
                     # RESOURCE ALREADY STORED ON GEOSERVER
-                    print 'res_type: %s' % res_type
-                    layer_name = engine.list_resources(store=store_id)['result'][0]
+                    print 'RESOURCE ALREADY STORED ON GEOSERVER'
+                    layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
                     layer_id = '%s:%s' % (workspace_id, layer_name)
                     layer_extents = get_layer_extents(res_id, layer_name, res_type)
 
@@ -93,9 +128,6 @@ def load_file(request):
                 print e
 
             # RESOURCE NOT ALREADY STORED ON GEOSERVER
-            # hs = get_oauth_hs(request)
-            hs = HydroShare()
-            res_type = hs.getSystemMetadata(res_id)['resource_type']
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 
@@ -121,6 +153,9 @@ def load_file(request):
         return get_json_response('error', 'Invalid request made.')
 
     layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
+
+    if 'res_' in layer_name:
+        layer_name = res_title
 
     layer_extents = get_layer_extents(res_id, layer_name, res_type)
 

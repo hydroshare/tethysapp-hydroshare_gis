@@ -177,7 +177,8 @@ var HS_GIS = (function packageHydroShareGIS() {
             hasShx = false,
             hasPrj = false,
             hasDbf = false,
-            hasTif = false;
+            hasTif = false,
+            hasZip = false;
 
         for (file in files) {
             if (files.hasOwnProperty(file)) {
@@ -195,11 +196,13 @@ var HS_GIS = (function packageHydroShareGIS() {
                         hasDbf = true;
                     } else if (files[file].name.endsWith('.tif')) {
                         hasTif = true;
+                    } else if (files[file].name.endsWith('.zip')) {
+                        hasZip = true;
                     }
                 }
             }
         }
-        return ((hasTif && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
+        return (((hasTif || hasZip) && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
     };
 
     changeBaseMap = function () {
@@ -424,14 +427,15 @@ var HS_GIS = (function packageHydroShareGIS() {
         };
     }());
 
-    loadHSResource = function (res_id, res_type) {
+    loadHSResource = function (res_id, res_type, res_title) {
         $.ajax({
             type: 'GET',
             url: 'load-file',
             dataType: 'json',
             data: {
                 'res_id': res_id,
-                'res_type': res_type
+                'res_type': res_type,
+                'res_title': res_title
             },
             error: function () {
                 console.error('Failure!');
@@ -463,8 +467,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                         resources.forEach(function (resource) {
                             resTableHtml += '<tr>' +
                                 '<td><input type="radio" name="resource" value="' + resource.id + '"></td>' +
-                                '<td>' + resource.title + '</td>' +
-                                '<td>' + resource.type + '</td>' +
+                                '<td class="res_title">' + resource.title + '</td>' +
+                                '<td class="res_type">' + resource.type + '</td>' +
                                 '</tr>';
                         });
                         resTableHtml += '</table>';
@@ -560,7 +564,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             fileSize;
 
         if (!areValidFiles(files)) {
-            console.error("Invalid files. Please include four total files: .shp, .shx, .prj, and .dbf.");
+            console.error("Invalid files. Include only one of the following three cases: 1) 4 files (.shp, .shx, .prj, and .dbf); 2) 1 file (.tif); 3) 1 file (.zip).");
         } else {
             $uploadButton.attr('disabled', 'true');
             data = prepareFilesForAjax(files);
@@ -595,9 +599,10 @@ var HS_GIS = (function packageHydroShareGIS() {
         $uploadButton.text('...')
             .attr('disabled', 'true');
         var res_id = $('input:checked').val(),
-            res_type = $('input:checked').parent().parent().find(':contains(Resource)').text();
+            res_type = $('input:checked').parent().parent().find('.res_type').text(),
+            res_title = $('input:checked').parent().parent().find('.res_title').text();
 
-        loadHSResource(res_id, res_type);
+        loadHSResource(res_id, res_type, res_title);
     };
 
     zoomToLayer = function (layerExtent, mapSize) {

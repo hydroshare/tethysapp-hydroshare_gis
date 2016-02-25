@@ -75,9 +75,7 @@ def create_zipfile_from_file(res_file, filename, zip_path):
     if not os.path.exists(zip_path):
         if not os.path.exists(os.path.dirname(zip_path)):
             os.mkdir(os.path.dirname(zip_path))
-        else:
-            with open(zip_path, 'w') as f:
-                f.close()
+
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
         if type(res_file) is not TemporaryUploadedFile:
             zip_object.write(res_file)

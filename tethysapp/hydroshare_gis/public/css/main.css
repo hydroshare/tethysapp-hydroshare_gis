@@ -63,9 +63,9 @@
     cursor: default;
 }
 /*#current-layers li::before {*/
-    /*padding-right: 1em;*/
-    /*content: " >";*/
-    /*cursor: pointer;*/
+/*padding-right: 1em;*/
+/*content: " >";*/
+/*cursor: pointer;*/
 /*}*/
 #current-layers li:hover {
     background-color: #1abc9c;
@@ -92,3 +92,28 @@ input[type="radio"] {
 .chkbx-layer {
     margin-right: 5px !important;
 }
+/*****************************************************/
+/*                  WELCOME MODAL                    */
+.welcome-step {
+    font-size: 18px;
+}
+.welcome-substep1 {
+    font-size: 16px;
+}
+.welcome-substep2 {
+    font-size: 14px;
+}
+#byu-logo-container {
+    overflow-y: auto;
+}
+#byu-logo-container img {
+    float: left;
+    height: 50px;
+    width: 50px;
+}
+#byu-logo-container span {
+    position: relative;
+    top: 25px;
+    margin-left: 10px;
+}
+/*****************************************************/

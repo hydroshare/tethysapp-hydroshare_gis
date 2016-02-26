@@ -585,6 +585,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                     fileLoaded = true;
                     updateProgressBar('100%');
                     addLayerToUI(response);
+                    if ($('#chkbx-auto-close').is(':checked')) {
+                        $modalLoadFile.modal('hide');
+                    }
                 }
             });
 
@@ -644,10 +647,11 @@ var HS_GIS = (function packageHydroShareGIS() {
         $currentLayersList.disableSelection();
     });
 
+    $('#modalWelcome').modal('show');
+
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
     checkURLForParameters();
     populateHSResourceList();
-
 }());

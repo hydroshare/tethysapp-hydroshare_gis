@@ -25,6 +25,13 @@
                     <div id="empty-bar" class="hidden"></div>
                     <div id="progress-bar" class="hidden"></div>
                     <div id="progress-text" class="hidden">0%</div>
+                    <p>You have 3 upload options:</p>
+                    <ul>
+                        <li>A shapefile requiring a .shp, .dbf, .shx, and .prj file (select all 4 together).</li>
+                        <li>A raster requiring a .tif file</li>
+                        <li>A zipfile containing either of the above</li>
+                    </ul>
+                    <input type="checkbox" id="chkbx-auto-close">Automatically close dialog when file is done loading
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -54,6 +61,75 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-default btn-upload hidden" id="btn-upload-res">Upload</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
+    <!-- Welcome Modal -->
+    <div id="modalWelcome" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <div class="modal-title">
+                        <div id="byu-logo-container">
+                            <span><i>Developed at the BYU Hydroinformatics Lab</i></span>
+                            <img src="{% static 'hydroshare_gis/images/byu-medallion.png' %}"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <h4>How HydroShare GIS works:</h4>
+                    <p><b>If you opened this app from a HydroShare Resource page "Open with..." link, your resource is loading in the background.
+                        Once loaded, the same steps below apply.</b></p>
+                    <h6>You can do the following:</h6>
+                    <ol>
+                        <li class="welcome-step">Add a base map to the view
+                            <p><b>Click the "Base Map..." dropdown and select an option</b></p>
+                        </li>
+                        <li class="welcome-step">Add a layer to the view
+                            <p><b>You have two buttons to choose from:</b></p>
+                            <ul>
+                                <li class="welcome-substep1">Load HydroShare Resource
+                                    <p>A list of all public resources will show up. Select the one you want to load and then click 'Upload'</p></li>
+                                <li class="welcome-substep1">Load File
+                                    <p>A browse button will show up. Select a valid file from your computer and then click 'Upload'</p></li>
+                            </ul>
+                            <p><b>Once layers load, they will show up in the 'Current Layers' list and their extents will be zoomed to</b></p>
+                        </li>
+                        <li class="welcome-step">Manipulate layers in the view
+                            <p><b>In the 'Current Layers' list you can do the following:</b></p>
+                            <ul>
+                                <li class="welcome-substep1">Show/hide a layers
+                                    <p>Check/Uncheck the box next to the layer name</p>
+                                </li>
+                                <li class="welcome-substep1">Change a layer's display order.
+                                    <p>Click and drag the layer names to a new position in the list.
+                                        The layers are rendered in the reverse-order they appear in the list, with the top-most layers in the list rendering last (on-top)
+                                    </p>
+                                </li>
+                                <li class="welcome-substep1">Rename a layer
+                                <p>Right click the layer and select "Rename" or double click the layer name. Press 'Enter' when done.</p>
+                                </li>
+                                <li class="welcome-substep1">Zoom to a layer
+                                    <p>Right click the layer and select "Zoom to"</p>
+                                </li>
+                                <li class="welcome-substep1">Delete a layer
+                                    <p>Right click the layer and select "Delete"</p>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="welcome-step">Click 'Exit' in the top-right of the app to return to the HydroShare Apps Library</li>
+                    </ol>
+                </div>
+                <div class="modal-footer">
+                    <a href="https://github.com/shawncrawley/tethysapp-hydroshare_gis" target="_blank" class="btn btn-default">View Code</a>
+                    <a href="../" class="btn btn-default">Back to Apps Library</a>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                 </div>
             </div>
             <!--End modal content-->

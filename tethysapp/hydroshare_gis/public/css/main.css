@@ -73,11 +73,12 @@
 .modal-body {
     max-height: 400px;
     overflow-y: auto;
+    border-bottom: 1px solid #e5e5e5;
 }
 .modal-body td, .modal-body th {
     padding: 10px;
 }
-.modal-body tr:not(:first-child):hover {
+.modal-body tbody tr:hover {
     background-color: #0099ff;
     color: white;
     cursor: pointer;
@@ -137,4 +138,7 @@ input[type="radio"] {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+#div-chkbx-res-auto-close {
+    margin: 10px 0 5px 0;
 }

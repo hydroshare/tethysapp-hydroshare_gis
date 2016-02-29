@@ -499,10 +499,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                         resTableHtml += '</tbody></table>';
 
                         $modalLoadHSRes.find('.modal-body').html(resTableHtml);
-                        //$('#tbl-resources').tablesorter();
-                        $('#btn-upload-res').removeClass('hidden');
+                        $('#tbl-resources').DataTable({
+                            'paging': false,
+                            'info': false,
+                            'order': [[1, 'asc']],
+                            'columnDefs': [{
+                                'orderable': false,
+                                'targets': 0
+                            }]
+                        });
+                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
 
-                        $('tr').on('click', function () {
+                        $('tbody tr').on('click', function () {
                             $(this)
                                 .css({
                                     'background-color': '#1abc9c',

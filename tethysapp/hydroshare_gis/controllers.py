@@ -93,36 +93,41 @@ def load_file(request):
             # hs = get_oauth_hs(request)
             hs = HydroShare()
 
+            print 'GET REQUEST MADE'
             res_id = request.GET['res_id']
+            print 'res_id: %s' % res_id
 
             if 'res_type' in request.GET:
                 res_type = request.GET['res_type']
             else:
                 res_type = hs.getSystemMetadata(res_id)['resource_type']
-
+            print 'res_type: %s' % res_type
             if 'res_title' in request.GET:
                 res_title = request.GET['res_title']
             else:
                 res_title = hs.getSystemMetadata(res_id)['resource_title']
-
+            print 'res_title: %s' % res_title
             store_id = 'res_%s' % res_id
-
+            print 'store_id: %s' % store_id
             try:
-                if engine.list_resources(store=store_id, debug=True)['success']:
-                    # RESOURCE ALREADY STORED ON GEOSERVER
+                if engine.list_resources(store=store_id)['success']:
                     print 'RESOURCE ALREADY STORED ON GEOSERVER'
-                    layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
+                    # RESOURCE ALREADY STORED ON GEOSERVER
+                    layer_name = engine.list_resources(store=store_id)['result'][0]
+                    print 'layer_name: %s' % layer_name
                     layer_id = '%s:%s' % (workspace_id, layer_name)
+                    print 'layer_id: %s' % layer_id
                     layer_extents = get_layer_extents(res_id, layer_name, res_type)
 
                     return JsonResponse({
                         'success': 'Files uploaded successfully.',
                         'geoserver_url': geoserver_url,
-                        'layer_name': layer_name,
+                        'layer_name': res_title,
                         'layer_id': layer_id,
                         'layer_extents': dumps(layer_extents)
                     })
-            except FailedRequestError:
+            except FailedRequestError, e:
+                print e
                 pass
             except Exception, e:
                 print e
@@ -130,14 +135,18 @@ def load_file(request):
             # RESOURCE NOT ALREADY STORED ON GEOSERVER
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
+            print 'res_contents_dir: %s' % res_contents_dir
 
             if os.path.exists(res_contents_dir):
                 for file_name in os.listdir(res_contents_dir):
                     if file_name.endswith('.shp'):
                         res_files = os.path.join(res_contents_dir, file_name[:-4])
+                        break
                     elif file_name.endswith('.tif'):
                         res_files = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
                         create_zipfile_from_file(os.path.join(res_contents_dir, file_name), file_name, res_files)
+                        break
+            print 'res_files: %s' % res_files
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -145,19 +154,21 @@ def load_file(request):
         except TokenExpiredError as e:
             print str(e)
             return get_json_response('error', 'Login timed out! Please re-sign in with your HydroShare account.')
-        except Exception, err:
-            if "401 Unauthorized" in str(err):
+        except Exception, e:
+            print str(e)
+            if "401 Unauthorized" in str(e):
                 return get_json_response('error', 'Username or password invalid.')
 
     else:
         return get_json_response('error', 'Invalid request made.')
 
     layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
+    print 'layer_id: %s' % layer_id
+
+    layer_extents = get_layer_extents(res_id, layer_name, res_type)
 
     if 'res_' in layer_name:
         layer_name = res_title
-
-    layer_extents = get_layer_extents(res_id, layer_name, res_type)
 
     if res_id:
         if os.path.exists(os.path.join(hs_tempdir, res_id)):

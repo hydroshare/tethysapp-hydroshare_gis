@@ -38,6 +38,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         checkCsrfSafe,
         checkURLForParameters,
         editLayerName,
+        enableUploadBtn,
         getCookie,
         getFilesSize,
         hideProgressBar,
@@ -56,11 +57,12 @@ var HS_GIS = (function packageHydroShareGIS() {
     //jQuery Selectors
         $currentLayersList,
         $emptyBar,
+        $modalInfo,
         $modalLoadFile,
         $modalLoadHSRes,
         $progressBar,
         $progressText,
-        $uploadButton;
+        $uploadBtn;
 
     /******************************************************
      **************FUNCTION DECLARATIONS*******************
@@ -136,15 +138,11 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalLoadFile.on('hidden.bs.modal', function () {
             $('#input-files').val('');
             hideProgressBar();
-            $uploadButton
-                .removeAttr('disabled')
-                .text('Upload');
+            enableUploadBtn();
         });
 
         $modalLoadHSRes.on('hidden.bs.modal', function () {
-            $uploadButton
-                .removeAttr('disabled')
-                .text('Upload');
+            enableUploadBtn();
         });
 
         $('#btn-upload-res').on('click', uploadResourceButtonHandler);
@@ -247,6 +245,15 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         if (params.res_id !== undefined || params.res_id !== null) {
             if (params.src === 'hs') {
+                $('#app-content-wrapper').css({
+                    '-webkit-filter': 'blur(1px)',
+                    '-moz-filter': 'blur(1px)',
+                    '-o-filter': 'blur(1px)',
+                    '-ms-filter': 'blur(1px)',
+                    'filter': 'blur(1px)',
+                    'opacity': '0.5'
+                });
+                $('#div-loading').removeClass('hidden');
                 loadHSResource(params.res_id);
             }
         }
@@ -267,6 +274,12 @@ var HS_GIS = (function packageHydroShareGIS() {
                 .val($layerNameSpan.text());
             $layerNameSpan.removeClass('hidden');
         }
+    };
+
+    enableUploadBtn = function () {
+        $uploadBtn
+            .text('Upload')
+            .removeAttr('disabled');
     };
 
     getCookie = function (name) {
@@ -312,11 +325,12 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeJqueryVariables = function () {
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
+        $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadHSRes = $('#modalLoadHSRes');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
-        $uploadButton = $('.btn-upload');
+        $uploadBtn = $('.btn-upload');
     };
 
     initializeLayersContextMenu = function () {
@@ -428,6 +442,8 @@ var HS_GIS = (function packageHydroShareGIS() {
     }());
 
     loadHSResource = function (res_id, res_type, res_title) {
+        $modalInfo.removeClass('hidden');
+
         $.ajax({
             type: 'GET',
             url: 'load-file',
@@ -438,10 +454,19 @@ var HS_GIS = (function packageHydroShareGIS() {
                 'res_title': res_title
             },
             error: function () {
+                $modalInfo.addClass('hidden');
+                enableUploadBtn();
                 console.error('Failure!');
             },
             success: function (response) {
+                $modalInfo.addClass('hidden');
+                enableUploadBtn();
+                $('#app-content-wrapper').removeAttr('style');
+                $('#div-loading').addClass('hidden');
                 addLayerToUI(response);
+                if ($('#chkbx-res-auto-close').is(':checked')) {
+                    $modalLoadHSRes.modal('hide');
+                }
             }
         });
     };
@@ -459,21 +484,22 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 var resources,
-                    resTableHtml = '<table><th></th><th>Title</th><th>Type</th>';
+                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Type</th></thead><tbody>';
 
                 if (response.hasOwnProperty('success')) {
                     if (response.hasOwnProperty('resources')) {
                         resources = JSON.parse(response.resources);
                         resources.forEach(function (resource) {
                             resTableHtml += '<tr>' +
-                                '<td><input type="radio" name="resource" value="' + resource.id + '"></td>' +
+                                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
                                 '<td class="res_title">' + resource.title + '</td>' +
                                 '<td class="res_type">' + resource.type + '</td>' +
                                 '</tr>';
                         });
-                        resTableHtml += '</table>';
+                        resTableHtml += '</tbody></table>';
 
                         $modalLoadHSRes.find('.modal-body').html(resTableHtml);
+                        //$('#tbl-resources').tablesorter();
                         $('#btn-upload-res').removeClass('hidden');
 
                         $('tr').on('click', function () {
@@ -566,7 +592,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         if (!areValidFiles(files)) {
             console.error("Invalid files. Include only one of the following three cases: 1) 4 files (.shp, .shx, .prj, and .dbf); 2) 1 file (.tif); 3) 1 file (.zip).");
         } else {
-            $uploadButton.attr('disabled', 'true');
+            $uploadBtn.text('...').attr('disabled', 'true');
             data = prepareFilesForAjax(files);
             fileSize = getFilesSize(files);
             fileLoaded = false;
@@ -579,13 +605,15 @@ var HS_GIS = (function packageHydroShareGIS() {
                 contentType: false,
                 error: function () {
                     $progressBar.addClass('hidden');
+                    enableUploadBtn();
                     console.error("Error!");
                 },
                 success: function (response) {
                     fileLoaded = true;
                     updateProgressBar('100%');
+                    enableUploadBtn();
                     addLayerToUI(response);
-                    if ($('#chkbx-auto-close').is(':checked')) {
+                    if ($('#chkbx-file-auto-close').is(':checked')) {
                         $modalLoadFile.modal('hide');
                     }
                 }
@@ -599,13 +627,15 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     uploadResourceButtonHandler = function () {
-        $uploadButton.text('...')
-            .attr('disabled', 'true');
-        var res_id = $('input:checked').val(),
-            res_type = $('input:checked').parent().parent().find('.res_type').text(),
-            res_title = $('input:checked').parent().parent().find('.res_title').text();
 
-        loadHSResource(res_id, res_type, res_title);
+        $uploadBtn.text('...').attr('disabled', 'true');
+        var $rdoRes = $('.rdo-res:checked'),
+            resId = $rdoRes.val(),
+            resType = $rdoRes.parent().parent().find('.res_type').text(),
+            resTitle = $rdoRes.parent().parent().find('.res_title').text();
+
+        console.log(resId + " " + resType + " " + resTitle);
+        loadHSResource(resId, resType, resTitle);
     };
 
     zoomToLayer = function (layerExtent, mapSize) {
@@ -621,6 +651,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     $(function () {
         initializeJqueryVariables();
+        checkURLForParameters();
         addDefaultBehaviorToAjax();
         initializeMap();
         initializeLayersContextMenu();
@@ -652,6 +683,5 @@ var HS_GIS = (function packageHydroShareGIS() {
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
-    checkURLForParameters();
     populateHSResourceList();
 }());

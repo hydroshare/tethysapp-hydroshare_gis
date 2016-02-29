@@ -31,7 +31,8 @@
                         <li>A raster requiring a .tif file</li>
                         <li>A zipfile containing either of the above</li>
                     </ul>
-                    <input type="checkbox" id="chkbx-auto-close">Automatically close dialog when file is done loading
+                    <input type="checkbox" id="chkbx-file-auto-close">
+                    <label for="chkbx-file-auto-close">Automatically close dialog when file is done loading</label>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -58,7 +59,14 @@
                     <p><b>Loading resource list...</b></p>
                     <p>Note: Loading will continue if dialog is closed.</p>
                 </div>
+                <br>
+                <input type="checkbox" id="chkbx-res-auto-close">
+                <label for="chkbx-res-auto-close">Automatically close dialog when file is done loading</label>
+                <br>
                 <div class="modal-footer">
+                    <span class="modal-info hidden">Loading...
+                        <img src="/static/hydroshare_gis/images/loading-animation.gif" />
+                    </span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-default btn-upload hidden" id="btn-upload-res">Upload</button>
                 </div>
@@ -104,7 +112,7 @@
                         <li class="welcome-step">Manipulate layers in the view
                             <p><b>In the 'Current Layers' list you can do the following:</b></p>
                             <ul>
-                                <li class="welcome-substep1">Show/hide a layers
+                                <li class="welcome-substep1">Show/Hide a layer
                                     <p>Check/Uncheck the box next to the layer name</p>
                                 </li>
                                 <li class="welcome-substep1">Change a layer's display order.
@@ -136,5 +144,9 @@
         </div>
     </div>
     <!--End modal-->
+
+    <div id="div-loading" class="hidden">
+        <img src="/static/hydroshare_gis/images/main-loading-anim.gif" />
+    </div>
 
 {% endblock %}

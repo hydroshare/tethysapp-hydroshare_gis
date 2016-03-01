@@ -94,7 +94,7 @@ def return_spatial_dataset_engine():
     return engine
 
 
-def get_layer_extents(res_id, layer_name, res_type):
+def get_layer_extents_and_attributes(res_id, layer_name, res_type):
     global geoserver_url
 
     if res_type == 'GeographicFeatureResource':
@@ -111,7 +111,19 @@ def get_layer_extents(res_id, layer_name, res_type):
 
     if res_type == 'GeographicFeatureResource':
         extents = json['featureType']['latLonBoundingBox']
+
+        attributes = json['featureType']['attributes']['attribute']
+        attributes_string = ""
+        for attribute in attributes:
+            if attribute['name'] != 'the_geom':
+                attributes_string += attribute['name'] + ','
     else:
         extents = json['coverage']['latLonBoundingBox']
+        attributes_string = ','
 
-    return extents
+    return extents, attributes_string[:-1]
+
+
+def get_geoserver_url():
+    global geoserver_url
+    return geoserver_url

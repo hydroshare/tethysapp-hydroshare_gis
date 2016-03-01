@@ -117,14 +117,16 @@ def load_file(request):
                     print 'layer_name: %s' % layer_name
                     layer_id = '%s:%s' % (workspace_id, layer_name)
                     print 'layer_id: %s' % layer_id
-                    layer_extents = get_layer_extents(res_id, layer_name, res_type)
+                    layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
                     return JsonResponse({
                         'success': 'Files uploaded successfully.',
                         'geoserver_url': geoserver_url,
                         'layer_name': res_title,
                         'layer_id': layer_id,
-                        'layer_extents': dumps(layer_extents)
+                        'layer_extents': dumps(layer_extents),
+                        'layer_attributes': layer_attributes,
+                        'res_type': res_type
                     })
             except FailedRequestError, e:
                 print e
@@ -165,7 +167,7 @@ def load_file(request):
     layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
     print 'layer_id: %s' % layer_id
 
-    layer_extents = get_layer_extents(res_id, layer_name, res_type)
+    layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
     if 'res_' in layer_name:
         layer_name = res_title
@@ -179,7 +181,9 @@ def load_file(request):
         'geoserver_url': geoserver_url,
         'layer_name': layer_name,
         'layer_id': layer_id,
-        'layer_extents': layer_extents
+        'layer_extents': layer_extents,
+        'layer_attributes': layer_attributes,
+        'res_type': res_type
     })
 
 
@@ -203,4 +207,39 @@ def get_hs_res_list(request):
         return JsonResponse({
             'success': 'Resources obtained successfully.',
             'resources': valid_res_json
+        })
+
+
+def generate_attribute_table(request):
+    if request.is_ajax() and request.method == 'GET':
+        url = get_geoserver_url()
+
+        layer_id = request.GET['layerId']
+        layer_attributes = request.GET['layerAttributes']
+
+        params = {
+            'service': 'wfs',
+            'version': '2.0.0',
+            'request': 'GetFeature',
+            'typeNames': layer_id,
+            'propertyName': layer_attributes,
+            'outputFormat': 'application/json'
+        }
+        url += '/wfs'
+
+        username = 'admin'
+        password = 'geoserver'
+        r = requests.get(url, params=params, auth=(username, password))
+        print r.url
+        json = r.json()
+
+        feature_properties = []
+
+        features = json['features']
+        for feature in features:
+            feature_properties.append(feature['properties'])
+
+        return JsonResponse({
+            'success': 'Resources obtained successfully.',
+            'feature_properties': dumps(feature_properties)
         })

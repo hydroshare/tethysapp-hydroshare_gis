@@ -31,7 +31,10 @@ class HydroshareGis(TethysAppBase):
                             controller='hydroshare_gis.controllers.load_file'),
                     url_map(name='get_hs_res_list',
                             url='hydroshare-gis/get-hs-res-list',
-                            controller='hydroshare_gis.controllers.get_hs_res_list')
+                            controller='hydroshare_gis.controllers.get_hs_res_list'),
+                    url_map(name='generate_attribute_table',
+                            url='hydroshare-gis/generate-attribute-table',
+                            controller='hydroshare_gis.controllers.generate_attribute_table')
                     )
 
         return url_maps

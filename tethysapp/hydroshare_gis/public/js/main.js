@@ -7,6 +7,7 @@
  * CONTRIBUTIONS:   http://ignitersworld.com/lab/contextMenu.html
  *                  http://openlayers.org/
  *                  https://www.npmjs.com/package/reproject
+ *                  http://www.ajaxload.info/
  *
  *****************************************************************************/
 
@@ -25,7 +26,8 @@ var HS_GIS = (function packageHydroShareGIS() {
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
     var layers,
-        layersContextMenu,
+        layersContextMenuGeneral,
+        layersContextMenuVector,
         layerCount,
         map,
         fileLoaded,
@@ -39,6 +41,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         checkURLForParameters,
         editLayerName,
         enableUploadBtn,
+        generateAttributeTable,
         getCookie,
         getFilesSize,
         hideProgressBar,
@@ -57,6 +60,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     //jQuery Selectors
         $currentLayersList,
         $emptyBar,
+        $modalAttrTbl,
         $modalInfo,
         $modalLoadFile,
         $modalLoadHSRes,
@@ -69,16 +73,21 @@ var HS_GIS = (function packageHydroShareGIS() {
      ******************************************************/
 
     addLayerToUI = function (response) {
-        var geoserverUrl,
+        var contextMenu,
+            geoserverUrl,
+            layerAttributes,
             layerName,
             layerId,
             newLayer,
+            resType,
             rawLayerExtents,
             $firstLayerListElement;
 
         if (response.hasOwnProperty('success')) {
+            layerAttributes = response.layer_attributes;
             layerName = response.layer_name;
             layerId = response.layer_id;
+            resType = response.res_type;
             rawLayerExtents = response.layer_extents;
             geoserverUrl = response.geoserver_url;
 
@@ -98,7 +107,9 @@ var HS_GIS = (function packageHydroShareGIS() {
             );
             $firstLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
-            $firstLayerListElement.contextMenu('menu', layersContextMenu, {
+            debugger;
+            contextMenu = (resType === 'GeographicFeatureResource') ? layersContextMenuVector : layersContextMenuGeneral;
+            $firstLayerListElement.contextMenu('menu', contextMenu, {
                 triggerOn: 'click',
                 displayAround: 'cursor',
                 mouseClick: 'right'
@@ -115,9 +126,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                         editLayerName(e, $(this), $layerNameSpan, layerIndex);
                     });
             });
-            //} else {
-            //    console.error('There is insufficient projection information to plot the shapefile.');
-            //}
+            generateAttributeTable(layerId, layerAttributes);
         }
     };
 
@@ -282,6 +291,54 @@ var HS_GIS = (function packageHydroShareGIS() {
             .removeAttr('disabled');
     };
 
+    generateAttributeTable = function (layerId, layerAttributes) {
+        $.ajax({
+            type: 'GET',
+            url: 'generate-attribute-table',
+            data: {
+                'layerId': layerId,
+                'layerAttributes': layerAttributes
+            },
+            error: function () {
+                console.error('There was an error when performing the ajax request to \'generate_attribute_table\'');
+            },
+            success: function (response) {
+                var attributeTableHTML,
+                    currAttrVal,
+                    featureProperties,
+                    i,
+                    j,
+                    layerAttributesList = [],
+                    length,
+                    numAttributes,
+                    tableHeadingHTML = '';
+
+                if (response.hasOwnProperty('success')) {
+                    featureProperties = JSON.parse(response.feature_properties);
+                    layerAttributesList = layerAttributes.split(',');
+                    numAttributes = layerAttributesList.length;
+                    for (i = 0; i < numAttributes; i++) {
+                        tableHeadingHTML += '<th>' + layerAttributesList[i] + '</th>';
+                    }
+                    attributeTableHTML = '<table id="tbl-attributes"><thead>' + tableHeadingHTML + '</thead><tbody>';
+
+                    for (i = 0, length = featureProperties.length; i < length; i++) {
+                        attributeTableHTML += '<tr>';
+                        for (j = 0; j < numAttributes; j++) {
+                            currAttrVal = featureProperties[i][layerAttributesList[j]];
+                            attributeTableHTML += '<td class="attribute" data-attribute="' + layerAttributesList[j] + '">' + currAttrVal + '</td>';
+                        }
+                        attributeTableHTML += '</tr>';
+                    }
+                    $modalAttrTbl.find('.modal-body').html(attributeTableHTML);
+                    $('#tbl-attributes').DataTable({
+                        //'order': [[1, 'asc']]
+                    });
+                }
+            }
+        });
+    };
+
     getCookie = function (name) {
         var cookie,
             cookies,
@@ -325,6 +382,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeJqueryVariables = function () {
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
+        $modalAttrTbl = $('#modalAttrTbl');
         $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadHSRes = $('#modalLoadHSRes');
@@ -334,7 +392,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     initializeLayersContextMenu = function () {
-        layersContextMenu = [
+        layersContextMenuGeneral = [
             {
                 name: 'Rename',
                 title: 'Rename',
@@ -386,6 +444,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                 }
             }
         ];
+        layersContextMenuVector = layersContextMenuGeneral.slice();
+        layersContextMenuVector.push({
+            name: 'View attribute table',
+            title: 'View attribute table',
+            fun: function (e) {
+                var clickedElement = e.trigger.context,
+                    layerName = $(clickedElement).text();
+
+                $modalAttrTbl.find('.modal-title').text('Attributes for layer: ' + layerName);
+                $modalAttrTbl.modal('show');
+            }
+        });
     };
 
     initializeMap = function () {

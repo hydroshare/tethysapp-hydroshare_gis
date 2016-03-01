@@ -107,7 +107,6 @@ var HS_GIS = (function packageHydroShareGIS() {
             );
             $firstLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
-            debugger;
             contextMenu = (resType === 'GeographicFeatureResource') ? layersContextMenuVector : layersContextMenuGeneral;
             $firstLayerListElement.contextMenu('menu', contextMenu, {
                 triggerOn: 'click',
@@ -728,6 +727,7 @@ var HS_GIS = (function packageHydroShareGIS() {
      ----------------------------------------------*/
 
     $(function () {
+        $('#map').css('height', $('#app-content').height());
         initializeJqueryVariables();
         checkURLForParameters();
         addDefaultBehaviorToAjax();

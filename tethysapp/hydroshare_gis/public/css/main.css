@@ -78,7 +78,7 @@
 .modal-body td, .modal-body th {
     padding: 10px;
 }
-.modal-body tbody tr:hover {
+#modalLoadHSRes tr:hover {
     background-color: #0099ff;
     color: white;
     cursor: pointer;

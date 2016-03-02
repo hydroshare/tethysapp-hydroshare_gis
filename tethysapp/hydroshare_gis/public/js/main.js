@@ -331,7 +331,13 @@ var HS_GIS = (function packageHydroShareGIS() {
                     }
                     $modalAttrTbl.find('.modal-body').html(attributeTableHTML);
                     $('#tbl-attributes').DataTable({
-                        //'order': [[1, 'asc']]
+                        'order': [[0, 'asc']],
+                        "scrollY": "400px",
+                        "scrollCollapse": true,
+                        fixedHeader: {
+                            header: true,
+                            footer: true
+                        }
                     });
                 }
             }
@@ -444,7 +450,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             }
         ];
         layersContextMenuVector = layersContextMenuGeneral.slice();
-        layersContextMenuVector.push({
+        layersContextMenuVector.unshift({
             name: 'View attribute table',
             title: 'View attribute table',
             fun: function (e) {
@@ -579,7 +585,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                         });
                         $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
 
-                        $('tbody tr').on('click', function () {
+                        $('#modalLoadHSRes tr').on('click', function () {
                             $(this)
                                 .css({
                                     'background-color': '#1abc9c',

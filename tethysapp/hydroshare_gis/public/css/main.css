@@ -103,8 +103,8 @@
 /*****************************************************/
 
 /*****************************************************/
-/*             WELCOME / HS RES MODAL                */
-#modalLoadHSRes tr:hover {
+/*                  HS RES MODAL                     */
+#modalLoadHSRes tbody tr:hover {
     background-color: #0099ff;
     color: white;
     cursor: pointer;
@@ -194,6 +194,19 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
+/*             ATTR TABLE FILE MODAL                 */
+
+/*****************************************************/
+#modalAttrTbl .modal-dialog {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: auto;
+    margin: 15px;
+}
+/*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading {
     position: fixed;
@@ -206,3 +219,7 @@ input[type="radio"] {
     justify-content: center;
 }
 /****************************************************/
+
+.dataTables_scrollHead {
+    overflow-x: auto;
+}

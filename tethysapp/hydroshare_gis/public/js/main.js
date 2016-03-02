@@ -42,16 +42,18 @@ var HS_GIS = (function packageHydroShareGIS() {
         editLayerName,
         enableUploadBtn,
         generateAttributeTable,
+        generateHSResourceList,
         getCookie,
         getFilesSize,
+        hideMainLoadAnim,
         hideProgressBar,
         initializeJqueryVariables,
         initializeLayersContextMenu,
         initializeMap,
         loadHSResource,
-        populateHSResourceList,
         prepareFilesForAjax,
         reprojectExtents,
+        showMainLoadAnim,
         updateProgressBar,
         updateUploadProgress,
         uploadFileButtonHandler,
@@ -60,6 +62,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     //jQuery Selectors
         $currentLayersList,
         $emptyBar,
+        $loadingAnimMain,
         $modalAttrTbl,
         $modalInfo,
         $modalLoadFile,
@@ -103,7 +106,11 @@ var HS_GIS = (function packageHydroShareGIS() {
             zoomToLayer(newLayer.getExtent(), map.getSize());
 
             $currentLayersList.prepend(
-                '<li class="ui-state-default" data-layer-index="' + layerCount.get() + '"><input class="chkbx-layer" type="checkbox" checked><span class="layer-name">' + layerName + '</span><input type="text" class="edit-layer-name hidden" value="' + layerName + '"></li>'
+                '<li class="ui-state-default" data-layer-index="' + layerCount.get() + '" data-layer-id="' + layerId + '" data-layer-attributes="' + layerAttributes + '">' +
+                    '<input class="chkbx-layer" type="checkbox" checked>' +
+                    '<span class="layer-name">' + layerName + '</span>' +
+                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                    '</li>'
             );
             $firstLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
@@ -125,7 +132,6 @@ var HS_GIS = (function packageHydroShareGIS() {
                         editLayerName(e, $(this), $layerNameSpan, layerIndex);
                     });
             });
-            generateAttributeTable(layerId, layerAttributes);
         }
     };
 
@@ -253,15 +259,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         if (params.res_id !== undefined || params.res_id !== null) {
             if (params.src === 'hs') {
-                $('#app-content-wrapper').css({
-                    '-webkit-filter': 'blur(1px)',
-                    '-moz-filter': 'blur(1px)',
-                    '-o-filter': 'blur(1px)',
-                    '-ms-filter': 'blur(1px)',
-                    'filter': 'blur(1px)',
-                    'opacity': '0.5'
-                });
-                $('#div-loading').removeClass('hidden');
+                showMainLoadAnim();
                 loadHSResource(params.res_id);
             }
         }
@@ -310,7 +308,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                     layerAttributesList = [],
                     length,
                     numAttributes,
-                    tableHeadingHTML = '';
+                    table,
+                    tableHeadingHTML = '',
+                    timeOut;
 
                 if (response.hasOwnProperty('success')) {
                     featureProperties = JSON.parse(response.feature_properties);
@@ -330,15 +330,88 @@ var HS_GIS = (function packageHydroShareGIS() {
                         attributeTableHTML += '</tr>';
                     }
                     $modalAttrTbl.find('.modal-body').html(attributeTableHTML);
-                    $('#tbl-attributes').DataTable({
+                    table = $('#tbl-attributes').DataTable({
                         'order': [[0, 'asc']],
-                        "scrollY": "400px",
+                        "scrollY": "100%",
                         "scrollCollapse": true,
                         fixedHeader: {
                             header: true,
                             footer: true
-                        }
+                        },
+                        "autoWidth": false
                     });
+                    $('.dataTables_scrollHead').css('overflow', 'auto');
+                    $('.dataTables_scrollHead').on('scroll', function (e) {
+                        $('.dataTables_scrollBody').scrollLeft($(e.currentTarget).scrollLeft());
+                    });
+                    $('.dataTables_scrollBody').on('scroll', function (e) {
+                        $('.dataTables_scrollHead').scrollLeft($(e.currentTarget).scrollLeft());
+                    });
+                    hideMainLoadAnim();
+                    $modalAttrTbl.modal('show');
+                    timeOut = window.setTimeout(function () {
+                        if ($modalAttrTbl.css('display') !== 'none') {
+                            table.columns.adjust().draw();
+                            window.clearTimeout(timeOut);
+                        }
+                    }, 250);
+                }
+            }
+        });
+    };
+
+    generateHSResourceList = function (numRequests) {
+        $.ajax({
+            type: 'GET',
+            url: 'get-hs-res-list',
+            dataType: 'json',
+            error: function () {
+                if (numRequests < 5) {
+                    numRequests += 1;
+                    setTimeout(generateHSResourceList, 3000, numRequests);
+                }
+            },
+            success: function (response) {
+                var resources,
+                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Type</th></thead><tbody>';
+
+                if (response.hasOwnProperty('success')) {
+                    if (response.hasOwnProperty('resources')) {
+                        resources = JSON.parse(response.resources);
+                        resources.forEach(function (resource) {
+                            resTableHtml += '<tr>' +
+                                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
+                                '<td class="res_title">' + resource.title + '</td>' +
+                                '<td class="res_type">' + resource.type + '</td>' +
+                                '</tr>';
+                        });
+                        resTableHtml += '</tbody></table>';
+
+                        $modalLoadHSRes.find('.modal-body').html(resTableHtml);
+                        $('#tbl-resources').DataTable({
+                            'paging': false,
+                            'info': false,
+                            'order': [[1, 'asc']],
+                            'columnDefs': [{
+                                'orderable': false,
+                                'targets': 0
+                            }]
+                        });
+                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
+
+                        $('#modalLoadHSRes tr').on('click', function () {
+                            $(this)
+                                .css({
+                                    'background-color': '#1abc9c',
+                                    'color': 'white'
+                                })
+                                .find('input').prop('checked', true);
+                            $('tr').not($(this)).css({
+                                'background-color': '',
+                                'color': ''
+                            });
+                        });
+                    }
                 }
             }
         });
@@ -376,6 +449,11 @@ var HS_GIS = (function packageHydroShareGIS() {
         return fileSize;
     };
 
+    hideMainLoadAnim = function () {
+        $('#app-content-wrapper').removeAttr('style');
+        $loadingAnimMain.addClass('hidden');
+    };
+
     hideProgressBar = function () {
         $progressBar.addClass('hidden');
         $progressText
@@ -387,6 +465,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeJqueryVariables = function () {
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
+        $loadingAnimMain = $('#div-loading');
         $modalAttrTbl = $('#modalAttrTbl');
         $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
@@ -449,16 +528,21 @@ var HS_GIS = (function packageHydroShareGIS() {
                 }
             }
         ];
+
         layersContextMenuVector = layersContextMenuGeneral.slice();
         layersContextMenuVector.unshift({
             name: 'View attribute table',
             title: 'View attribute table',
             fun: function (e) {
+                showMainLoadAnim();
                 var clickedElement = e.trigger.context,
-                    layerName = $(clickedElement).text();
+                    layerName = $(clickedElement).text(),
+                    layerId = $(clickedElement).attr('data-layer-id'),
+                    layerAttributes = $(clickedElement).attr('data-layer-attributes');
+
+                generateAttributeTable(layerId, layerAttributes);
 
                 $modalAttrTbl.find('.modal-title').text('Attributes for layer: ' + layerName);
-                $modalAttrTbl.modal('show');
             }
         });
     };
@@ -536,68 +620,10 @@ var HS_GIS = (function packageHydroShareGIS() {
             success: function (response) {
                 $modalInfo.addClass('hidden');
                 enableUploadBtn();
-                $('#app-content-wrapper').removeAttr('style');
-                $('#div-loading').addClass('hidden');
+                hideMainLoadAnim();
                 addLayerToUI(response);
                 if ($('#chkbx-res-auto-close').is(':checked')) {
                     $modalLoadHSRes.modal('hide');
-                }
-            }
-        });
-    };
-
-    populateHSResourceList = function (numRequests) {
-        $.ajax({
-            type: 'GET',
-            url: 'get-hs-res-list',
-            dataType: 'json',
-            error: function () {
-                if (numRequests < 5) {
-                    numRequests += 1;
-                    setTimeout(populateHSResourceList, 3000, numRequests);
-                }
-            },
-            success: function (response) {
-                var resources,
-                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Type</th></thead><tbody>';
-
-                if (response.hasOwnProperty('success')) {
-                    if (response.hasOwnProperty('resources')) {
-                        resources = JSON.parse(response.resources);
-                        resources.forEach(function (resource) {
-                            resTableHtml += '<tr>' +
-                                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
-                                '<td class="res_title">' + resource.title + '</td>' +
-                                '<td class="res_type">' + resource.type + '</td>' +
-                                '</tr>';
-                        });
-                        resTableHtml += '</tbody></table>';
-
-                        $modalLoadHSRes.find('.modal-body').html(resTableHtml);
-                        $('#tbl-resources').DataTable({
-                            'paging': false,
-                            'info': false,
-                            'order': [[1, 'asc']],
-                            'columnDefs': [{
-                                'orderable': false,
-                                'targets': 0
-                            }]
-                        });
-                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
-
-                        $('#modalLoadHSRes tr').on('click', function () {
-                            $(this)
-                                .css({
-                                    'background-color': '#1abc9c',
-                                    'color': 'white'
-                                })
-                                .find('input').prop('checked', true);
-                            $('tr').not($(this)).css({
-                                'background-color': '',
-                                'color': ''
-                            });
-                        });
-                    }
                 }
             }
         });
@@ -642,6 +668,19 @@ var HS_GIS = (function packageHydroShareGIS() {
         extents = tempCoord1.concat(tempCoord2);
 
         return extents;
+    };
+
+    showMainLoadAnim = function () {
+        $('#app-content-wrapper').css({
+            '-webkit-filter': 'blur(1px)',
+            '-moz-filter': 'blur(1px)',
+            '-o-filter': 'blur(1px)',
+            '-ms-filter': 'blur(1px)',
+            'filter': 'blur(1px)',
+            'opacity': '0.5'
+        });
+        $loadingAnimMain.removeClass('hidden');
+
     };
 
     updateProgressBar = function (value) {
@@ -717,7 +756,6 @@ var HS_GIS = (function packageHydroShareGIS() {
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
-        console.log(resId + " " + resType + " " + resTitle);
         loadHSResource(resId, resType, resTitle);
     };
 
@@ -767,5 +805,5 @@ var HS_GIS = (function packageHydroShareGIS() {
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
-    populateHSResourceList();
+    generateHSResourceList();
 }());

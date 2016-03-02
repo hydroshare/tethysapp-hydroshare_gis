@@ -193,14 +193,12 @@ def get_hs_res_list(request):
 
         # hs = get_oauth_hs(request)
         hs = HydroShare()
-        for resource in hs.getResourceList():
-            res_type = resource['resource_type']
-            if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
-                valid_res_list.append({
-                    'title': resource['resource_title'],
-                    'type': resource['resource_type'],
-                    'id': resource['resource_id']
-                })
+        for resource in hs.getResourceList(types=['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']):
+            valid_res_list.append({
+                'title': resource['resource_title'],
+                'type': resource['resource_type'],
+                'id': resource['resource_id']
+            })
 
         valid_res_json = dumps(valid_res_list)
 

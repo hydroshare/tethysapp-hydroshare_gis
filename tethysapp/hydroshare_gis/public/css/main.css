@@ -1,3 +1,5 @@
+/*****************************************************/
+/*            TETHYS BASE MODIFICATIONS              */
 #app-content-wrapper #app-content {
     padding-bottom: 0;
 }
@@ -7,8 +9,12 @@
 #app-actions {
     display: none;
 }
-.import-btn {
-    cursor: pointer;
+/*****************************************************/
+
+/*****************************************************/
+/*            GENERAL GIS TOOLS NAV BAR              */
+#btn-app-help {
+    margin-left: 20px;
 }
 .basemap-option {
     cursor: pointer;
@@ -25,29 +31,10 @@
     font-weight: normal;
     color: lightgray;
 }
-#progress-bar {
-    position: relative;
-    top: -20px;
-    width: 0;
-    height: 20px;
-    background-color: blue;
-    z-index: 1;
-    color: blue;
-}
-#empty-bar {
-    background-color: grey;
-    color: grey;
-    height: 20px;
-}
-#progress-text {
-    position: relative;
-    top: -40px;
-    height: 20px;
-    color: black;
-    text-align: center;
-    font-weight: bold;
-    z-index: 2;
-}
+/*****************************************************/
+
+/*****************************************************/
+/*                 CURRENT LAYERS                    */
 #current-layers {
     width: 100%;
     height: 300px;
@@ -62,29 +49,8 @@
     padding: 5px;
     cursor: default;
 }
-/*#current-layers li::before {*/
-/*padding-right: 1em;*/
-/*content: " >";*/
-/*cursor: pointer;*/
-/*}*/
 #current-layers li:hover {
     background-color: #1abc9c;
-}
-.modal-body {
-    max-height: 600px;
-    overflow-y: auto;
-    border-bottom: 1px solid #e5e5e5;
-}
-.modal-body td, .modal-body th {
-    padding: 10px;
-}
-#modalLoadHSRes tr:hover {
-    background-color: #0099ff;
-    color: white;
-    cursor: pointer;
-}
-input[type="radio"] {
-    cursor: pointer;
 }
 .ui-state-highlight {
     height: 1.5em;
@@ -94,7 +60,88 @@ input[type="radio"] {
     margin-right: 5px !important;
 }
 /*****************************************************/
+
+/*****************************************************/
+/*                  GENERAL MODAL                    */
+.modal-dialog {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+.modal-body td, .modal-body th {
+    padding: 10px;
+}
+.modal-info {
+    margin-right: 38%;
+}
+.import-btn {
+    cursor: pointer;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*             WELCOME / HS RES MODAL                */
+#modalLoadHSRes .modal-content, #modalWelcome .modal-content {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+#modalLoadHSRes .modal-header, #modalWelcome .modal-header {
+    height: 70px;
+}
+#modalLoadHSRes .modal-footer, #modalWelcome .modal-footer {
+    height: 65px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*             WELCOME / HS RES MODAL                */
+#modalLoadHSRes tr:hover {
+    background-color: #0099ff;
+    color: white;
+    cursor: pointer;
+}
+#modalLoadHSRes .modal-body {
+    position: fixed;
+    top: 70px;
+    bottom: 110px;
+    right: 1px;
+    overflow-y: auto;
+    border-bottom: 1px solid #e5e5e5;
+}
+#div-chkbx-res-auto-close {
+    position: fixed;
+    bottom: 65px;
+    margin: 10px 0 5px 0;
+    height: 30px;
+}
+#chkbx-res-auto-close {
+    margin-left: 25px;
+}
+
+input[type="radio"] {
+    cursor: pointer;
+}
+/*****************************************************/
+
+/*****************************************************/
 /*                  WELCOME MODAL                    */
+#modalWelcome .modal-body {
+    position: fixed;
+    top: 70px;
+    bottom: 65px;
+    right: 1px;
+    overflow-y: auto;
+    border-bottom: 1px solid #e5e5e5;
+}
 .welcome-step {
     font-size: 18px;
 }
@@ -118,15 +165,34 @@ input[type="radio"] {
     margin-left: 10px;
 }
 /*****************************************************/
-#btn-app-help {
-    margin-left: 20px;
+
+/*****************************************************/
+/*               UPLOAD FILE MODAL                   */
+#progress-bar {
+    position: relative;
+    top: -20px;
+    width: 0;
+    height: 20px;
+    background-color: blue;
+    z-index: 1;
+    color: blue;
 }
-.modal-info {
-    margin-right: 38%;
+#empty-bar {
+    background-color: grey;
+    color: grey;
+    height: 20px;
 }
-#chkbx-res-auto-close {
-    margin-left: 25px;
+#progress-text {
+    position: relative;
+    top: -40px;
+    height: 20px;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    z-index: 2;
 }
+/*****************************************************/
+
 /*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading {
@@ -139,14 +205,4 @@ input[type="radio"] {
     align-items: center;
     justify-content: center;
 }
-#div-chkbx-res-auto-close {
-    margin: 10px 0 5px 0;
-}
 /****************************************************/
-.modal-dialog {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    left: 0;
-}

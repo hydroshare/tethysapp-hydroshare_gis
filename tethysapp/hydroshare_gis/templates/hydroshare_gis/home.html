@@ -83,15 +83,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <div class="modal-title">
-                        <div id="byu-logo-container">
-                            <span><i>Developed at the BYU Hydroinformatics Lab</i></span>
-                            <img src="{% static 'hydroshare_gis/images/byu-medallion.png' %}"/>
-                        </div>
-                    </div>
+                    <h4 class="modal-title">HydroShare GIS
+{#                        <div id="byu-logo-container">#}
+{#                            <span><i>Developed at the BYU Hydroinformatics Lab</i></span>#}
+{#                            <img src="{% static 'hydroshare_gis/images/byu-medallion.png' %}"/>#}
+{#                        </div>#}
+                    </h4>
                 </div>
                 <div class="modal-body">
-                    <h4>How HydroShare GIS works:</h4>
                     <p><b>If you opened this app from a HydroShare Resource page "Open with..." link, your resource is loading in the background.
                         Once loaded, the same steps below apply.</b></p>
                     <h6>You can do the following:</h6>
@@ -128,6 +127,10 @@
                                 </li>
                                 <li class="welcome-substep1">Delete a layer
                                     <p>Right click the layer and select "Delete"</p>
+                                </li>
+                                <li class="welcome-substep1">View a layer's attribute table
+                                    <p>Right click the layer and select "View attribute table"</p>
+                                    <p>Note: This option is only available for shapefiles.</p>
                                 </li>
                             </ul>
                         </li>

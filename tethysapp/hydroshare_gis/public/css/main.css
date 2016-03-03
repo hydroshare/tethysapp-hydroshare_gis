@@ -12,7 +12,7 @@
 /*****************************************************/
 
 /*****************************************************/
-/*            GENERAL GIS TOOLS NAV BAR              */
+/*                GENERAL NAV BAR                    */
 #btn-app-help {
     margin-left: 20px;
 }
@@ -30,6 +30,31 @@
 .current-basemap-label {
     font-weight: normal;
     color: lightgray;
+}
+#beta-feedback-button {
+    bottom: 30px;
+}
+#byu-logo-container {
+    position: absolute;
+    bottom: 0;
+    left: 30px;
+    margin: 0 0 5px 5px;
+    overflow-y: visible;
+    height: 60px;
+    width: 150px;
+}
+#byu-logo-container img {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 60px;
+}
+#byu-logo-container span {
+    position: absolute;
+    bottom: 0;
+    left: 65px;
+    width: 150px;
+    margin-bottom: 10px;
 }
 /*****************************************************/
 
@@ -62,10 +87,36 @@
 /*****************************************************/
 
 /*****************************************************/
-/*                  GENERAL MODAL                    */
+/*                   BASE MODAL                      */
 .modal-dialog {
     position: fixed;
     top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+.modal-content {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+.modal-header {
+    height: 70px;
+}
+.modal-body {
+    position: fixed;
+    top: 70px;
+    bottom: 65px;
+    right: 0;
+    left: 0;
+    overflow-y: auto;
+    border-bottom: 1px solid #e5e5e5;
+}
+.modal-footer {
+    height: 65px;
+    position: fixed;
     bottom: 0;
     right: 0;
     left: 0;
@@ -82,27 +133,6 @@
 /*****************************************************/
 
 /*****************************************************/
-/*             WELCOME / HS RES MODAL                */
-#modalLoadHSRes .modal-content, #modalWelcome .modal-content {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    left: 0;
-}
-#modalLoadHSRes .modal-header, #modalWelcome .modal-header {
-    height: 70px;
-}
-#modalLoadHSRes .modal-footer, #modalWelcome .modal-footer {
-    height: 65px;
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    left: 0;
-}
-/*****************************************************/
-
-/*****************************************************/
 /*                  HS RES MODAL                     */
 #modalLoadHSRes tbody tr:hover {
     background-color: #0099ff;
@@ -110,12 +140,9 @@
     cursor: pointer;
 }
 #modalLoadHSRes .modal-body {
-    position: fixed;
-    top: 70px;
     bottom: 110px;
     right: 1px;
-    overflow-y: auto;
-    border-bottom: 1px solid #e5e5e5;
+    left: inherit;
 }
 #div-chkbx-res-auto-close {
     position: fixed;
@@ -135,12 +162,7 @@ input[type="radio"] {
 /*****************************************************/
 /*                  WELCOME MODAL                    */
 #modalWelcome .modal-body {
-    position: fixed;
-    top: 70px;
-    bottom: 65px;
     right: 1px;
-    overflow-y: auto;
-    border-bottom: 1px solid #e5e5e5;
 }
 .welcome-step {
     font-size: 18px;
@@ -151,23 +173,19 @@ input[type="radio"] {
 .welcome-substep2 {
     font-size: 14px;
 }
-#byu-logo-container {
-    overflow-y: auto;
-}
-#byu-logo-container img {
-    float: left;
-    height: 50px;
-    width: 50px;
-}
-#byu-logo-container span {
-    position: relative;
-    top: 25px;
-    margin-left: 10px;
-}
 /*****************************************************/
 
 /*****************************************************/
 /*               UPLOAD FILE MODAL                   */
+#modalLoadFile .modal-content {
+    position: static;
+}
+#modalLoadFile .modal-body {
+    position: static;
+}
+#modalLoadFile .modal-footer {
+    position: static;
+}
 #progress-bar {
     position: relative;
     top: -20px;
@@ -198,11 +216,6 @@ input[type="radio"] {
 
 /*****************************************************/
 #modalAttrTbl .modal-dialog {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    left: 0;
     width: auto;
     margin: 15px;
 }

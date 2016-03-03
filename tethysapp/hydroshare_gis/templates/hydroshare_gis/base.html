@@ -11,7 +11,7 @@
 {% block app_title %}{{ tethys_app.name }}{% endblock %}
 
 {% block app_navigation_items %}
-    <li class="title">GIS Tools</li>
+{#    <li class="title">GIS Tools</li>#}
     <li class="active"><a id="load-from-hs" class="import-btn" data-toggle="modal" data-target="#modalLoadHSRes">Load HydroShare Resource</a></li>
     <li class="active"><a id="load-from-pc" class="import-btn" data-toggle="modal" data-target="#modalLoadFile">Load File</a></li>
     <br>
@@ -30,13 +30,17 @@
         </div>
     </li>
     <br>
-    <li>Current Layers
+    <li><b>Current Layers</b>
         <div id="current-layers">
             <ul id="current-layers-list"></ul>
         </div>
     </li>
     <br>
     <button type="button" id="btn-app-help" class="btn btn-info btn-lg" data-toggle="modal" data-target="#modalWelcome">Help</button>
+    <div id="byu-logo-container">
+        <span><i>Developed at the BYU Hydroinformatics Lab</i></span>
+        <img src="{% static 'hydroshare_gis/images/byu-medallion.png' %}"/>
+    </div>
 {% endblock %}
 
 {% block content_dependent_styles %}

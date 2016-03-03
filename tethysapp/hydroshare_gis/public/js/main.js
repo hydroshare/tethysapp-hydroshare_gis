@@ -25,7 +25,8 @@ var HS_GIS = (function packageHydroShareGIS() {
     /******************************************************
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
-    var layers,
+    var dataTableLoadRes,
+        layers,
         layersContextMenuGeneral,
         layersContextMenuVector,
         layerCount,
@@ -34,6 +35,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     // Functions
         addLayerToUI,
         addDefaultBehaviorToAjax,
+        addLoadResSelEvnt,
         addInitialEventListeners,
         areValidFiles,
         changeBaseMap,
@@ -42,7 +44,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         editLayerName,
         enableUploadBtn,
         generateAttributeTable,
-        generateHSResourceList,
+        generateResourceList,
         getCookie,
         getFilesSize,
         hideMainLoadAnim,
@@ -50,9 +52,10 @@ var HS_GIS = (function packageHydroShareGIS() {
         initializeJqueryVariables,
         initializeLayersContextMenu,
         initializeMap,
-        loadHSResource,
+        loadResource,
         modifyDataTableDisplay,
         prepareFilesForAjax,
+        redrawDataTable,
         reprojectExtents,
         showMainLoadAnim,
         updateProgressBar,
@@ -67,7 +70,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalAttrTbl,
         $modalInfo,
         $modalLoadFile,
-        $modalLoadHSRes,
+        $modalLoadRes,
         $progressBar,
         $progressText,
         $uploadBtn;
@@ -133,7 +136,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                     .select()
                     .on('keyup', function (e) {
                         editLayerName(e, $(this), $layerNameSpan, layerIndex);
-                    }, 'click', function (e) {
+                    })
+                    .on('click', function (e) {
                         e.stopPropagation();
                     });
 
@@ -141,6 +145,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                     $layerNameInput
                         .addClass('hidden')
                         .off('keyup')
+                        .off('click')
                         .val($layerNameSpan.text());
                     $layerNameSpan.removeClass('hidden');
                     $(this).off('click');
@@ -160,6 +165,21 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
     };
 
+    addLoadResSelEvnt = function () {
+        $modalLoadRes.find('tbody tr').on('click', function () {
+            $(this)
+                .css({
+                    'background-color': '#1abc9c',
+                    'color': 'white'
+                })
+                .find('input').prop('checked', true);
+            $('tr').not($(this)).css({
+                'background-color': '',
+                'color': ''
+            });
+        });
+    };
+
     addInitialEventListeners = function () {
         $('.basemap-option').on('click', changeBaseMap);
 
@@ -169,7 +189,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             enableUploadBtn();
         });
 
-        $modalLoadHSRes.on('hidden.bs.modal', function () {
+        $modalLoadRes.on('hidden.bs.modal', function () {
             enableUploadBtn();
         });
 
@@ -194,9 +214,10 @@ var HS_GIS = (function packageHydroShareGIS() {
             }
         });
 
-        $modalLoadHSRes.on('shown.bs.modal', function () {
+        $modalLoadRes.on('shown.bs.modal', function () {
             console.log('modal shown');
             $('.dataTables_scrollBody').css('height', $(this).find('.modal-body').height().toString() - 125 + 'px');
+            redrawDataTable(dataTableLoadRes, $(this));
         });
     };
 
@@ -278,7 +299,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         if (params.res_id !== undefined || params.res_id !== null) {
             if (params.src === 'hs') {
                 showMainLoadAnim();
-                loadHSResource(params.res_id);
+                loadResource(params.res_id);
             }
         }
     };
@@ -288,13 +309,15 @@ var HS_GIS = (function packageHydroShareGIS() {
             $layerNameSpan.text($layerNameInput.val());
             $layerNameInput
                 .addClass('hidden')
-                .off('keyup');
+                .off('keyup')
+                .off('click');
             $layerNameSpan.removeClass('hidden');
             map.getLayers().item(layerIndex).set('name', $layerNameInput.val());
         } else if (e.which === 27) {  // Esc key
             $layerNameInput
                 .addClass('hidden')
                 .off('keyup')
+                .off('click')
                 .val($layerNameSpan.text());
             $layerNameSpan.removeClass('hidden');
             $(document).off('click');
@@ -358,14 +381,14 @@ var HS_GIS = (function packageHydroShareGIS() {
                         }
                     });
                     hideMainLoadAnim();
-                    modifyDataTableDisplay(dataTable);
+                    modifyDataTableDisplay(dataTable, $modalAttrTbl);
                     $modalAttrTbl.modal('show');
                 }
             }
         });
     };
 
-    generateHSResourceList = function (numRequests) {
+    generateResourceList = function (numRequests) {
         $.ajax({
             type: 'GET',
             url: 'get-hs-res-list',
@@ -373,7 +396,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             error: function () {
                 if (numRequests < 5) {
                     numRequests += 1;
-                    setTimeout(generateHSResourceList, 3000, numRequests);
+                    setTimeout(generateResourceList, 3000, numRequests);
                 }
             },
             success: function (response) {
@@ -391,8 +414,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                                 '</tr>';
                         });
                         resTableHtml += '</tbody></table>';
-                        $modalLoadHSRes.find('.modal-body').html(resTableHtml);
-                        $('#tbl-resources').DataTable({
+                        $modalLoadRes.find('.modal-body').html(resTableHtml);
+                        addLoadResSelEvnt();
+                        dataTableLoadRes = $('#tbl-resources').DataTable({
                             'order': [[1, 'asc']],
                             'columnDefs': [{
                                 'orderable': false,
@@ -405,20 +429,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                                 footer: true
                             }
                         });
-                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
 
-                        $('#modalLoadHSRes tr').on('click', function () {
-                            $(this)
-                                .css({
-                                    'background-color': '#1abc9c',
-                                    'color': 'white'
-                                })
-                                .find('input').prop('checked', true);
-                            $('tr').not($(this)).css({
-                                'background-color': '',
-                                'color': ''
-                            });
-                        });
+                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
                     }
                 }
             }
@@ -477,7 +489,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalAttrTbl = $('#modalAttrTbl');
         $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
-        $modalLoadHSRes = $('#modalLoadHSRes');
+        $modalLoadRes = $('#modalLoadRes');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
         $uploadBtn = $('.btn-upload');
@@ -492,7 +504,6 @@ var HS_GIS = (function packageHydroShareGIS() {
                     var clickedElement = e.trigger.context,
                         index = Number($(clickedElement).attr('data-layer-index')),
                         $LayerNameSpan = $(clickedElement).find('span');
-
                     $LayerNameSpan.addClass('hidden');
                     $(clickedElement).find('input')
                         .removeClass('hidden')
@@ -608,7 +619,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         };
     }());
 
-    loadHSResource = function (res_id, res_type, res_title) {
+    loadResource = function (res_id, res_type, res_title) {
         $modalInfo.removeClass('hidden');
 
         $.ajax({
@@ -631,15 +642,13 @@ var HS_GIS = (function packageHydroShareGIS() {
                 hideMainLoadAnim();
                 addLayerToUI(response);
                 if ($('#chkbx-res-auto-close').is(':checked')) {
-                    $modalLoadHSRes.modal('hide');
+                    $modalLoadRes.modal('hide');
                 }
             }
         });
     };
 
-    modifyDataTableDisplay = function (dataTable) {
-        var timeOut;
-
+    modifyDataTableDisplay = function (dataTable, $modal) {
         $('.dataTables_scrollHead').css('overflow', 'auto');
         $('.dataTables_scrollHead').on('scroll', function (e) {
             $('.dataTables_scrollBody').scrollLeft($(e.currentTarget).scrollLeft());
@@ -648,12 +657,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             $('.dataTables_scrollHead').scrollLeft($(e.currentTarget).scrollLeft());
         });
 
-        timeOut = window.setTimeout(function () {
-            if ($modalAttrTbl.css('display') !== 'none') {
-                dataTable.columns.adjust().draw();
-                window.clearTimeout(timeOut);
-            }
-        }, 100);
+        redrawDataTable(dataTable, $modal);
     };
 
     prepareFilesForAjax = function (files) {
@@ -666,6 +670,16 @@ var HS_GIS = (function packageHydroShareGIS() {
             }
         }
         return data;
+    };
+
+    redrawDataTable = function (dataTable, $modal) {
+        var timeOut;
+        timeOut = window.setTimeout(function () {
+            if ($modal.css('display') !== 'none') {
+                dataTable.columns.adjust().draw();
+                window.clearTimeout(timeOut);
+            }
+        }, 100);
     };
 
     reprojectExtents = function (rawExtents) {
@@ -783,7 +797,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
-        loadHSResource(resId, resType, resTitle);
+        loadResource(resId, resType, resTitle);
     };
 
     zoomToLayer = function (layerExtent, mapSize) {
@@ -832,5 +846,5 @@ var HS_GIS = (function packageHydroShareGIS() {
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
-    generateHSResourceList();
+    generateResourceList();
 }());

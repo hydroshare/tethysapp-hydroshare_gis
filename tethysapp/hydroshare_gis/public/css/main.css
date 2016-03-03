@@ -134,12 +134,12 @@
 
 /*****************************************************/
 /*                  HS RES MODAL                     */
-#modalLoadHSRes tbody tr:hover {
+#modalLoadRes tbody tr:hover {
     background-color: #0099ff;
     color: white;
     cursor: pointer;
 }
-#modalLoadHSRes .modal-body {
+#modalLoadRes .modal-body {
     bottom: 110px;
     right: 1px;
     left: inherit;

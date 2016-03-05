@@ -1,11 +1,11 @@
-import requests
-import zipfile
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from hs_restclient import HydroShare, HydroShareAuthOAuth2
 from django.http import JsonResponse
 from django.conf import settings
 from tethys_sdk.services import get_spatial_dataset_engine
 
+import requests
+import zipfile
 import os
 
 hs_hostname = 'www.hydroshare.org'

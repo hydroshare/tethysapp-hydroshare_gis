@@ -8,6 +8,7 @@
  *                  http://openlayers.org/
  *                  https://www.npmjs.com/package/reproject
  *                  http://www.ajaxload.info/
+ *                  http://datatables.net/
  *
  *****************************************************************************/
 
@@ -41,6 +42,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         changeBaseMap,
         checkCsrfSafe,
         checkURLForParameters,
+        closeLyrEdtInpt,
         editLayerName,
         enableUploadBtn,
         generateAttributeTable,
@@ -115,16 +117,26 @@ var HS_GIS = (function packageHydroShareGIS() {
                     '<input class="chkbx-layer" type="checkbox" checked>' +
                     '<span class="layer-name">' + layerName + '</span>' +
                     '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
                     '</li>'
             );
             $newLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
             contextMenu = (resType === 'GeographicFeatureResource') ? layersContextMenuVector : layersContextMenuGeneral;
-            $newLayerListElement.contextMenu('menu', contextMenu, {
-                triggerOn: 'click',
-                displayAround: 'cursor',
-                mouseClick: 'right'
-            });
+            $newLayerListElement.find('.hmbrgr-div img')
+                .contextMenu('menu', contextMenu, {
+                    'triggerOn': 'click',
+                    'displayAround': 'trigger',
+                    'mouseClick': 'left',
+                    'position': 'right',
+                    'onOpen': function (e) {
+                        $(e.trigger.context).parent().addClass('hmbrgr-open');
+                    },
+                    'onClose': function (e) {
+                        $(e.trigger.context).parent().removeClass('hmbrgr-open');
+                    }
+                });
+
             $newLayerListElement.find('.layer-name').on('dblclick', function () {
                 var $layerNameSpan = $(this),
                     layerIndex = Number($currentLayersList.find('li').index($newLayerListElement)) + 3;
@@ -141,14 +153,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                         e.stopPropagation();
                     });
 
-                $(document).on('click', function () {
-                    $layerNameInput
-                        .addClass('hidden')
-                        .off('keyup')
-                        .off('click')
-                        .val($layerNameSpan.text());
-                    $layerNameSpan.removeClass('hidden');
-                    $(this).off('click');
+                $(document).on('click.edtLyrNm', function () {
+                    closeLyrEdtInpt($layerNameSpan, $layerNameInput);
                 });
             });
         }
@@ -215,7 +221,6 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
 
         $modalLoadRes.on('shown.bs.modal', function () {
-            console.log('modal shown');
             $('.dataTables_scrollBody').css('height', $(this).find('.modal-body').height().toString() - 125 + 'px');
             redrawDataTable(dataTableLoadRes, $(this));
         });
@@ -304,23 +309,21 @@ var HS_GIS = (function packageHydroShareGIS() {
         }
     };
 
-    editLayerName = function (e, $layerNameInput, $layerNameSpan, layerIndex) {
+    closeLyrEdtInpt = function ($layerNameSpan, $layerNameInput) {
+        $layerNameInput
+            .addClass('hidden')
+            .off('keyup')
+            .off('click');
+        $layerNameSpan.removeClass('hidden');
+        $(document).off('click.edtLyrNm');
+    };
+
+    editLayerName = function (e, $layerNameInput, $layerNameSpan) {
         if (e.which === 13) {  // Enter key
             $layerNameSpan.text($layerNameInput.val());
-            $layerNameInput
-                .addClass('hidden')
-                .off('keyup')
-                .off('click');
-            $layerNameSpan.removeClass('hidden');
-            map.getLayers().item(layerIndex).set('name', $layerNameInput.val());
+            closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         } else if (e.which === 27) {  // Esc key
-            $layerNameInput
-                .addClass('hidden')
-                .off('keyup')
-                .off('click')
-                .val($layerNameSpan.text());
-            $layerNameSpan.removeClass('hidden');
-            $(document).off('click');
+            closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         }
     };
 
@@ -330,7 +333,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             .removeAttr('disabled');
     };
 
-    generateAttributeTable = function (layerId, layerAttributes) {
+    generateAttributeTable = function (layerId, layerAttributes, layerName) {
         $.ajax({
             type: 'GET',
             url: 'generate-attribute-table',
@@ -381,6 +384,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                         }
                     });
                     hideMainLoadAnim();
+                    $modalAttrTbl.find('.modal-title').text('Attributes for layer: ' + layerName);
                     modifyDataTableDisplay(dataTable, $modalAttrTbl);
                     $modalAttrTbl.modal('show');
                 }
@@ -502,10 +506,11 @@ var HS_GIS = (function packageHydroShareGIS() {
                 title: 'Rename',
                 fun: function (e) {
                     var clickedElement = e.trigger.context,
-                        index = Number($(clickedElement).attr('data-layer-index')),
-                        $LayerNameSpan = $(clickedElement).find('span');
+                        $dataElement = $(clickedElement).parent().parent(),
+                        index = Number($dataElement.attr('data-layer-index')),
+                        $LayerNameSpan = $dataElement.find('span');
                     $LayerNameSpan.addClass('hidden');
-                    $(clickedElement).find('input')
+                    $dataElement.find('input')
                         .removeClass('hidden')
                         .select()
                         .on('keyup', function (e) {
@@ -517,7 +522,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                 title: 'Zoom to',
                 fun: function (e) {
                     var clickedElement = e.trigger.context,
-                        index = Number($(clickedElement).attr('data-layer-index')),
+                        $dataElement = $(clickedElement).parent().parent(),
+                        index = Number($dataElement.attr('data-layer-index')),
                         layerExtent = map.getLayers().item(index).getExtent();
 
                     zoomToLayer(layerExtent, map.getSize());
@@ -528,13 +534,14 @@ var HS_GIS = (function packageHydroShareGIS() {
                 fun: function (e) {
                     var clickedElement = e.trigger.context,
                         count,
-                        deleteIndex = Number($(clickedElement).attr('data-layer-index')),
+                        $dataElement = $(clickedElement).parent().parent(),
+                        deleteIndex = Number($dataElement.attr('data-layer-index')),
                         i,
                         index,
                         layer;
 
                     map.getLayers().removeAt(deleteIndex);
-                    $(clickedElement).remove();
+                    $dataElement.remove();
 
                     count = layerCount.get();
                     for (i = 3; i <= count; i++) {
@@ -555,13 +562,12 @@ var HS_GIS = (function packageHydroShareGIS() {
             fun: function (e) {
                 showMainLoadAnim();
                 var clickedElement = e.trigger.context,
-                    layerName = $(clickedElement).text(),
-                    layerId = $(clickedElement).attr('data-layer-id'),
-                    layerAttributes = $(clickedElement).attr('data-layer-attributes');
+                    $dataElement = $(clickedElement).parent().parent(),
+                    layerName = $dataElement.text(),
+                    layerId = $dataElement.attr('data-layer-id'),
+                    layerAttributes = $dataElement.attr('data-layer-attributes');
 
-                generateAttributeTable(layerId, layerAttributes);
-
-                $modalAttrTbl.find('.modal-title').text('Attributes for layer: ' + layerName);
+                generateAttributeTable(layerId, layerAttributes, layerName);
             }
         });
     };
@@ -673,11 +679,12 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     redrawDataTable = function (dataTable, $modal) {
-        var timeOut;
-        timeOut = window.setTimeout(function () {
+        var interval;
+        interval = window.setInterval(function () {
             if ($modal.css('display') !== 'none') {
+                console.log('good to go');
                 dataTable.columns.adjust().draw();
-                window.clearTimeout(timeOut);
+                window.clearInterval(interval);
             }
         }, 100);
     };

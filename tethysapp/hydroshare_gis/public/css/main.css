@@ -14,7 +14,7 @@
 /*****************************************************/
 /*                GENERAL NAV BAR                    */
 #btn-app-help {
-    margin-left: 20px;
+    margin-left: 100px;
 }
 .basemap-option {
     cursor: pointer;
@@ -37,8 +37,8 @@
 #byu-logo-container {
     position: absolute;
     bottom: 0;
-    left: 30px;
-    margin: 0 0 5px 5px;
+    left: 0;
+    margin: 10px;
     overflow-y: visible;
     height: 60px;
     width: 150px;
@@ -47,14 +47,16 @@
     position: absolute;
     bottom: 0;
     left: 0;
-    height: 60px;
+    height: 50px;
 }
 #byu-logo-container span {
     position: absolute;
     bottom: 0;
-    left: 65px;
+    left: 55px;
     width: 150px;
     margin-bottom: 10px;
+    text-align: left;
+    font-size: 12px;
 }
 /*****************************************************/
 
@@ -69,20 +71,47 @@
     -webkit-padding-start: 0;
 }
 #current-layers li {
+    position: relative;
     background-color: white;
     list-style: none;
     padding: 5px;
     cursor: default;
+    display: flex;
+    justify-content: space-between;
+    align-content: center;
+    align-items: center;
+    text-align: left;
 }
-#current-layers li:hover {
-    background-color: #1abc9c;
+.layer-name {
+    flex: 1 1 auto;
+    max-width: 220px;
+}
+.edit-layer-name {
+    flex: 1 1 auto;
+    max-width: 220px;
+    line-height: normal;
 }
 .ui-state-highlight {
     height: 1.5em;
     line-height: 1.2em;
 }
 .chkbx-layer {
-    margin-right: 5px !important;
+    margin: 0 5px 0 0 !important;
+}
+.hmbrgr-div {
+    width: 22px;
+    height: 22px;
+    border-radius: 2px;
+}
+.hmbrgr-div:hover {
+    box-shadow: 0 1px 1px 1px #bbbbbb;
+}
+.hmbrgr-div img {
+    width: 18px;
+    margin: 2px;
+}
+.hmbrgr-open {
+    background-color: #a1a1a1;
 }
 /*****************************************************/
 

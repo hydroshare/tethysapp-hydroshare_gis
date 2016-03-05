@@ -1,5 +1,20 @@
-.import-btn {
-    cursor: pointer;
+/*****************************************************/
+/*            TETHYS BASE MODIFICATIONS              */
+#app-content-wrapper #app-content {
+    padding-bottom: 0;
+}
+#inner-app-content {
+    padding: 0;
+}
+#app-actions {
+    display: none;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                GENERAL NAV BAR                    */
+#btn-app-help {
+    margin-left: 100px;
 }
 .basemap-option {
     cursor: pointer;
@@ -16,26 +31,37 @@
     font-weight: normal;
     color: lightgray;
 }
-#progress-bar {
-    position: relative;
-    top: -20px;
-    width: 0;
-    background-color: blue;
-    z-index: 1;
-    color: blue;
+#beta-feedback-button {
+    bottom: 30px;
 }
-#empty-bar {
-    background-color: grey;
-    color: grey;
+#byu-logo-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    margin: 10px;
+    overflow-y: visible;
+    height: 60px;
+    width: 150px;
 }
-#progress-text {
-    position: relative;
-    top: -40px;
-    color: black;
-    text-align: center;
-    font-weight: bold;
-    z-index: 2;
+#byu-logo-container img {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 50px;
 }
+#byu-logo-container span {
+    position: absolute;
+    bottom: 0;
+    left: 55px;
+    width: 150px;
+    margin-bottom: 10px;
+    text-align: left;
+    font-size: 12px;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                 CURRENT LAYERS                    */
 #current-layers {
     width: 100%;
     height: 300px;
@@ -45,16 +71,197 @@
     -webkit-padding-start: 0;
 }
 #current-layers li {
+    position: relative;
     background-color: white;
     list-style: none;
-    padding: 3px;
+    padding: 5px;
     cursor: default;
+    display: flex;
+    justify-content: space-between;
+    align-content: center;
+    align-items: center;
+    text-align: left;
 }
-#current-layers li::before {
-    padding-right: 1em;
-    content: " >";
+.layer-name {
+    flex: 1 1 auto;
+    max-width: 220px;
+}
+.edit-layer-name {
+    flex: 1 1 auto;
+    max-width: 220px;
+    line-height: normal;
+}
+.ui-state-highlight {
+    height: 1.5em;
+    line-height: 1.2em;
+}
+.chkbx-layer {
+    margin: 0 5px 0 0 !important;
+}
+.hmbrgr-div {
+    width: 22px;
+    height: 22px;
+    border-radius: 2px;
+}
+.hmbrgr-div:hover {
+    box-shadow: 0 1px 1px 1px #bbbbbb;
+}
+.hmbrgr-div img {
+    width: 18px;
+    margin: 2px;
+}
+.hmbrgr-open {
+    background-color: #a1a1a1;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                   BASE MODAL                      */
+.modal-dialog {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+.modal-content {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+.modal-header {
+    height: 70px;
+}
+.modal-body {
+    position: fixed;
+    top: 70px;
+    bottom: 65px;
+    right: 0;
+    left: 0;
+    overflow-y: auto;
+    border-bottom: 1px solid #e5e5e5;
+}
+.modal-footer {
+    height: 65px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    left: 0;
+}
+.modal-body td, .modal-body th {
+    padding: 10px;
+}
+.modal-info {
+    margin-right: 38%;
+}
+.import-btn {
     cursor: pointer;
 }
-#current-layers li:hover {
-    background-color: #1abc9c;
+/*****************************************************/
+
+/*****************************************************/
+/*                  HS RES MODAL                     */
+#modalLoadRes tbody tr:hover {
+    background-color: #0099ff;
+    color: white;
+    cursor: pointer;
+}
+#modalLoadRes .modal-body {
+    bottom: 110px;
+    right: 1px;
+    left: inherit;
+}
+#div-chkbx-res-auto-close {
+    position: fixed;
+    bottom: 65px;
+    margin: 10px 0 5px 0;
+    height: 30px;
+}
+#chkbx-res-auto-close {
+    margin-left: 25px;
+}
+
+input[type="radio"] {
+    cursor: pointer;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                  WELCOME MODAL                    */
+#modalWelcome .modal-body {
+    right: 1px;
+}
+.welcome-step {
+    font-size: 18px;
+}
+.welcome-substep1 {
+    font-size: 16px;
+}
+.welcome-substep2 {
+    font-size: 14px;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*               UPLOAD FILE MODAL                   */
+#modalLoadFile .modal-content {
+    position: static;
+}
+#modalLoadFile .modal-body {
+    position: static;
+}
+#modalLoadFile .modal-footer {
+    position: static;
+}
+#progress-bar {
+    position: relative;
+    top: -20px;
+    width: 0;
+    height: 20px;
+    background-color: blue;
+    z-index: 1;
+    color: blue;
+}
+#empty-bar {
+    background-color: grey;
+    color: grey;
+    height: 20px;
+}
+#progress-text {
+    position: relative;
+    top: -40px;
+    height: 20px;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    z-index: 2;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*             ATTR TABLE FILE MODAL                 */
+
+/*****************************************************/
+#modalAttrTbl .modal-dialog {
+    width: auto;
+    margin: 15px;
+}
+/*****************************************************/
+/*                 MAIN LOADING DIV                  */
+#div-loading {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/****************************************************/
+
+.dataTables_scrollHead {
+    overflow-x: auto;
 }

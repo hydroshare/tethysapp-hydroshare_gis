@@ -8,7 +8,6 @@ from geoserver.catalog import FailedRequestError
 import shutil
 from json import dumps
 from StringIO import StringIO
-from hurry.filesize import size
 
 hs_tempdir = '/tmp/hs_gis_files/'
 
@@ -218,7 +217,6 @@ def get_hs_res_list(request):
                 for res_file in hs.getResourceFileList(res_id):
                     res_size += res_file['size']
 
-                res_size = format_file_size(res_size)
             except Exception, err:
                 print str(err)
                 continue  # Can be removed if public not being public error is fixed
@@ -227,7 +225,7 @@ def get_hs_res_list(request):
                 'title': resource['resource_title'],
                 'type': resource['resource_type'],
                 'id': res_id,
-                'size': res_size if res_size != 0 else "N/A",
+                'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
                 'owner': resource['creator']
             })
 

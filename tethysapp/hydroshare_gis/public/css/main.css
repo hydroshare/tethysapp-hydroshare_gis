@@ -163,6 +163,11 @@
 
 /*****************************************************/
 /*                  HS RES MODAL                     */
+
+#modalLoadRes .modal-dialog {
+    width: auto;
+    margin: 15px;
+}
 #modalLoadRes tbody tr:hover {
     background-color: #0099ff;
     color: white;
@@ -247,7 +252,7 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
-/*             ATTR TABLE FILE MODAL                 */
+/*             ATTR TABLE MODAL                 */
 
 /*****************************************************/
 #modalAttrTbl .modal-dialog {

@@ -151,19 +151,11 @@ def extract_site_info_from_time_series(sqlite_file_path):
     return site_info
 
 
-def format_file_size(size):
-    units_key = 0
-    while size > 999:
-        size /= 1000.0
-        units_key += 1
-
-    units_dict = {
-        0: 'bytes',
-        1: 'kB',
-        2: 'MB',
-        3: 'GB',
-        4: 'TB',
-        5: 'PB'
-    }
-    print '{:3.1f}'.format(size) + units_dict[units_key]
-    return '{:3.1f}'.format(size) + units_dict[units_key]
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['bytes', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
+        if abs(num) < 1024.0:
+            if unit == 'bytes':
+                return "%3.1f %s" % (num, unit)
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)

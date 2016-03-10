@@ -7,6 +7,7 @@ from tethys_sdk.services import get_spatial_dataset_engine
 import requests
 import zipfile
 import os
+import sqlite3
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'localhost_geoserver'
@@ -18,8 +19,8 @@ uri = 'http://127.0.0.1:8000/apps/hydroshare-gis'
 def get_oauth_hs(request):
     global hs_hostname
 
-    client_id = getattr(settings, "SOCIAL_AUTH_HYDROSHARE_KEY", "None")
-    client_secret = getattr(settings, "SOCIAL_AUTH_HYDROSHARE_SECRET", "None")
+    client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
+    client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
 
     # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
     token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
@@ -71,7 +72,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
             return layer_name, layer_id
 
 
-def create_zipfile_from_file(res_file, filename, zip_path):
+def make_file_zipfile(res_file, filename, zip_path):
     if not os.path.exists(zip_path):
         if not os.path.exists(os.path.dirname(zip_path)):
             os.mkdir(os.path.dirname(zip_path))
@@ -113,7 +114,7 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
         extents = json['featureType']['latLonBoundingBox']
 
         attributes = json['featureType']['attributes']['attribute']
-        attributes_string = ""
+        attributes_string = ''
         for attribute in attributes:
             if attribute['name'] != 'the_geom':
                 attributes_string += attribute['name'] + ','
@@ -127,3 +128,42 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
 def get_geoserver_url():
     global geoserver_url
     return geoserver_url
+
+
+def extract_site_info_from_time_series(sqlite_file_path):
+    site_info = None
+    with sqlite3.connect(sqlite_file_path) as con:
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute('SELECT * FROM Sites')
+        site = cur.fetchone()
+        if site:
+            if site['Latitude'] and site['Longitude']:
+                site_info = {'lon': site['Longitude'], 'lat': site['Latitude'], 'units': 'Decimal degrees'}
+                if site['SpatialReferenceID']:
+                    cur.execute('SELECT * FROM SpatialReferences WHERE SpatialReferenceID=?',
+                                (site['SpatialReferenceID'],))
+                    spatialref = cur.fetchone()
+                    if spatialref:
+                        if spatialref['SRSName']:
+                            site_info['projection'] = spatialref['SRSName']
+
+    return site_info
+
+
+def format_file_size(size):
+    units_key = 0
+    while size > 999:
+        size /= 1000.0
+        units_key += 1
+
+    units_dict = {
+        0: 'bytes',
+        1: 'kB',
+        2: 'MB',
+        3: 'GB',
+        4: 'TB',
+        5: 'PB'
+    }
+    print '{:3.1f}'.format(size) + units_dict[units_key]
+    return '{:3.1f}'.format(size) + units_dict[units_key]

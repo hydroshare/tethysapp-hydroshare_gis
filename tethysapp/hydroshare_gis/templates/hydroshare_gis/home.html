@@ -22,6 +22,7 @@
                 <div class="modal-body">
                     <input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj, .tif, .zip">
                     <br>
+                    <div id="msg-file" class="hidden"></div>
                     <div id="empty-bar" class="hidden"></div>
                     <div id="progress-bar" class="hidden"></div>
                     <div id="progress-text" class="hidden">0%</div>
@@ -36,7 +37,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-default btn-upload" id="btn-upload-file">Upload</button>
+                    <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled="disabled">Upload</button>
                 </div>
             </div>
             <!--End modal content-->
@@ -68,7 +69,7 @@
                         <img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-default btn-upload hidden" id="btn-upload-res">Upload</button>
+                    <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled="disabled">Upload</button>
                 </div>
             </div>
             <!--End modal content-->

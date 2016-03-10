@@ -8,6 +8,7 @@ from geoserver.catalog import FailedRequestError
 import shutil
 from json import dumps
 from StringIO import StringIO
+from hurry.filesize import size
 
 hs_tempdir = '/tmp/hs_gis_files/'
 
@@ -39,15 +40,18 @@ def load_file(request):
     res_id = None
     res_type = None
     res_title = None
-    res_files = None
+    res_filepath_or_obj = None
     is_zip = False
+    site_info = None
+    layer_name = None
+    layer_id = None
+    layer_extents = None
+    layer_attributes = None
 
     if not os.path.exists(hs_tempdir):
         os.mkdir(hs_tempdir)
 
     if request.is_ajax() and request.method == 'POST':
-
-        # Get/check files from AJAX request
         res_files = request.FILES.getlist('files')
 
         for res_file in res_files:
@@ -55,13 +59,14 @@ def load_file(request):
             if file_name.endswith('.shp'):
                 res_id = str(file_name[:-4].__hash__())
                 res_type = 'GeographicFeatureResource'
+                res_filepath_or_obj = res_files
                 break
             elif file_name.endswith('.tif'):
                 res_id = str(file_name[:-4].__hash__())
                 res_type = 'RasterResource'
                 res_zip = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
-                create_zipfile_from_file(res_file, file_name, res_zip)
-                res_files = res_zip
+                make_file_zipfile(res_file, file_name, res_zip)
+                res_filepath_or_obj = res_zip
                 break
             elif file_name.endswith('.zip'):
                 is_zip = True
@@ -81,7 +86,7 @@ def load_file(request):
                                 res_id = str(name[:-4].__hash__())
                                 res_type = 'RasterResource'
                 os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
-                res_files = os.path.join(hs_tempdir, res_id, file_name)
+                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name)
 
     elif request.is_ajax() and request.method == 'GET':
         try:
@@ -140,15 +145,21 @@ def load_file(request):
             print 'res_contents_dir: %s' % res_contents_dir
 
             if os.path.exists(res_contents_dir):
+                print "res_contents_dir exists"
                 for file_name in os.listdir(res_contents_dir):
+                    print "file_name: %s" % file_name
                     if file_name.endswith('.shp'):
-                        res_files = os.path.join(res_contents_dir, file_name[:-4])
+                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
                         break
                     elif file_name.endswith('.tif'):
-                        res_files = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
-                        create_zipfile_from_file(os.path.join(res_contents_dir, file_name), file_name, res_files)
+                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
+                        make_file_zipfile(os.path.join(res_contents_dir, file_name), file_name, res_filepath_or_obj)
                         break
-            print 'res_files: %s' % res_files
+                    elif file_name.endswith('.sqlite'):
+                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
+                        layer_name = res_title
+
+            print 'res_filepath_or_obj: %s' % res_filepath_or_obj
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -164,13 +175,14 @@ def load_file(request):
     else:
         return get_json_response('error', 'Invalid request made.')
 
-    layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
-    print 'layer_id: %s' % layer_id
+    if res_type != 'TimeSeriesResource':
+        layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip)
+        print 'layer_id: %s' % layer_id
 
-    layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
+        layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
-    if 'res_' in layer_name:
-        layer_name = res_title
+        if layer_name and 'res_' in layer_name:
+            layer_name = res_title
 
     if res_id:
         if os.path.exists(os.path.join(hs_tempdir, res_id)):
@@ -183,7 +195,9 @@ def load_file(request):
         'layer_id': layer_id,
         'layer_extents': layer_extents,
         'layer_attributes': layer_attributes,
-        'res_type': res_type
+        'res_type': res_type,
+        'site_info': site_info,
+        'res_id': res_id
     })
 
 
@@ -196,10 +210,25 @@ def get_hs_res_list(request):
 
         for resource in hs.getResourceList(
                 types=['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']):
+
+            res_id = resource['resource_id']
+            res_size = 0
+
+            try:
+                for res_file in hs.getResourceFileList(res_id):
+                    res_size += res_file['size']
+
+                res_size = format_file_size(res_size)
+            except Exception, err:
+                print str(err)
+                continue  # Can be removed if public not being public error is fixed
+
             valid_res_list.append({
                 'title': resource['resource_title'],
                 'type': resource['resource_type'],
-                'id': resource['resource_id']
+                'id': res_id,
+                'size': res_size if res_size != 0 else "N/A",
+                'owner': resource['creator']
             })
 
         valid_res_json = dumps(valid_res_list)

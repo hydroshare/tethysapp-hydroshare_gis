@@ -238,6 +238,12 @@ input[type="radio"] {
     font-weight: bold;
     z-index: 2;
 }
+#msg-file {
+    background-color: darkred;
+    color: white;
+    margin: 10px;
+    text-align: center;
+}
 /*****************************************************/
 
 /*****************************************************/

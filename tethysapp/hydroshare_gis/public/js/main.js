@@ -75,6 +75,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalInfo,
         $modalLoadFile,
         $modalLoadRes,
+        $modalSymbology,
         $progressBar,
         $progressText,
         $uploadBtn;
@@ -86,6 +87,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     addLayerToUI = function (response) {
         var contextMenu,
             geoserverUrl,
+            geomType,
             layerAttributes,
             layerExtents,
             layerName,
@@ -98,6 +100,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             $newLayerListElement;
 
         if (response.hasOwnProperty('success')) {
+            geomType = response.geom_type;
             layerAttributes = response.layer_attributes;
             layerName = response.layer_name;
             layerId = response.layer_id || response.res_id;
@@ -140,6 +143,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                     'data-layer-index="' + layerCount.get() + '" ' +
                     'data-layer-id="' + layerId + '" ' +
                     'data-res-type="' + resType + '" ' +
+                    'data-geom-type="' + geomType + '" ' +
                     'data-layer-attributes="' + layerAttributes + '">' +
                     '<input class="chkbx-layer" type="checkbox" checked>' +
                     '<span class="layer-name">' + layerName + '</span>' +
@@ -278,6 +282,32 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
         $(window).on('resize', function () {
             $('#map').css('height', $('#app-content').height());
+        });
+
+        $('#btn-apply-symbology').on('click', function () {
+            var cssStyles = {},
+                me = $(this),
+                geomType = me.attr('data-geom-type'),
+                layerId = me.attr('data-layer-id');
+
+            $.ajax({
+                type: 'GET',
+                url: 'modify-layer-style',
+                data: {
+                    'geom_type': geomType,
+                    'layer_id': layerId,
+                    'css_styles': "{'fill': '#ffffff', 'stroke': '#ff00ff'}"
+                },
+                error: function () {
+                    console.error('Error!');
+                },
+                success: function (response) {
+                    if (response.hasOwnProperty('success')) {
+                        var layerIndex = me.attr('data-layer-index');
+                        map.getLayers().item(layerIndex).getSource().updateParams({'TIME': Date.now()});
+                    }
+                }
+            });
         });
     };
 
@@ -500,6 +530,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                                 footer: true
                             }
                         });
+                        redrawDataTable(dataTableLoadRes, $modalLoadRes);
 
                         $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
                     }
@@ -573,6 +604,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadRes = $('#modalLoadRes');
+        $modalSymbology = $('#modalSymbology');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
         $uploadBtn = $('.btn-upload');
@@ -581,6 +613,22 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeLayersContextMenu = function () {
         layersContextMenuGeneral = [
             {
+                name: 'Modify symbology',
+                title: 'Modify symbology',
+                fun: function (e) {
+                    var clickedElement = e.trigger.context,
+                        $dataElement = $(clickedElement).parent().parent(),
+                        geomType = $dataElement.attr('data-geom-type'),
+                        layerId = $dataElement.attr('data-layer-id'),
+                        layerIndex = $dataElement.attr('data-layer-index');
+
+                    $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $dataElement.find('.layer-name').text());
+                    $modalSymbology.find('#btn-apply-symbology').attr('data-geom-type', geomType);
+                    $modalSymbology.find('#btn-apply-symbology').attr('data-layer-id', layerId);
+                    $modalSymbology.find('#btn-apply-symbology').attr('data-layer-index', layerIndex);
+                    $modalSymbology.modal('show');
+                }
+            }, {
                 name: 'Rename',
                 title: 'Rename',
                 fun: function (e) {
@@ -927,7 +975,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
-    generateResourceList();
+    //generateResourceList();
 
     layerCount = (function () {
         // The count = 2 accounts for the 3 base maps added before this count is initialized

@@ -8,6 +8,10 @@ import requests
 import zipfile
 import os
 import sqlite3
+import xml.etree.ElementTree as ET
+import ast
+import inspect
+from random import randint
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'localhost_geoserver'
@@ -97,6 +101,7 @@ def return_spatial_dataset_engine():
 
 def get_layer_extents_and_attributes(res_id, layer_name, res_type):
     global geoserver_url
+    geom_type = None
 
     if res_type == 'GeographicFeatureResource':
         url = geoserver_url + '/rest/workspaces/hydroshare_gis/datastores/res_' + res_id + \
@@ -116,13 +121,15 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
         attributes = json['featureType']['attributes']['attribute']
         attributes_string = ''
         for attribute in attributes:
-            if attribute['name'] != 'the_geom':
+            if attribute['name'] == 'the_geom':
+                geom_type = attribute['binding'].split('.')[-1]
+            else:
                 attributes_string += attribute['name'] + ','
     else:
         extents = json['coverage']['latLonBoundingBox']
         attributes_string = ','
 
-    return extents, attributes_string[:-1]
+    return extents, attributes_string[:-1], geom_type
 
 
 def get_geoserver_url():
@@ -159,3 +166,59 @@ def sizeof_fmt(num, suffix='B'):
             return "%3.1f %s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
+
+
+def update_layer_style(layer_id, geom_type, css_styles):
+    sld_template = None
+    css_styles = ast.literal_eval(css_styles)
+
+    engine = return_spatial_dataset_engine()
+
+    this_script_path = inspect.getfile(inspect.currentframe())
+    sld_folder_path = this_script_path.replace('utilities.py', 'public/sld/')
+
+    sld_template_dict = {
+        'polygon': sld_folder_path + 'polygon',
+        'surface': sld_folder_path + 'polygon',
+        'line': sld_folder_path + 'polyline',
+        'point': sld_folder_path + 'point',
+    }
+
+    for key in sld_template_dict:
+        if key in geom_type:
+            sld_template = sld_template_dict[key]
+            break
+
+    sld_template += '_with_labels.sld' if 'label' in css_styles else '_no_labels.sld'
+    tmp_style_file = '/tmp/hs_gis_files/hs_gis_styles/tempstyle.sld'
+
+    tree = ET.parse(sld_template)
+    root = tree.getroot()
+    for param in root.iter('{http://www.opengis.net/sld}CssParameter'):
+        param_name = param.get('name')
+        if param_name in css_styles:
+            param.text = css_styles[param_name]
+
+    tree.write(tmp_style_file)
+
+    style_name = 'tmpstyle' + str(randint(0, 10000))
+
+    with open(tmp_style_file) as style_file:
+        engine.create_style(style_name, style_file.read(), True)
+
+    engine.update_layer(layer_id=layer_id, default_style=style_name)
+
+    os.remove(tmp_style_file)
+
+    return True
+
+
+def request_wfs_info(params):
+    url = get_geoserver_url()
+    url += '/wfs'
+
+    username = 'admin'
+    password = 'geoserver'
+    r = requests.get(url, params=params, auth=(username, password))
+
+    return r

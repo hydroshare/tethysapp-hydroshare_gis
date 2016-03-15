@@ -42,6 +42,7 @@ def load_file(request):
     res_filepath_or_obj = None
     is_zip = False
     site_info = None
+    geom_type = None
     layer_name = None
     layer_id = None
     layer_extents = None
@@ -121,7 +122,7 @@ def load_file(request):
                     print 'layer_name: %s' % layer_name
                     layer_id = '%s:%s' % (workspace_id, layer_name)
                     print 'layer_id: %s' % layer_id
-                    layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
+                    layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
                     return JsonResponse({
                         'success': 'Files uploaded successfully.',
@@ -130,7 +131,8 @@ def load_file(request):
                         'layer_id': layer_id,
                         'layer_extents': dumps(layer_extents),
                         'layer_attributes': layer_attributes,
-                        'res_type': res_type
+                        'res_type': res_type,
+                        'geom_type': geom_type
                     })
             except FailedRequestError, e:
                 print e
@@ -178,7 +180,7 @@ def load_file(request):
         layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip)
         print 'layer_id: %s' % layer_id
 
-        layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
+        layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
         if layer_name and 'res_' in layer_name:
             layer_name = res_title
@@ -196,7 +198,8 @@ def load_file(request):
         'layer_attributes': layer_attributes,
         'res_type': res_type,
         'site_info': site_info,
-        'res_id': res_id
+        'res_id': res_id,
+        'geom_type': geom_type
     })
 
 
@@ -239,8 +242,6 @@ def get_hs_res_list(request):
 
 def generate_attribute_table(request):
     if request.is_ajax() and request.method == 'GET':
-        url = get_geoserver_url()
-
         layer_id = request.GET['layerId']
         layer_attributes = request.GET['layerAttributes']
 
@@ -252,13 +253,9 @@ def generate_attribute_table(request):
             'propertyName': layer_attributes,
             'outputFormat': 'application/json'
         }
-        url += '/wfs'
 
-        username = 'admin'
-        password = 'geoserver'
-        r = requests.get(url, params=params, auth=(username, password))
-        print r.url
-        json = r.json()
+        r = request_wfs_info(params)
+        json = r.json
 
         feature_properties = []
 
@@ -270,3 +267,16 @@ def generate_attribute_table(request):
             'success': 'Resources obtained successfully.',
             'feature_properties': dumps(feature_properties)
         })
+
+
+def modify_layer_style(request):
+    if request.is_ajax() and request.method == 'GET':
+        layer_id = request.GET['layer_id']
+        geom_type = request.GET['geom_type'].lower()
+        css_styles = request.GET['css_styles']
+        update_successful = update_layer_style(layer_id, geom_type, css_styles)
+
+        if update_successful:
+            return JsonResponse({
+                'success': 'Resources obtained successfully.',
+            })

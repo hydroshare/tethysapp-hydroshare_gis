@@ -169,6 +169,7 @@ def sizeof_fmt(num, suffix='B'):
 
 
 def update_layer_style(layer_id, geom_type, css_styles):
+    temp_style_directory = '/tmp/hs_gis_files/hs_gis_styles'
     sld_template = None
     css_styles = ast.literal_eval(css_styles)
 
@@ -190,7 +191,11 @@ def update_layer_style(layer_id, geom_type, css_styles):
             break
 
     sld_template += '_with_labels.sld' if 'label' in css_styles else '_no_labels.sld'
-    tmp_style_file = '/tmp/hs_gis_files/hs_gis_styles/tempstyle.sld'
+
+    if not os.path.exists(temp_style_directory):
+        os.mkdir(temp_style_directory)
+
+    tmp_style_file = os.path.join(temp_style_directory, 'tempstyle.sld')
 
     tree = ET.parse(sld_template)
     root = tree.getroot()

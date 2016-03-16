@@ -116,7 +116,7 @@
                                     </p>
                                 </li>
                                 <li class="welcome-substep1">Rename a layer
-                                <p>Right click the layer and select "Rename" or double click the layer name. Press 'Enter' when done.</p>
+                                    <p>Right click the layer and select "Rename" or double click the layer name. Press 'Enter' when done.</p>
                                 </li>
                                 <li class="welcome-substep1">Zoom to a layer
                                     <p>Right click the layer and select "Zoom to"</p>
@@ -158,11 +158,43 @@
                     <h4 class="modal-title"></h4>
                 </div>
                 <div class="modal-body">
-                    Options will go here...
+                    <form>
+                        <h4>Polygon</h4>
+                        <fieldset id="fill-options">
+                            <h6>Fill</h6>
+                            <label for="poly-fill">Fill color:</label>
+                            <input type="text" id="poly-fill">
+                        </fieldset>
+                        <br>
+                        <label for="outline">Include Outline:</label>
+                        <input type="checkbox" id="chkbx-include-outline">
+                        <br>
+                        <fieldset id="outline-options" class="hidden">
+                            <h6>Outline</h6>
+                            <label for="poly-stroke">Outline color:</label>
+                            <input type="text" id="poly-stroke">
+                            <br><br>
+                            <label for="poly-stroke-width">Outline width:</label>
+                            <select id="poly-stroke-width">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                            </select>
+                        </fieldset>
+                    </form>
+                    <h4>Preview:</h4>
+                    <div id="symbology-preview"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" id="btn-apply-symbology" class="btn btn-default">Apply</button>
+                    <button type="button" id="btn-apply-symbology" disabled class="btn btn-default">Apply</button>
                 </div>
             </div>
             <!--End modal content-->

@@ -253,11 +253,26 @@ input[type="radio"] {
 
 /*****************************************************/
 /*             ATTR TABLE MODAL                 */
-
-/*****************************************************/
 #modalAttrTbl .modal-dialog {
     width: auto;
     margin: 15px;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*             SYMBOLOGY MODAL                 */
+#modalSymbology .modal-content {
+    position: static;
+}
+#modalSymbology .modal-body {
+    position: static;
+}
+#modalSymbology .modal-footer {
+    position: static;
+}
+#symbology-preview {
+    width: 30px;
+    height: 30px;
 }
 /*****************************************************/
 /*                 MAIN LOADING DIV                  */

@@ -9,6 +9,7 @@
  *                  https://www.npmjs.com/package/reproject
  *                  http://www.ajaxload.info/
  *                  http://datatables.net/
+ *                  http://bgrins.github.io/spectrum/
  *
  *****************************************************************************/
 
@@ -68,6 +69,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         uploadResourceButtonHandler,
         zoomToLayer,
     //  **********Query Selectors************
+        $btnApplySymbology,
         $currentLayersList,
         $emptyBar,
         $loadingAnimMain,
@@ -280,15 +282,64 @@ var HS_GIS = (function packageHydroShareGIS() {
                 redrawDataTable(dataTableLoadRes, $(this));
             }
         });
+
+        $('#chkbx-include-outline').on('change', function () {
+            $('#outline-options').toggleClass('hidden');
+        });
+
+        $('#poly-fill').spectrum({
+            showInput: true,
+            allowEmpty: true,
+            showAlpha: true,
+            showPalette: true,
+            chooseText: "Choose",
+            cancelText: "Cancel",
+            change: function (color) {
+                $('#symbology-preview').css('background-color', color.toRgbString());
+                $btnApplySymbology.removeAttr('disabled');
+            }
+        });
+
+        $('#poly-stroke').spectrum({
+            showInput: true,
+            allowEmpty: true,
+            showAlpha: true,
+            showPalette: true,
+            chooseText: "Choose",
+            cancelText: "Cancel",
+            change: function (color) {
+                var outlineString;
+                outlineString = $('#poly-stroke-width').val().toString();
+                outlineString += 'px solid ';
+                outlineString += color.toRgbString();
+                $('#symbology-preview').css('outline', outlineString);
+                $btnApplySymbology.removeAttr('disabled');
+            }
+        });
+
+        $('#poly-stroke-width').on('change', function () {
+            var outlineString;
+
+            outlineString = $(this).val().toString();
+            outlineString += 'px solid ';
+            outlineString += $('#poly-stroke').spectrum('get').toRgbString();
+            $('#symbology-preview').css('outline', outlineString);
+        });
+
         $(window).on('resize', function () {
             $('#map').css('height', $('#app-content').height());
         });
 
-        $('#btn-apply-symbology').on('click', function () {
+        $btnApplySymbology.on('click', function () {
             var cssStyles = {},
                 me = $(this),
                 geomType = me.attr('data-geom-type'),
                 layerId = me.attr('data-layer-id');
+
+            cssStyles.fill = $('#poly-fill').spectrum('get').toHexString();
+            cssStyles['fill-opacity'] = $('#poly-fill').spectrum('get').getAlpha().toString();
+            cssStyles.stroke = $('#poly-stroke').spectrum('get').toHexString();
+            cssStyles['stroke-width'] = $('#poly-stroke-width').val();
 
             $.ajax({
                 type: 'GET',
@@ -296,7 +347,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 data: {
                     'geom_type': geomType,
                     'layer_id': layerId,
-                    'css_styles': "{'fill': '#ffffff', 'stroke': '#ff00ff'}"
+                    'css_styles': JSON.stringify(cssStyles)
                 },
                 error: function () {
                     console.error('Error!');
@@ -597,6 +648,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     initializeJqueryVariables = function () {
+        $btnApplySymbology = $('#btn-apply-symbology');
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
         $loadingAnimMain = $('#div-loading');

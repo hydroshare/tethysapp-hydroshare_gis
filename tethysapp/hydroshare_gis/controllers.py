@@ -255,7 +255,7 @@ def generate_attribute_table(request):
         }
 
         r = request_wfs_info(params)
-        json = r.json
+        json = r.json()
 
         feature_properties = []
 

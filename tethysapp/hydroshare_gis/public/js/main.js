@@ -362,7 +362,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 success: function (response) {
                     if (response.hasOwnProperty('success')) {
                         var layerIndex = me.attr('data-layer-index'),
-                            sldUrl = '127.0.0.1:8000/static/hydroshare_gis/sld/user-defined/' + layerId + '.sld';
+                            sldUrl = 'http://127.0.0.1:8000/static/hydroshare_gis/sld/user-defined/' + layerId + '.sld';
                         map.getLayers().item(layerIndex).getSource().updateParams({'SLD': sldUrl});
                     }
                 }

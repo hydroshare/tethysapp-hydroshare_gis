@@ -280,3 +280,11 @@ def modify_layer_style(request):
             return JsonResponse({
                 'success': 'Resources obtained successfully.',
             })
+
+
+def delete_temp_files(request):
+    if request.is_ajax() and request.method == 'GET':
+        this_script_path = inspect.getfile(inspect.currentframe())
+        temp_style_directory = this_script_path.replace('controllers.py', 'public/sld/user-defined')
+        if os.path.exists(temp_style_directory):
+            shutil.rmtree(temp_style_directory)

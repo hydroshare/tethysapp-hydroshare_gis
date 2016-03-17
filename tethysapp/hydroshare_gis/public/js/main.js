@@ -142,16 +142,16 @@ var HS_GIS = (function packageHydroShareGIS() {
 
             $currentLayersList.prepend(
                 '<li class="ui-state-default" ' +
-                    'data-layer-index="' + layerCount.get() + '" ' +
-                    'data-layer-id="' + layerId + '" ' +
-                    'data-res-type="' + resType + '" ' +
-                    'data-geom-type="' + geomType + '" ' +
-                    'data-layer-attributes="' + layerAttributes + '">' +
-                    '<input class="chkbx-layer" type="checkbox" checked>' +
-                    '<span class="layer-name">' + layerName + '</span>' +
-                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
-                    '</li>'
+                'data-layer-index="' + layerCount.get() + '" ' +
+                'data-layer-id="' + layerId + '" ' +
+                'data-res-type="' + resType + '" ' +
+                'data-geom-type="' + geomType + '" ' +
+                'data-layer-attributes="' + layerAttributes + '">' +
+                '<input class="chkbx-layer" type="checkbox" checked>' +
+                '<span class="layer-name">' + layerName + '</span>' +
+                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
+                '</li>'
             );
 
             drawLayersInListOrder();
@@ -160,14 +160,14 @@ var HS_GIS = (function packageHydroShareGIS() {
             $newLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
             switch (resType) {
-            case 'GeographicFeatureResource':
-                contextMenu = layersContextMenuShpfile;
-                break;
-            case 'TimeSeriesResource':
-                contextMenu = layersContextMenuTimeSeries;
-                break;
-            default:
-                contextMenu = layersContextMenuGeneral;
+                case 'GeographicFeatureResource':
+                    contextMenu = layersContextMenuShpfile;
+                    break;
+                case 'TimeSeriesResource':
+                    contextMenu = layersContextMenuTimeSeries;
+                    break;
+                default:
+                    contextMenu = layersContextMenuGeneral;
             }
             $newLayerListElement.find('.hmbrgr-div img')
                 .contextMenu('menu', contextMenu, {
@@ -234,6 +234,13 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     addInitialEventListeners = function () {
+        $(window).on('beforeunload', function () {
+            $.ajax({
+                type: "GET",
+                url: 'delete-temp-files'
+            });
+        });
+
         $('.basemap-option').on('click', changeBaseMap);
 
         $modalLoadFile.on('hidden.bs.modal', function () {
@@ -354,8 +361,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                 },
                 success: function (response) {
                     if (response.hasOwnProperty('success')) {
-                        var layerIndex = me.attr('data-layer-index');
-                        map.getLayers().item(layerIndex).getSource().updateParams({'TIME': Date.now()});
+                        var layerIndex = me.attr('data-layer-index'),
+                            sldUrl = '127.0.0.1:8000/static/hydroshare_gis/sld/user-defined/' + layerId + '.sld';
+                        map.getLayers().item(layerIndex).getSource().updateParams({'SLD': sldUrl});
                     }
                 }
             });

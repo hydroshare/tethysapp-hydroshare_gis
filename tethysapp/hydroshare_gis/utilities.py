@@ -11,7 +11,6 @@ import sqlite3
 import xml.etree.ElementTree as ET
 import ast
 import inspect
-from random import randint
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'localhost_geoserver'
@@ -169,14 +168,14 @@ def sizeof_fmt(num, suffix='B'):
 
 
 def update_layer_style(layer_id, geom_type, css_styles):
-    temp_style_directory = '/tmp/hs_gis_files/hs_gis_styles'
     sld_template = None
     css_styles = ast.literal_eval(css_styles)
 
-    engine = return_spatial_dataset_engine()
+    # engine = return_spatial_dataset_engine()
 
     this_script_path = inspect.getfile(inspect.currentframe())
-    sld_folder_path = this_script_path.replace('utilities.py', 'public/sld/')
+    sld_folder_path = this_script_path.replace('utilities.py', 'public/sld/templates/')
+    temp_style_directory = this_script_path.replace('utilities.py', 'public/sld/user-defined/')
 
     sld_template_dict = {
         'polygon': sld_folder_path + 'polygon',
@@ -195,7 +194,10 @@ def update_layer_style(layer_id, geom_type, css_styles):
     if not os.path.exists(temp_style_directory):
         os.mkdir(temp_style_directory)
 
-    tmp_style_file = os.path.join(temp_style_directory, 'tempstyle.sld')
+    tmp_style_file = os.path.join(temp_style_directory, layer_id + '.sld')
+
+    if os.path.exists(tmp_style_file):
+        os.remove(tmp_style_file)
 
     tree = ET.parse(sld_template)
     root = tree.getroot()
@@ -206,14 +208,14 @@ def update_layer_style(layer_id, geom_type, css_styles):
 
     tree.write(tmp_style_file)
 
-    style_name = 'tmpstyle' + str(randint(0, 10000))
-
-    with open(tmp_style_file) as style_file:
-        engine.create_style(style_name, style_file.read(), True)
-
-    engine.update_layer(layer_id=layer_id, default_style=style_name)
-
-    os.remove(tmp_style_file)
+    # style_name = 'tmpstyle' + str(randint(0, 10000))
+    #
+    # with open(tmp_style_file) as style_file:
+    #     engine.create_style(style_name, style_file.read(), True)
+    #
+    # engine.update_layer(layer_id=layer_id, default_style=style_name)
+    #
+    # os.remove(tmp_style_file)
 
     return True
 

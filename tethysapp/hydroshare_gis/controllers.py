@@ -274,11 +274,11 @@ def modify_layer_style(request):
         layer_id = request.GET['layer_id']
         geom_type = request.GET['geom_type'].lower()
         css_styles = request.GET['css_styles']
-        update_successful = update_layer_style(layer_id, geom_type, css_styles)
+        file_was_created = create_style_file(layer_id, geom_type, css_styles)
 
-        if update_successful:
+        if file_was_created:
             return JsonResponse({
-                'success': 'Resources obtained successfully.',
+                'success': 'Resources obtained successfully.'
             })
 
 
@@ -288,3 +288,7 @@ def delete_temp_files(request):
         temp_style_directory = this_script_path.replace('controllers.py', 'public/sld/user-defined')
         if os.path.exists(temp_style_directory):
             shutil.rmtree(temp_style_directory)
+
+    return JsonResponse({
+                'success': 'Temp files successfully deleted!'
+            })

@@ -1,0 +1,23 @@
+<StyledLayerDescriptor version="1.0.0">
+    <NamedLayer>
+        <Name>layer_id</Name>
+        <UserStyle>
+            <FeatureTypeStyle>
+                <Rule>
+                    <PolygonSymbolizer>
+                        <Fill>
+                            <CssParameter name="fill">#0000ff</CssParameter>
+                            <CssParameter name="fill-opacity">0.75</CssParameter>
+                        </Fill>
+                    </PolygonSymbolizer>
+                    <LineSymbolizer>
+                        <Stroke>
+                            <CssParameter name="stroke">#000000</CssParameter>
+                            <CssParameter name="stroke-width">0.5</CssParameter>
+                        </Stroke>
+                    </LineSymbolizer>
+                </Rule>
+            </FeatureTypeStyle>
+        </UserStyle>
+    </NamedLayer>
+</StyledLayerDescriptor>

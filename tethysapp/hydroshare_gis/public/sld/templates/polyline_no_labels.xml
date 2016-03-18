@@ -1,0 +1,18 @@
+<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">
+    <NamedLayer>
+        <Name>layer_id</Name>
+        <UserStyle>
+            <FeatureTypeStyle>
+                <Rule>
+                    <LineSymbolizer>
+                        <Stroke>
+                            <CssParameter name="stroke">#ffa500</CssParameter>
+                            <CssParameter name="stroke-width">2</CssParameter>
+                            <CssParameter name="stroke-dasharray">1.0 0.0</CssParameter>
+                        </Stroke>
+                    </LineSymbolizer>
+                </Rule>
+            </FeatureTypeStyle>
+        </UserStyle>
+    </NamedLayer>
+</StyledLayerDescriptor>

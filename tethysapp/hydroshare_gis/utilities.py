@@ -167,11 +167,9 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def update_layer_style(layer_id, geom_type, css_styles):
+def create_style_file(layer_id, geom_type, css_styles):
     sld_template = None
     css_styles = ast.literal_eval(css_styles)
-
-    # engine = return_spatial_dataset_engine()
 
     this_script_path = inspect.getfile(inspect.currentframe())
     sld_folder_path = this_script_path.replace('utilities.py', 'public/sld/templates/')
@@ -189,7 +187,7 @@ def update_layer_style(layer_id, geom_type, css_styles):
             sld_template = sld_template_dict[key]
             break
 
-    sld_template += '_with_labels.sld' if 'label' in css_styles else '_no_labels.sld'
+    sld_template += '_with_labels.xml' if 'label' in css_styles else '_no_labels.xml'
 
     if not os.path.exists(temp_style_directory):
         os.mkdir(temp_style_directory)
@@ -201,21 +199,15 @@ def update_layer_style(layer_id, geom_type, css_styles):
 
     tree = ET.parse(sld_template)
     root = tree.getroot()
-    for param in root.iter('{http://www.opengis.net/sld}CssParameter'):
+    # for param in root.iter('{http://www.opengis.net/sld}CssParameter'):
+    for param in root.iter('CssParameter'):
         param_name = param.get('name')
         if param_name in css_styles:
             param.text = css_styles[param_name]
 
+    for param in root.iter('Name'):
+        param.text = layer_id
     tree.write(tmp_style_file)
-
-    # style_name = 'tmpstyle' + str(randint(0, 10000))
-    #
-    # with open(tmp_style_file) as style_file:
-    #     engine.create_style(style_name, style_file.read(), True)
-    #
-    # engine.update_layer(layer_id=layer_id, default_style=style_name)
-    #
-    # os.remove(tmp_style_file)
 
     return True
 

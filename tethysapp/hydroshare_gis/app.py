@@ -35,11 +35,5 @@ class HydroshareGis(TethysAppBase):
                     url_map(name='generate_attribute_table',
                             url='hydroshare-gis/generate-attribute-table',
                             controller='hydroshare_gis.controllers.generate_attribute_table'),
-                    url_map(name='modify_layer_style',
-                            url='hydroshare-gis/modify-layer-style',
-                            controller='hydroshare_gis.controllers.modify_layer_style'),
-                    url_map(name='delete_temp_files',
-                            url='hydroshare-gis/delete-temp-files',
-                            controller='hydroshare_gis.controllers.delete_temp_files')
                     )
         return url_maps

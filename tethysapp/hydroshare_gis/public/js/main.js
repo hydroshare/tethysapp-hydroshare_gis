@@ -18,7 +18,9 @@
  *****************************************************************************/
 
 // Global directives for JSLint/JSHint
-/*global document, $, console, FormData, ol, window, setTimeout, reproject, proj4, pageX, pageY, clearInterval */
+/*global
+ document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
+ pageX, pageY, clearInterval, SLD_TEMPLATES */
 
 var HS_GIS = (function packageHydroShareGIS() {
 
@@ -64,6 +66,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         reprojectExtents,
         showMainLoadAnim,
         updateProgressBar,
+        updateSymbology,
         updateUploadProgress,
         uploadFileButtonHandler,
         uploadResourceButtonHandler,
@@ -135,7 +138,6 @@ var HS_GIS = (function packageHydroShareGIS() {
                         params: {
                             'LAYERS': layerId,
                             'TILED': true
-                            //'SLD': 'http://www.shawncrawley.com/test_sld.xml'
                         },
                         serverType: 'geoserver'
                     })
@@ -146,16 +148,16 @@ var HS_GIS = (function packageHydroShareGIS() {
 
             $currentLayersList.prepend(
                 '<li class="ui-state-default" ' +
-                    'data-layer-index="' + layerCount.get() + '" ' +
-                    'data-layer-id="' + layerId + '" ' +
-                    'data-res-type="' + resType + '" ' +
-                    'data-geom-type="' + geomType + '" ' +
-                    'data-layer-attributes="' + layerAttributes + '">' +
-                    '<input class="chkbx-layer" type="checkbox" checked>' +
-                    '<span class="layer-name">' + layerName + '</span>' +
-                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
-                    '</li>'
+                'data-layer-index="' + layerCount.get() + '" ' +
+                'data-layer-id="' + layerId + '" ' +
+                'data-res-type="' + resType + '" ' +
+                'data-geom-type="' + geomType + '" ' +
+                'data-layer-attributes="' + layerAttributes + '">' +
+                '<input class="chkbx-layer" type="checkbox" checked>' +
+                '<span class="layer-name">' + layerName + '</span>' +
+                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
+                '</li>'
             );
 
             drawLayersInListOrder();
@@ -164,14 +166,14 @@ var HS_GIS = (function packageHydroShareGIS() {
             $newLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
             switch (resType) {
-            case 'GeographicFeatureResource':
-                contextMenu = layersContextMenuShpfile;
-                break;
-            case 'TimeSeriesResource':
-                contextMenu = layersContextMenuTimeSeries;
-                break;
-            default:
-                contextMenu = layersContextMenuGeneral;
+                case 'GeographicFeatureResource':
+                    contextMenu = layersContextMenuShpfile;
+                    break;
+                case 'TimeSeriesResource':
+                    contextMenu = layersContextMenuTimeSeries;
+                    break;
+                default:
+                    contextMenu = layersContextMenuGeneral;
             }
             $newLayerListElement.find('.hmbrgr-div img')
                 .contextMenu('menu', contextMenu, {
@@ -238,13 +240,6 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     addInitialEventListeners = function () {
-        $(window).on('beforeunload', function () {
-            $.ajax({
-                type: "GET",
-                url: 'delete-temp-files',
-                async: false
-            });
-        });
 
         $('.basemap-option').on('click', changeBaseMap);
 
@@ -281,12 +276,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         $(document).on('change', '.chkbx-layer', function () {
             var index = Number($(this).parent().attr('data-layer-index'));
-
-            if ($(this).is(':checked')) {
-                map.getLayers().item(index).setVisible(true);
-            } else {
-                map.getLayers().item(index).setVisible(false);
-            }
+            map.getLayers().item(index).setVisible($(this).is(':checked'));
         });
 
         $modalLoadRes.on('shown.bs.modal', function () {
@@ -297,6 +287,11 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         $('#chkbx-include-outline').on('change', function () {
             $('#outline-options').toggleClass('hidden');
+        });
+
+        $('#chkbx-include-labels').on('change', function () {
+            $('#label-options').toggleClass('hidden');
+            $('#label-preview').toggleClass('hidden');
         });
 
         $('#poly-fill').spectrum({
@@ -338,43 +333,29 @@ var HS_GIS = (function packageHydroShareGIS() {
             $('#symbology-preview').css('outline', outlineString);
         });
 
+        $('#font-fill').spectrum({
+            showInput: true,
+            allowEmpty: true,
+            showAlpha: true,
+            showPalette: true,
+            chooseText: "Choose",
+            cancelText: "Cancel",
+            change: function (color) {
+                $('#label-preview').css('color', color.toRgbString());
+                $btnApplySymbology.removeAttr('disabled');
+            }
+        });
+
+        $('#font-size').on('change', function () {
+            $('#label-preview').css('font-size', $(this).val() + 'px');
+        });
+
         $(window).on('resize', function () {
             $('#map').css('height', $('#app-content').height());
         });
 
         $btnApplySymbology.on('click', function () {
-            var cssStyles = {},
-                me = $(this),
-                geomType = me.attr('data-geom-type'),
-                layerId = me.attr('data-layer-id');
-
-            cssStyles.fill = $('#poly-fill').spectrum('get').toHexString();
-            cssStyles['fill-opacity'] = $('#poly-fill').spectrum('get').getAlpha().toString();
-            cssStyles.stroke = $('#poly-stroke').spectrum('get').toHexString();
-            cssStyles['stroke-width'] = $('#poly-stroke-width').val();
-
-            $.ajax({
-                type: 'GET',
-                url: 'modify-layer-style',
-                data: {
-                    'geom_type': geomType,
-                    'layer_id': layerId,
-                    'css_styles': JSON.stringify(cssStyles)
-                },
-                error: function () {
-                    console.error('Error!');
-                },
-                success: function (response) {
-                    if (response.hasOwnProperty('success')) {
-                        var layerIndex = me.attr('data-layer-index'),
-                            currentUrl = window.location.protocol + window.location.host,
-                            sldUrl =  currentUrl + '/static/hydroshare_gis/sld/user-defined/' + layerId + '.sld';
-                        console.log(sldUrl);
-                        map.getLayers().item(layerIndex).getSource().updateParams({'SLD': sldUrl});
-                        map.render();
-                    }
-                }
-            });
+            updateSymbology($(this));
         });
     };
 
@@ -688,12 +669,29 @@ var HS_GIS = (function packageHydroShareGIS() {
                         $dataElement = $(clickedElement).parent().parent(),
                         geomType = $dataElement.attr('data-geom-type'),
                         layerId = $dataElement.attr('data-layer-id'),
-                        layerIndex = $dataElement.attr('data-layer-index');
+                        layerIndex = $dataElement.attr('data-layer-index'),
+                        labelFieldOptions = $dataElement.attr('data-layer-attributes').split(','),
+                        optionsHtmlString = '';
 
                     $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $dataElement.find('.layer-name').text());
-                    $modalSymbology.find('#btn-apply-symbology').attr('data-geom-type', geomType);
-                    $modalSymbology.find('#btn-apply-symbology').attr('data-layer-id', layerId);
-                    $modalSymbology.find('#btn-apply-symbology').attr('data-layer-index', layerIndex);
+                    $modalSymbology.find('#btn-apply-symbology').attr({
+                        'data-geom-type': geomType,
+                        'data-layer-id': layerId,
+                        'data-layer-index': layerIndex
+                    });
+
+                    labelFieldOptions.forEach(function (option) {
+                        optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
+                    });
+                    $('#label-field').html(optionsHtmlString);
+
+                    if (geomType.toLowerCase().indexOf('polygon') !== -1) {
+                        $('.polygon').removeClass('hidden');
+                    } else if (geomType.toLowerCase().indexOf('point') !== -1) {
+                        $('.point').removeClass('hidden');
+                    } else if (geomType.toLowerCase().indexOf('line') !== -1) {
+                        $('.line').removeClass('hidden');
+                    }
                     $modalSymbology.modal('show');
                 }
             }, {
@@ -937,6 +935,73 @@ var HS_GIS = (function packageHydroShareGIS() {
     updateProgressBar = function (value) {
         $progressBar.css('width', value);
         $progressText.text(value);
+    };
+
+    updateSymbology = function ($this) {
+        var geomType = $this.attr('data-geom-type'),
+            layerId = $this.attr('data-layer-id'),
+            layerIndex = $this.attr('data-layer-index'),
+            sldString,
+            addLabels,
+            style,
+            cssStyles = {
+                'layer-id': layerId
+            };
+
+        if ($('#poly-fill').spectrum('get') !== null) {
+            cssStyles.fill = $('#poly-fill').spectrum('get').toHexString();
+            cssStyles['fill-opacity'] = $('#poly-fill').spectrum('get').getAlpha().toString();
+        } else {
+            cssStyles.fill = '#FFFFFF';
+            cssStyles['fill-opacity'] = 0;
+        }
+        if ($('#poly-stroke').spectrum('get') !== null) {
+            cssStyles.stroke = $('#poly-stroke').spectrum('get').toHexString();
+            cssStyles['stroke-opacity'] = $('#poly-stroke').spectrum('get').getAlpha().toString();
+            cssStyles['stroke-width'] = $('#poly-stroke-width').val();
+        } else {
+            cssStyles.stroke = '#FFFFFF';
+            cssStyles['stroke-opacity'] = 0;
+            cssStyles['stroke-width'] = 0;
+        }
+        addLabels = $('#chkbx-include-labels').is(':checked');
+        if (addLabels) {
+            if ($('#poly-fill').spectrum('get') !== null) {
+                if ($('#font-fill').spectrum('get') !== null) {
+                    cssStyles['label-field'] = $('#label-field').val();
+                    cssStyles['font-size'] = $('#font-fize').val();
+                    cssStyles['font-fill'] = $('#font-fill').spectrum('get').toHexString();
+                    cssStyles['font-fill-opacity'] = $('#font-fill').spectrum('get').getAlpha().toString();
+                }
+            }
+        }
+        cssStyles['point-shape'] = $('#point-shape').val();
+        cssStyles['point-size'] = $('#point-size').val();
+
+        if (geomType.toLowerCase().indexOf('polygon') !== -1) {
+            sldString = SLD_TEMPLATES.polygon(addLabels);
+        } else if (geomType.toLowerCase().indexOf('line') !== -1) {
+            sldString = SLD_TEMPLATES.polyline(addLabels);
+        } else if (geomType.toLowerCase().indexOf('point') !== -1) {
+            sldString = SLD_TEMPLATES.point(addLabels);
+        }
+        //sldString = sldString.replace('{{layer-id}}', cssStyles['layer-id']);
+        //sldString = sldString.replace('{{fill}}', cssStyles.fill);
+        //sldString = sldString.replace('{{fill-opacity}}', cssStyles['fill-opacity']);
+        //sldString = sldString.replace('{{stroke}}', cssStyles.stroke);
+        //sldString = sldString.replace('{{stroke-opacity}}', cssStyles['stroke-opacity']);
+        //sldString = sldString.replace('{{stroke-width}}', cssStyles['stroke-width']);
+        //sldString = sldString.replace('{{point-shape}}', cssStyles['point-shape']);
+        //sldString = sldString.replace('{{point-size}}', cssStyles['point-size']);
+        //sldString = sldString.replace('{{label-field}}', cssStyles['point-size']);
+        //sldString = sldString.replace('{{font-size}}', cssStyles['point-size']);
+        for (style in cssStyles) {
+            if (cssStyles.hasOwnProperty(style)) {
+                sldString = sldString.replace('{{' + style + '}}', cssStyles[style]);
+            }
+        }
+
+        map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
     };
 
     updateUploadProgress = function (fileSize, currProg) {

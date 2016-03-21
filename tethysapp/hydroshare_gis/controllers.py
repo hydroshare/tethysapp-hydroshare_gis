@@ -268,20 +268,6 @@ def generate_attribute_table(request):
             'feature_properties': dumps(feature_properties)
         })
 
-
-def modify_layer_style(request):
-    if request.is_ajax() and request.method == 'GET':
-        layer_id = request.GET['layer_id']
-        geom_type = request.GET['geom_type'].lower()
-        css_styles = request.GET['css_styles']
-        file_was_created = create_style_file(layer_id, geom_type, css_styles)
-
-        if file_was_created:
-            return JsonResponse({
-                'success': 'Resources obtained successfully.'
-            })
-
-
 def delete_temp_files(request):
     if request.is_ajax() and request.method == 'GET':
         this_script_path = inspect.getfile(inspect.currentframe())

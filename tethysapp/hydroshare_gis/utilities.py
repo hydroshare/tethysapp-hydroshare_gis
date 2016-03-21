@@ -37,7 +37,7 @@ def get_json_response(response_type, message):
 
 
 def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
-    global geoserver_name, workspace_id, uri
+    global workspace_id
     result = None
 
     engine = return_spatial_dataset_engine()
@@ -165,51 +165,6 @@ def sizeof_fmt(num, suffix='B'):
             return "%3.1f %s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
-
-
-def create_style_file(layer_id, geom_type, css_styles):
-    sld_template = None
-    css_styles = ast.literal_eval(css_styles)
-
-    this_script_path = inspect.getfile(inspect.currentframe())
-    sld_folder_path = this_script_path.replace('utilities.py', 'public/sld/templates/')
-    temp_style_directory = this_script_path.replace('utilities.py', 'public/sld/user-defined/')
-
-    sld_template_dict = {
-        'polygon': sld_folder_path + 'polygon',
-        'surface': sld_folder_path + 'polygon',
-        'line': sld_folder_path + 'polyline',
-        'point': sld_folder_path + 'point',
-    }
-
-    for key in sld_template_dict:
-        if key in geom_type:
-            sld_template = sld_template_dict[key]
-            break
-
-    sld_template += '_with_labels.xml' if 'label' in css_styles else '_no_labels.xml'
-
-    if not os.path.exists(temp_style_directory):
-        os.mkdir(temp_style_directory)
-
-    tmp_style_file = os.path.join(temp_style_directory, layer_id + '.sld')
-
-    if os.path.exists(tmp_style_file):
-        os.remove(tmp_style_file)
-
-    tree = ET.parse(sld_template)
-    root = tree.getroot()
-    # for param in root.iter('{http://www.opengis.net/sld}CssParameter'):
-    for param in root.iter('CssParameter'):
-        param_name = param.get('name')
-        if param_name in css_styles:
-            param.text = css_styles[param_name]
-
-    for param in root.iter('Name'):
-        param.text = layer_id
-    tree.write(tmp_style_file)
-
-    return True
 
 
 def request_wfs_info(params):

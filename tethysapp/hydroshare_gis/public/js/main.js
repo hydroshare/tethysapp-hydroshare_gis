@@ -29,7 +29,8 @@ var HS_GIS = (function packageHydroShareGIS() {
     /******************************************************
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
-    var dataTableLoadRes,
+    var contextMenuDict,
+        dataTableLoadRes,
         layers,
         layersContextMenuGeneral,
         layersContextMenuShpfile,
@@ -64,6 +65,11 @@ var HS_GIS = (function packageHydroShareGIS() {
         initializeMap,
         loadResource,
         modifyDataTableDisplay,
+        onClickDeleteLayer,
+        onClickModifySymbology,
+        onClickRenameLayer,
+        onClickShowAttrTable,
+        onClickZoomToLayer,
         prepareFilesForAjax,
         redrawDataTable,
         reprojectExtents,
@@ -93,8 +99,7 @@ var HS_GIS = (function packageHydroShareGIS() {
      ******************************************************/
 
     addLayerToUI = function (response) {
-        var contextMenu,
-            geoserverUrl,
+        var geoserverUrl,
             geomType,
             layerAttributes,
             layerExtents,
@@ -151,16 +156,16 @@ var HS_GIS = (function packageHydroShareGIS() {
 
             $currentLayersList.prepend(
                 '<li class="ui-state-default" ' +
-                'data-layer-index="' + layerCount.get() + '" ' +
-                'data-layer-id="' + layerId + '" ' +
-                'data-res-type="' + resType + '" ' +
-                'data-geom-type="' + geomType + '" ' +
-                'data-layer-attributes="' + layerAttributes + '">' +
-                '<input class="chkbx-layer" type="checkbox" checked>' +
-                '<span class="layer-name">' + layerName + '</span>' +
-                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
-                '</li>'
+                    'data-layer-index="' + layerCount.get() + '" ' +
+                    'data-layer-id="' + layerId + '" ' +
+                    'data-res-type="' + resType + '" ' +
+                    'data-geom-type="' + geomType + '" ' +
+                    'data-layer-attributes="' + layerAttributes + '">' +
+                    '<input class="chkbx-layer" type="checkbox" checked>' +
+                    '<span class="layer-name">' + layerName + '</span>' +
+                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
+                    '</li>'
             );
 
             drawLayersInListOrder();
@@ -168,18 +173,9 @@ var HS_GIS = (function packageHydroShareGIS() {
 
             $newLayerListElement = $currentLayersList.find(':first-child');
             // Apply the dropdown-on-right-click menu to new layer in list
-            switch (resType) {
-                case 'GeographicFeatureResource':
-                    contextMenu = layersContextMenuShpfile;
-                    break;
-                case 'TimeSeriesResource':
-                    contextMenu = layersContextMenuTimeSeries;
-                    break;
-                default:
-                    contextMenu = layersContextMenuGeneral;
-            }
+
             $newLayerListElement.find('.hmbrgr-div img')
-                .contextMenu('menu', contextMenu, {
+                .contextMenu('menu', contextMenuDict[resType], {
                     'triggerOn': 'click',
                     'displayAround': 'trigger',
                     'mouseClick': 'left',
@@ -762,97 +758,25 @@ var HS_GIS = (function packageHydroShareGIS() {
                 name: 'Modify symbology',
                 title: 'Modify symbology',
                 fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        $dataElement = $(clickedElement).parent().parent(),
-                        geomType = $dataElement.attr('data-geom-type'),
-                        layerId = $dataElement.attr('data-layer-id'),
-                        layerIndex = $dataElement.attr('data-layer-index'),
-                        labelFieldOptions = $dataElement.attr('data-layer-attributes').split(','),
-                        optionsHtmlString = '';
-
-                    $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $dataElement.find('.layer-name').text());
-                    $modalSymbology.find('#btn-apply-symbology').attr({
-                        'data-geom-type': geomType,
-                        'data-layer-id': layerId,
-                        'data-layer-index': layerIndex
-                    });
-
-                    labelFieldOptions.forEach(function (option) {
-                        optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
-                    });
-                    $('#label-field').html(optionsHtmlString);
-
-                    if (geomType.toLowerCase().indexOf('polygon') !== -1) {
-                        $('.polygon').removeClass('hidden');
-                    } else if (geomType.toLowerCase().indexOf('point') !== -1) {
-                        $('.point').removeClass('hidden');
-                    } else if (geomType.toLowerCase().indexOf('line') !== -1) {
-                        $('#chkbx-include-outline').prop('checked', true);
-                        $('.line').removeClass('hidden');
-                    }
-                    $modalSymbology.modal('show');
+                    onClickModifySymbology(e);
                 }
             }, {
                 name: 'Rename',
                 title: 'Rename',
                 fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        $dataElement = $(clickedElement).parent().parent(),
-                        index = Number($dataElement.attr('data-layer-index')),
-                        $LayerNameSpan = $dataElement.find('span');
-                    $LayerNameSpan.addClass('hidden');
-                    $dataElement.find('input')
-                        .removeClass('hidden')
-                        .select()
-                        .on('keyup', function (e) {
-                            editLayerName(e, $(this), $LayerNameSpan, index);
-                        });
+                    onClickRenameLayer(e);
                 }
             }, {
                 name: 'Zoom to',
                 title: 'Zoom to',
                 fun: function (e) {
-                    var clickedElement,
-                        index,
-                        layerExtent,
-                        resType,
-                        $dataElement;
-
-                    clickedElement = e.trigger.context;
-                    $dataElement = $(clickedElement).parent().parent();
-                    index = Number($dataElement.attr('data-layer-index'));
-                    resType = $dataElement.attr('data-res-type');
-                    if (resType === 'TimeSeriesResource') {
-                        layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
-                    } else {
-                        layerExtent = map.getLayers().item(index).getExtent();
-                    }
-
-                    zoomToLayer(layerExtent, map.getSize(), resType);
+                    onClickZoomToLayer(e);
                 }
             }, {
                 name: 'Delete',
                 title: 'Delete',
                 fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        count,
-                        $dataElement = $(clickedElement).parent().parent(),
-                        deleteIndex = Number($dataElement.attr('data-layer-index')),
-                        i,
-                        index,
-                        layer;
-
-                    map.getLayers().removeAt(deleteIndex);
-                    $dataElement.remove();
-
-                    count = layerCount.get();
-                    for (i = 3; i <= count; i++) {
-                        layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                        index = Number(layer.attr('data-layer-index'));
-                        if (index > deleteIndex) {
-                            layer.attr('data-layer-index', index - 1);
-                        }
-                    }
+                    onClickDeleteLayer(e);
                 }
             }
         ];
@@ -862,29 +786,29 @@ var HS_GIS = (function packageHydroShareGIS() {
             name: 'View attribute table',
             title: 'View attribute table',
             fun: function (e) {
-                showMainLoadAnim();
-                var clickedElement = e.trigger.context,
-                    $dataElement = $(clickedElement).parent().parent(),
-                    layerName = $dataElement.text(),
-                    layerId = $dataElement.attr('data-layer-id'),
-                    layerAttributes = $dataElement.attr('data-layer-attributes');
-
-                generateAttributeTable(layerId, layerAttributes, layerName);
+                onClickShowAttrTable(e);
             }
         });
 
         layersContextMenuTimeSeries = layersContextMenuGeneral.slice();
         layersContextMenuTimeSeries.unshift({
             name: 'View time series',
-            title: 'View time series',
-            fun: function (e) {
-                var clickedElement = e.trigger.context,
-                    $dataElement = $(clickedElement).parent().parent(),
-                    resId = $dataElement.attr('data-layer-id');
-
-                console.log(resId);
-            }
+            title: 'View time series'
+            //fun: function (e) {
+            //    var clickedElement = e.trigger.context,
+            //        $dataElement = $(clickedElement).parent().parent(),
+            //        resId = $dataElement.attr('data-layer-id');
+            //
+            //    console.log(resId);
+            //}
         });
+
+        contextMenuDict = {
+            'GeographicFeatureResource': layersContextMenuShpfile,
+            'TimeSeriesResource': layersContextMenuTimeSeries,
+            'RefTimeSeriesResource': layersContextMenuTimeSeries,
+            'RasterResource': layersContextMenuGeneral
+        };
     };
 
     initializeMap = function () {
@@ -963,6 +887,105 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
 
         redrawDataTable(dataTable, $modal);
+    };
+
+    onClickDeleteLayer = function (e) {
+        var clickedElement = e.trigger.context,
+            count,
+            $dataElement = $(clickedElement).parent().parent(),
+            deleteIndex = Number($dataElement.attr('data-layer-index')),
+            i,
+            index,
+            layer;
+
+        map.getLayers().removeAt(deleteIndex);
+        $dataElement.remove();
+
+        count = layerCount.get();
+        for (i = 3; i <= count; i++) {
+            layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+            index = Number(layer.attr('data-layer-index'));
+            if (index > deleteIndex) {
+                layer.attr('data-layer-index', index - 1);
+            }
+        }
+    };
+
+    onClickModifySymbology = function (e) {
+        var clickedElement = e.trigger.context,
+            $dataElement = $(clickedElement).parent().parent(),
+            geomType = $dataElement.attr('data-geom-type'),
+            layerId = $dataElement.attr('data-layer-id'),
+            layerIndex = $dataElement.attr('data-layer-index'),
+            labelFieldOptions = $dataElement.attr('data-layer-attributes').split(','),
+            optionsHtmlString = '';
+
+        $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $dataElement.find('.layer-name').text());
+        $modalSymbology.find('#btn-apply-symbology').attr({
+            'data-geom-type': geomType,
+            'data-layer-id': layerId,
+            'data-layer-index': layerIndex
+        });
+
+        labelFieldOptions.forEach(function (option) {
+            optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
+        });
+        $('#label-field').html(optionsHtmlString);
+
+        if (geomType.toLowerCase().indexOf('polygon') !== -1) {
+            $('.polygon').removeClass('hidden');
+        } else if (geomType.toLowerCase().indexOf('point') !== -1) {
+            $('.point').removeClass('hidden');
+        } else if (geomType.toLowerCase().indexOf('line') !== -1) {
+            $('#chkbx-include-outline').prop('checked', true);
+            $('.line').removeClass('hidden');
+        }
+        $modalSymbology.modal('show');
+    };
+
+    onClickRenameLayer = function (e) {
+        var clickedElement = e.trigger.context,
+            $dataElement = $(clickedElement).parent().parent(),
+            index = Number($dataElement.attr('data-layer-index')),
+            $LayerNameSpan = $dataElement.find('span');
+        $LayerNameSpan.addClass('hidden');
+        $dataElement.find('input')
+            .removeClass('hidden')
+            .select()
+            .on('keyup', function (e) {
+                editLayerName(e, $(this), $LayerNameSpan, index);
+            });
+    };
+
+    onClickShowAttrTable = function (e) {
+        showMainLoadAnim();
+        var clickedElement = e.trigger.context,
+            $dataElement = $(clickedElement).parent().parent(),
+            layerName = $dataElement.text(),
+            layerId = $dataElement.attr('data-layer-id'),
+            layerAttributes = $dataElement.attr('data-layer-attributes');
+
+        generateAttributeTable(layerId, layerAttributes, layerName);
+    };
+
+    onClickZoomToLayer = function (e) {
+        var clickedElement,
+            index,
+            layerExtent,
+            resType,
+            $dataElement;
+
+        clickedElement = e.trigger.context;
+        $dataElement = $(clickedElement).parent().parent();
+        index = Number($dataElement.attr('data-layer-index'));
+        resType = $dataElement.attr('data-res-type');
+        if (resType === 'TimeSeriesResource') {
+            layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
+        } else {
+            layerExtent = map.getLayers().item(index).getExtent();
+        }
+
+        zoomToLayer(layerExtent, map.getSize(), resType);
     };
 
     prepareFilesForAjax = function (files) {

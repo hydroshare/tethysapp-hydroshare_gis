@@ -280,6 +280,10 @@ input[type="radio"] {
     margin: auto;
     font-size: 8px;
 }
+#symbology-modal-info {
+    background-color: red;
+    color: white;
+}
 /*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading {

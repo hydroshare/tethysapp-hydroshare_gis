@@ -8,9 +8,6 @@ import requests
 import zipfile
 import os
 import sqlite3
-import xml.etree.ElementTree as ET
-import ast
-import inspect
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'default'

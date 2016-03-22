@@ -163,30 +163,20 @@
                         <fieldset id="point-options" class="hidden point">
                             <label for="point-shape">Point marker shape:</label>
                             <select id="point-shape">
-                                <option value="circle">circle</option>
-                                <option value="square">square</option>
-                                <option value="triangle">triangle</option>
-                                <option value="star">star</option>
-                                <option value="cross">cross</option>
-                                <option value="X">X</option>
+                                {% for val in point_shape_options %}
+                                <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
                             </select>
                             <label for="point-size">Point marker size:</label>
                             <select id="point-size">
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10</option>
+                                {% for val in point_size_options %}
+                                <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
                             </select>
                         </fieldset>
                         <fieldset id="fill-options" class="hidden polygon point">
-                            <label for="poly-fill">Fill color:</label>
-                            <input type="text" id="poly-fill">
+                            <label for="geom-fill">Fill color:</label>
+                            <input type="text" id="geom-fill">
                         </fieldset>
                         <br>
                         <fieldset id="include-outline" class="hidden polygon point">
@@ -199,16 +189,9 @@
                             <input type="text" id="poly-stroke">
                             <label for="poly-stroke-width">Line width:</label>
                             <select id="poly-stroke-width">
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10</option>
+                                {% for val in stroke_width_options %}
+                                <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
                             </select>
                         </fieldset>
                         <br>
@@ -222,18 +205,9 @@
                             <select id="label-field"></select>
                             <label for="font-size">Font size:</label>
                             <select id="font-size">
-                                <option value="8">8</option>
-                                <option value="10">10</option>
-                                <option value="12">12</option>
-                                <option value="14">14</option>
-                                <option value="16">16</option>
-                                <option value="18">18</option>
-                                <option value="20">20</option>
-                                <option value="22">22</option>
-                                <option value="24">24</option>
-                                <option value="26">26</option>
-                                <option value="28">28</option>
-                                <option value="30">30</option>
+                                {% for val in font_size_options %}
+                                <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
                             </select>
                             <label for="font-fill">Font color:</label>
                             <input type="text" id="font-fill">
@@ -248,6 +222,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <span id="symbology-modal-info" class="hidden"></span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                     <button type="button" id="btn-apply-symbology" disabled class="btn btn-default">Apply</button>
                 </div>

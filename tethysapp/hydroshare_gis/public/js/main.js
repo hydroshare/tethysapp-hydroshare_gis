@@ -47,12 +47,15 @@ var HS_GIS = (function packageHydroShareGIS() {
         checkCsrfSafe,
         checkURLForParameters,
         closeLyrEdtInpt,
+        displaySymbologyModalError,
         drawLayersInListOrder,
         editLayerName,
         generateAttributeTable,
         generateResourceList,
         getCookie,
+        getCssStyles,
         getFilesSize,
+        getGeomType,
         getRandomColor,
         hideMainLoadAnim,
         hideProgressBar,
@@ -105,7 +108,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             $newLayerListElement;
 
         if (response.hasOwnProperty('success')) {
-            geomType = response.geom_type;
+            geomType = getGeomType(response.geom_type);
             layerAttributes = response.layer_attributes;
             layerName = response.layer_name;
             layerId = response.layer_id || response.res_id;
@@ -225,7 +228,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     addLoadResSelEvnt = function () {
         $modalLoadRes.find('tbody tr').on('click', function () {
-            $('#btn-upload-res').removeAttr('disabled');
+            $('#btn-upload-res').prop('disabled', false);
             $(this)
                 .css({
                     'background-color': '#1abc9c',
@@ -263,7 +266,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                     $('#msg-file').addClass('hidden');
                 }, 7000);
             } else {
-                $uploadBtn.removeAttr('disabled');
+                $uploadBtn.prop('disabled', false);
             }
         });
 
@@ -286,7 +289,22 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
 
         $('#chkbx-include-outline').on('change', function () {
+            var outlineString,
+                color;
+
             $('#outline-options').toggleClass('hidden');
+
+            if ($('#outline-options').hasClass('hidden')) {
+                $('#symbology-preview').css('outline', '0');
+            } else {
+                color = $('#poly-stroke').spectrum('get');
+                if (color !== null) {
+                    outlineString = $('#poly-stroke-width').val().toString();
+                    outlineString += 'px solid ';
+                    outlineString += color.toRgbString();
+                    $('#symbology-preview').css('outline', outlineString);
+                }
+            }
         });
 
         $('#chkbx-include-labels').on('change', function () {
@@ -294,7 +312,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             $('#label-preview').toggleClass('hidden');
         });
 
-        $('#poly-fill').spectrum({
+        $('#geom-fill').spectrum({
             showInput: true,
             allowEmpty: true,
             showAlpha: true,
@@ -303,7 +321,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             cancelText: "Cancel",
             change: function (color) {
                 $('#symbology-preview').css('background-color', color.toRgbString());
-                $btnApplySymbology.removeAttr('disabled');
+                $btnApplySymbology.prop('disabled', false);
             }
         });
 
@@ -320,7 +338,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                 outlineString += 'px solid ';
                 outlineString += color.toRgbString();
                 $('#symbology-preview').css('outline', outlineString);
-                $btnApplySymbology.removeAttr('disabled');
+                $btnApplySymbology.prop('disabled', false);
             }
         });
 
@@ -341,8 +359,12 @@ var HS_GIS = (function packageHydroShareGIS() {
             chooseText: "Choose",
             cancelText: "Cancel",
             change: function (color) {
-                $('#label-preview').css('color', color.toRgbString());
-                $btnApplySymbology.removeAttr('disabled');
+                if (color) {
+                    $('#label-preview').css('color', color.toRgbString());
+                    $btnApplySymbology.prop('disabled', false);
+                } else {
+                    $btnApplySymbology.prop('disabled', true);
+                }
             }
         });
 
@@ -449,6 +471,15 @@ var HS_GIS = (function packageHydroShareGIS() {
             .off('click');
         $layerNameSpan.removeClass('hidden');
         $(document).off('click.edtLyrNm');
+    };
+
+    displaySymbologyModalError = function (errorString) {
+        $('#symbology-modal-info')
+            .text(errorString)
+            .removeClass('hidden');
+        setTimeout(function () {
+            $('#symbology-modal-info').addClass('hidden');
+        }, 7000);
     };
 
     drawLayersInListOrder = function () {
@@ -607,6 +638,59 @@ var HS_GIS = (function packageHydroShareGIS() {
         return cookieValue;
     };
 
+    getCssStyles = function (cssStyles, geomType) {
+        var color;
+
+        // Check conditions for the fill color
+        if (geomType === 'point' || geomType === 'polygon') {
+            color = $('#geom-fill').spectrum('get');
+            if (color !== null) {
+                cssStyles.fill = color.toHexString();
+                cssStyles['fill-opacity'] = color.getAlpha().toString();
+            } else {
+                displaySymbologyModalError('You must select a fill color.');
+                return;
+            }
+        }
+
+        // Check conditions for the stroke (line) color
+        if (geomType === 'line' || $('#chkbx-include-outline').is(':checked')) {
+            color = $('#poly-stroke').spectrum('get');
+            if (color !== null) {
+                cssStyles.stroke = color.toHexString();
+                cssStyles['stroke-opacity'] = color.getAlpha().toString();
+                cssStyles['stroke-width'] = $('#poly-stroke-width').val();
+            } else {
+                displaySymbologyModalError('You must select a line color.');
+            }
+        } else {
+            cssStyles.stroke = '#FFFFFF';
+            cssStyles['stroke-opacity'] = "0";
+            cssStyles['stroke-width'] = "0";
+        }
+
+        // Check conditions for the labels
+        cssStyles.labels = $('#chkbx-include-labels').is(':checked');
+        if (cssStyles.labels) {
+            color = $('#font-fill').spectrum('get');
+            if (color !== null) {
+                cssStyles['label-field'] = $('#label-field').val();
+                cssStyles['font-size'] = $('#font-size').val();
+                cssStyles['font-fill'] = color.toHexString();
+                cssStyles['font-fill-opacity'] = color.getAlpha().toString();
+            } else {
+                displaySymbologyModalError('You must select a font color.');
+            }
+        }
+
+        if (geomType === 'point') {
+            cssStyles['point-shape'] = $('#point-shape').val();
+            cssStyles['point-size'] = $('#point-size').val();
+        }
+
+        return cssStyles;
+    };
+
     getFilesSize = function (files) {
         var file,
             fileSize = 0;
@@ -617,6 +701,19 @@ var HS_GIS = (function packageHydroShareGIS() {
             }
         }
         return fileSize;
+    };
+
+    getGeomType = function (rawGeomType) {
+        var geomType;
+
+        if (rawGeomType.toLowerCase().indexOf('polygon') !== -1) {
+            geomType = 'polygon';
+        } else if (rawGeomType.toLowerCase().indexOf('point') !== -1) {
+            geomType = 'point';
+        } else if (rawGeomType.toLowerCase().indexOf('line') !== -1) {
+            geomType = 'line';
+        }
+        return geomType;
     };
 
     getRandomColor = function () {
@@ -690,6 +787,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                     } else if (geomType.toLowerCase().indexOf('point') !== -1) {
                         $('.point').removeClass('hidden');
                     } else if (geomType.toLowerCase().indexOf('line') !== -1) {
+                        $('#chkbx-include-outline').prop('checked', true);
                         $('.line').removeClass('hidden');
                     }
                     $modalSymbology.modal('show');
@@ -840,12 +938,12 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             error: function () {
                 $modalInfo.addClass('hidden');
-                $('#btn-upload-res').removeAttr('disabled');
+                $('#btn-upload-res').prop('disabled', false);
                 console.error('Failure!');
             },
             success: function (response) {
                 $modalInfo.addClass('hidden');
-                $('#btn-upload-res').removeAttr('disabled');
+                $('#btn-upload-res').prop('disabled', false);
                 hideMainLoadAnim();
                 addLayerToUI(response);
                 if ($('#chkbx-res-auto-close').is(':checked')) {
@@ -942,64 +1040,15 @@ var HS_GIS = (function packageHydroShareGIS() {
             layerId = $this.attr('data-layer-id'),
             layerIndex = $this.attr('data-layer-index'),
             sldString,
-            addLabels,
-            style,
             cssStyles = {
                 'layer-id': layerId
             };
 
-        if ($('#poly-fill').spectrum('get') !== null) {
-            cssStyles.fill = $('#poly-fill').spectrum('get').toHexString();
-            cssStyles['fill-opacity'] = $('#poly-fill').spectrum('get').getAlpha().toString();
-        } else {
-            cssStyles.fill = '#FFFFFF';
-            cssStyles['fill-opacity'] = 0;
+        cssStyles = getCssStyles(cssStyles, geomType);
+        if (cssStyles === null) {
+            return;
         }
-        if ($('#poly-stroke').spectrum('get') !== null) {
-            cssStyles.stroke = $('#poly-stroke').spectrum('get').toHexString();
-            cssStyles['stroke-opacity'] = $('#poly-stroke').spectrum('get').getAlpha().toString();
-            cssStyles['stroke-width'] = $('#poly-stroke-width').val();
-        } else {
-            cssStyles.stroke = '#FFFFFF';
-            cssStyles['stroke-opacity'] = 0;
-            cssStyles['stroke-width'] = 0;
-        }
-        addLabels = $('#chkbx-include-labels').is(':checked');
-        if (addLabels) {
-            if ($('#poly-fill').spectrum('get') !== null) {
-                if ($('#font-fill').spectrum('get') !== null) {
-                    cssStyles['label-field'] = $('#label-field').val();
-                    cssStyles['font-size'] = $('#font-fize').val();
-                    cssStyles['font-fill'] = $('#font-fill').spectrum('get').toHexString();
-                    cssStyles['font-fill-opacity'] = $('#font-fill').spectrum('get').getAlpha().toString();
-                }
-            }
-        }
-        cssStyles['point-shape'] = $('#point-shape').val();
-        cssStyles['point-size'] = $('#point-size').val();
-
-        if (geomType.toLowerCase().indexOf('polygon') !== -1) {
-            sldString = SLD_TEMPLATES.polygon(addLabels);
-        } else if (geomType.toLowerCase().indexOf('line') !== -1) {
-            sldString = SLD_TEMPLATES.polyline(addLabels);
-        } else if (geomType.toLowerCase().indexOf('point') !== -1) {
-            sldString = SLD_TEMPLATES.point(addLabels);
-        }
-        //sldString = sldString.replace('{{layer-id}}', cssStyles['layer-id']);
-        //sldString = sldString.replace('{{fill}}', cssStyles.fill);
-        //sldString = sldString.replace('{{fill-opacity}}', cssStyles['fill-opacity']);
-        //sldString = sldString.replace('{{stroke}}', cssStyles.stroke);
-        //sldString = sldString.replace('{{stroke-opacity}}', cssStyles['stroke-opacity']);
-        //sldString = sldString.replace('{{stroke-width}}', cssStyles['stroke-width']);
-        //sldString = sldString.replace('{{point-shape}}', cssStyles['point-shape']);
-        //sldString = sldString.replace('{{point-size}}', cssStyles['point-size']);
-        //sldString = sldString.replace('{{label-field}}', cssStyles['point-size']);
-        //sldString = sldString.replace('{{font-size}}', cssStyles['point-size']);
-        for (style in cssStyles) {
-            if (cssStyles.hasOwnProperty(style)) {
-                sldString = sldString.replace('{{' + style + '}}', cssStyles[style]);
-            }
-        }
+        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
     };
@@ -1026,7 +1075,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             data,
             fileSize;
 
-        $uploadBtn.attr('disabled', 'disabled');
+        $uploadBtn.prop('disabled', true);
         data = prepareFilesForAjax(files);
         fileSize = getFilesSize(files);
         fileLoaded = false;
@@ -1039,13 +1088,13 @@ var HS_GIS = (function packageHydroShareGIS() {
             contentType: false,
             error: function () {
                 $progressBar.addClass('hidden');
-                $('#btn-upload-file').removeAttr('disabled');
+                $('#btn-upload-file').prop('disabled', false);
                 console.error("Error!");
             },
             success: function (response) {
                 fileLoaded = true;
                 updateProgressBar('100%');
-                $('#btn-upload-file').removeAttr('disabled');
+                $('#btn-upload-file').prop('disabled', false);
                 addLayerToUI(response);
                 if ($('#chkbx-file-auto-close').is(':checked')) {
                     $modalLoadFile.modal('hide');

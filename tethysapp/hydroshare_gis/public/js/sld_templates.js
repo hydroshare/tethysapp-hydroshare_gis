@@ -1,7 +1,7 @@
 var SLD_TEMPLATES = (function () {
     "use strict";
 
-    var points,
+    var point,
         polygon,
         polyline,
         line,
@@ -10,7 +10,9 @@ var SLD_TEMPLATES = (function () {
         header,
         footer,
         fill,
-        stroke;
+        stroke,
+        populateValues,
+        geomTypeDict;
 
     header =
         '<StyledLayerDescriptor version="1.0.0">' +
@@ -42,7 +44,7 @@ var SLD_TEMPLATES = (function () {
 
     line = '<LineSymbolizer>' + stroke + '</LineSymbolizer>';
 
-    points =
+    point =
         header +
         '<PointSymbolizer>' +
         '<Graphic>' +
@@ -100,24 +102,34 @@ var SLD_TEMPLATES = (function () {
         return geometry.slice(0, insertionIndex) + labels + geometry.slice(insertionIndex);
     };
 
+    populateValues = function (rawSldString, cssStyles) {
+        var style,
+            sldString = rawSldString;
+
+        for (style in cssStyles) {
+            if (cssStyles.hasOwnProperty(style)) {
+                sldString = sldString.replace('{{' + style + '}}', cssStyles[style]);
+            }
+        }
+        return sldString;
+    };
+
+    geomTypeDict = {
+        'point': point,
+        'polygon': polygon,
+        'line': polyline
+    };
+
     return {
-        point: function (with_labels) {
-            if (with_labels) {
-                return addLabels(points);
+        getSldString: function (cssStyles, geomType) {
+            var rawSldString;
+
+            if (cssStyles.labels) {
+                rawSldString = addLabels(geomTypeDict[geomType]);
+            } else {
+                rawSldString = geomTypeDict[geomType];
             }
-            return points;
-        },
-        polygon: function (with_labels) {
-            if (with_labels) {
-                return addLabels(polygon);
-            }
-            return polygon;
-        },
-        polyline: function (with_labels) {
-            if (with_labels) {
-                return addLabels(polyline);
-            }
-            return polyline;
+            return populateValues(rawSldString, cssStyles);
         }
     };
 }());

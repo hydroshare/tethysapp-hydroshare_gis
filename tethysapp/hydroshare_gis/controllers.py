@@ -23,7 +23,17 @@ def home(request):
 
     engine = return_spatial_dataset_engine()
 
-    context = {}
+    point_size_options = range(1, 31)
+    stroke_width_options = range(1,16)
+    point_shape_options = ['circle', 'square', 'triangle', 'star', 'cross', 'X']
+    font_size_options = range(8, 37, 2)
+
+    context = {
+        'point_size_options': point_size_options,
+        'stroke_width_options': stroke_width_options,
+        'point_shape_options': point_shape_options,
+        'font_size_options': font_size_options
+    }
 
     return render(request, 'hydroshare_gis/home.html', context)
 
@@ -267,14 +277,3 @@ def generate_attribute_table(request):
             'success': 'Resources obtained successfully.',
             'feature_properties': dumps(feature_properties)
         })
-
-def delete_temp_files(request):
-    if request.is_ajax() and request.method == 'GET':
-        this_script_path = inspect.getfile(inspect.currentframe())
-        temp_style_directory = this_script_path.replace('controllers.py', 'public/sld/user-defined')
-        if os.path.exists(temp_style_directory):
-            shutil.rmtree(temp_style_directory)
-
-    return JsonResponse({
-                'success': 'Temp files successfully deleted!'
-            })

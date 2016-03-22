@@ -35,5 +35,8 @@ class HydroshareGis(TethysAppBase):
                     url_map(name='generate_attribute_table',
                             url='hydroshare-gis/generate-attribute-table',
                             controller='hydroshare_gis.controllers.generate_attribute_table'),
+                    url_map(name='save_project',
+                            url='hydroshare-gis/save-project',
+                            controller='hydroshare_gis.controllers.save_project')
                     )
         return url_maps

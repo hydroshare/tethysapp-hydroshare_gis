@@ -6,10 +6,11 @@ from utilities import *
 from geoserver.catalog import FailedRequestError
 
 import shutil
-from json import dumps
+from json import dumps, loads
 from StringIO import StringIO
 
 hs_tempdir = '/tmp/hs_gis_files/'
+project_file_tempdir = '/tmp/hs_proj_files'
 
 
 @login_required()
@@ -276,4 +277,22 @@ def generate_attribute_table(request):
         return JsonResponse({
             'success': 'Resources obtained successfully.',
             'feature_properties': dumps(feature_properties)
+        })
+
+def save_project(request):
+    global project_file_tempdir
+    if request.is_ajax() and request.method == 'GET':
+        map_project = loads(request.GET['projectInfo'])
+
+
+        if not os.path.exists(project_file_tempdir):
+            os.mkdir(project_file_tempdir)
+
+        proj_file = os.path.join(project_file_tempdir, 'currentProject')
+        with open(proj_file, 'w+') as proj_file_reader:
+            proj_file_reader.write(dumps(map_project))
+
+        return JsonResponse({
+            'success': 'Resources created successfully.',
+            'res_id': '###res_id to go here####'
         })

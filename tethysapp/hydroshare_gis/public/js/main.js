@@ -29,9 +29,9 @@ var HS_GIS = (function packageHydroShareGIS() {
     /******************************************************
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
-    var contextMenuDict,
+    var basemapLayers,
+        contextMenuDict,
         dataTableLoadRes,
-        layers,
         layersContextMenuGeneral,
         layersContextMenuShpfile,
         layersContextMenuTimeSeries,
@@ -40,7 +40,9 @@ var HS_GIS = (function packageHydroShareGIS() {
         fileLoaded,
         projectInfo,
     //  *********FUNCTIONS***********
+        addContextMenuToListItem,
         addLayerToUI,
+        addListenersToListItem,
         addDefaultBehaviorToAjax,
         addLoadResSelEvnt,
         addInitialEventListeners,
@@ -49,6 +51,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         checkCsrfSafe,
         checkURLForParameters,
         closeLyrEdtInpt,
+        createLayerListItem,
         displaySymbologyModalError,
         drawLayersInListOrder,
         editLayerName,
@@ -64,6 +67,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         initializeJqueryVariables,
         initializeLayersContextMenu,
         initializeMap,
+        loadProjectFile,
         loadResource,
         modifyDataTableDisplay,
         onClickDeleteLayer,
@@ -104,6 +108,22 @@ var HS_GIS = (function packageHydroShareGIS() {
      **************FUNCTION DECLARATIONS*******************
      ******************************************************/
 
+    addContextMenuToListItem = function ($listItem, resType) {
+        $listItem.find('.hmbrgr-div img')
+            .contextMenu('menu', contextMenuDict[resType], {
+                'triggerOn': 'click',
+                'displayAround': 'trigger',
+                'mouseClick': 'left',
+                'position': 'right',
+                'onOpen': function (e) {
+                    $(e.trigger.context).parent().addClass('hmbrgr-open');
+                },
+                'onClose': function (e) {
+                    $(e.trigger.context).parent().removeClass('hmbrgr-open');
+                }
+            });
+    };
+
     addLayerToUI = function (response) {
         var geoserverUrl,
             geomType,
@@ -116,8 +136,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             resType,
             rawLayerExtents,
             tsSiteInfo,
-            $layerNameInput,
-            $newLayerListElement;
+            $newLayerListItem;
 
         if (response.hasOwnProperty('success')) {
             geomType = getGeomType(response.geom_type);
@@ -163,22 +182,11 @@ var HS_GIS = (function packageHydroShareGIS() {
 
             layerIndex = layerCount.get();
 
-            $currentLayersList.prepend(
-                '<li class="ui-state-default" ' +
-                    'data-layer-index="' + layerIndex + '" ' +
-                    'data-layer-id="' + layerId + '" ' +
-                    'data-res-type="' + resType + '" ' +
-                    'data-geom-type="' + geomType + '" ' +
-                    'data-layer-attributes="' + layerAttributes + '">' +
-                    '<input class="chkbx-layer" type="checkbox" checked>' +
-                    '<span class="layer-name">' + layerName + '</span>' +
-                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
-                    '</li>'
-            );
+            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName);
 
             projectInfo.map.layers[layerIndex] = {
                 attributes: layerAttributes,
+                extents: layerExtents,
                 geomType: geomType,
                 id: layerId,
                 index: layerIndex,
@@ -188,47 +196,41 @@ var HS_GIS = (function packageHydroShareGIS() {
                 sld: "Default",
                 visible: true
             };
+            projectInfo.map.geoserverUrl = geoserverUrl;
 
-            drawLayersInListOrder();
+            drawLayersInListOrder(true);
+
             zoomToLayer(layerExtents, map.getSize(), resType);
 
-            $newLayerListElement = $currentLayersList.find(':first-child');
-            // Apply the dropdown-on-right-click menu to new layer in list
+            $newLayerListItem = $currentLayersList.find(':first-child');
 
-            $newLayerListElement.find('.hmbrgr-div img')
-                .contextMenu('menu', contextMenuDict[resType], {
-                    'triggerOn': 'click',
-                    'displayAround': 'trigger',
-                    'mouseClick': 'left',
-                    'position': 'right',
-                    'onOpen': function (e) {
-                        $(e.trigger.context).parent().addClass('hmbrgr-open');
-                    },
-                    'onClose': function (e) {
-                        $(e.trigger.context).parent().removeClass('hmbrgr-open');
-                    }
-                });
+            addContextMenuToListItem($newLayerListItem, resType);
 
-            $newLayerListElement.find('.layer-name').on('dblclick', function () {
-                var $layerNameSpan = $(this);
-
-                $layerNameSpan.addClass('hidden');
-                $layerNameInput = $newLayerListElement.find('input[type=text]');
-                $layerNameInput
-                    .removeClass('hidden')
-                    .select()
-                    .on('keyup', function (e) {
-                        editLayerName(e, $(this), $layerNameSpan, layerIndex);
-                    })
-                    .on('click', function (e) {
-                        e.stopPropagation();
-                    });
-
-                $(document).on('click.edtLyrNm', function () {
-                    closeLyrEdtInpt($layerNameSpan, $layerNameInput);
-                });
-            });
+            addListenersToListItem($newLayerListItem, layerIndex);
         }
+    };
+
+    addListenersToListItem = function ($listItem, layerIndex) {
+        var $layerNameInput;
+        $listItem.find('.layer-name').on('dblclick', function () {
+            var $layerNameSpan = $(this);
+
+            $layerNameSpan.addClass('hidden');
+            $layerNameInput = $listItem.find('input[type=text]');
+            $layerNameInput
+                .removeClass('hidden')
+                .select()
+                .on('keyup', function (e) {
+                    editLayerName(e, $(this), $layerNameSpan, layerIndex);
+                })
+                .on('click', function (e) {
+                    e.stopPropagation();
+                });
+
+            $(document).on('click.edtLyrNm', function () {
+                closeLyrEdtInpt($layerNameSpan, $layerNameInput);
+            });
+        });
     };
 
     addDefaultBehaviorToAjax = function () {
@@ -449,10 +451,10 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         var style = $(this).attr('value'),
             i,
-            ii = layers.length;
+            ii = basemapLayers.length;
 
         for (i = 0; i < ii; ++i) {
-            layers[i].set('visible', (layers[i].get('style') === style));
+            basemapLayers[i].set('visible', (basemapLayers[i].get('style') === style));
         }
     };
 
@@ -498,6 +500,32 @@ var HS_GIS = (function packageHydroShareGIS() {
         $(document).off('click.edtLyrNm');
     };
 
+    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName) {
+        var $newLayerListItem,
+            listHtmlString =
+                '<li class="ui-state-default" ' +
+                'data-layer-index="' + layerIndex + '" ' +
+                'data-layer-id="' + layerId + '" ' +
+                'data-res-type="' + resType + '" ' +
+                'data-geom-type="' + geomType + '" ' +
+                'data-layer-attributes="' + layerAttributes + '">' +
+                '<input class="chkbx-layer" type="checkbox">' +
+                '<span class="layer-name">' + layerName + '</span>' +
+                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
+                '</li>';
+
+        if (position === 'prepend') {
+            $currentLayersList.prepend(listHtmlString);
+            $newLayerListItem = $currentLayersList.find(':first-child');
+        } else {
+            $currentLayersList.append(listHtmlString);
+            $newLayerListItem = $currentLayersList.find(':last-child');
+        }
+
+        $newLayerListItem.find('.chkbx-layer').prop('checked', visible);
+    };
+
     displaySymbologyModalError = function (errorString) {
         $('#symbology-modal-info')
             .text(errorString)
@@ -507,7 +535,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         }, 7000);
     };
 
-    drawLayersInListOrder = function () {
+    drawLayersInListOrder = function (modifyProjectInfo) {
         var i,
             index,
             layer,
@@ -520,7 +548,9 @@ var HS_GIS = (function packageHydroShareGIS() {
             index = Number(layer.attr('data-layer-index'));
             zIndex = count - i;
             map.getLayers().item(index).setZIndex(zIndex);
-            projectInfo.map.layers[index].listOrder = i - 2;
+            if (modifyProjectInfo) {
+                projectInfo.map.layers[index].listOrder = i - 2;
+            }
         }
     };
 
@@ -849,7 +879,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     initializeMap = function () {
         // Base Layer options
-        layers = [
+        basemapLayers = [
             new ol.layer.Tile({
                 style: 'Road',
                 visible: false,
@@ -875,13 +905,55 @@ var HS_GIS = (function packageHydroShareGIS() {
         ];
 
         map = new ol.Map({
-            layers: layers,
+            layers: basemapLayers,
             target: 'map',
             view: new ol.View({
                 center: [0, 0],
                 zoom: 2
             })
         });
+    };
+
+    loadProjectFile = function (projectInfo) {
+        var i,
+            layers = projectInfo.map.layers,
+            numLayers = Object.keys(layers).length,
+            newLayer,
+            key,
+            layerParams,
+            $newLayerListItem;
+
+        $('.basemap-option[value="' + projectInfo.map.baseMap + '"]').trigger('click');
+        for (i = 1; i <= numLayers; i++) {
+            for (key in layers) {
+                if (layers.hasOwnProperty(key)) {
+                    layerParams = {
+                        'LAYERS': layers[key].id,
+                        'TILED': true
+                    };
+                    if (layers[key].listOrder === i) {
+                        if (layers[key].sld !== 'Default') {
+                            layerParams.SLD_BODY = layers[key].sld;
+                        }
+                        newLayer = new ol.layer.Tile({
+                            extent: layers[key].extents,
+                            source: new ol.source.TileWMS({
+                                url: projectInfo.map.geoserverUrl + '/wms',
+                                params: layerParams,
+                                serverType: 'geoserver'
+                            })
+                        });
+                        map.addLayer(newLayer);
+                        createLayerListItem('append', layers[key].index, layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
+                        $newLayerListItem = $currentLayersList.find(':last-child');
+                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                    }
+                }
+            }
+        }
+        drawLayersInListOrder(false);
+        map.getView().setCenter(projectInfo.map.center);
+        map.getView().setZoom(projectInfo.map.zoomLevel);
     };
 
     loadResource = function (res_id, res_type, res_title) {
@@ -902,6 +974,11 @@ var HS_GIS = (function packageHydroShareGIS() {
                 console.error('Failure!');
             },
             success: function (response) {
+                if (response.hasOwnProperty('project_info')) {
+                    loadProjectFile(JSON.parse(response.project_info));
+                    hideMainLoadAnim();
+                    return;
+                }
                 $modalInfo.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
                 hideMainLoadAnim();
@@ -1066,7 +1143,10 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     processSaveProjectResponse = function (response) {
-        console.log(response);
+        if (response.hasOwnProperty('success')) {
+            var resId = response.res_id;
+            console.log("Save successful. Access resource at https://www.hydroshare.org/resource/" + resId);
+        }
     };
 
     redrawDataTable = function (dataTable, $modal) {
@@ -1272,7 +1352,8 @@ var HS_GIS = (function packageHydroShareGIS() {
             'baseMap': null,
             'layers': {},
             'zoomLevel': null,
-            'center': null
+            'center': null,
+            'geoserverUrl': null
         }
     };
 }());

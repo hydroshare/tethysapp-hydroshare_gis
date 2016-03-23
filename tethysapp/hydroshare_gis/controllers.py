@@ -106,8 +106,8 @@ def load_file(request):
             # for store in stores['result']:
             #     engine.delete_store(store, True, True)
 
-            hs = get_oauth_hs(request)
-            # hs = HydroShare()
+            # hs = get_oauth_hs(request)
+            hs = HydroShare()
 
             print 'GET REQUEST MADE'
             res_id = request.GET['res_id']
@@ -125,6 +125,7 @@ def load_file(request):
             print 'res_title: %s' % res_title
             store_id = 'res_%s' % res_id
             print 'store_id: %s' % store_id
+
             try:
                 if engine.list_resources(store=store_id)['success']:
                     print 'RESOURCE ALREADY STORED ON GEOSERVER'
@@ -152,26 +153,29 @@ def load_file(request):
                 print e
 
             # RESOURCE NOT ALREADY STORED ON GEOSERVER
-            hs.getResource(res_id, destination=hs_tempdir, unzip=True)
-            res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
-            print 'res_contents_dir: %s' % res_contents_dir
-
-            if os.path.exists(res_contents_dir):
-                print "res_contents_dir exists"
-                for file_name in os.listdir(res_contents_dir):
-                    print "file_name: %s" % file_name
-                    if file_name.endswith('.shp'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
-                        break
-                    elif file_name.endswith('.tif'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
-                        make_file_zipfile(os.path.join(res_contents_dir, file_name), file_name, res_filepath_or_obj)
-                        break
-                    elif file_name.endswith('.sqlite'):
-                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
-                        layer_name = res_title
-
-            print 'res_filepath_or_obj: %s' % res_filepath_or_obj
+            # hs.getResource(res_id, destination=hs_tempdir, unzip=True)
+            # res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
+            # print 'res_contents_dir: %s' % res_contents_dir
+            #
+            # if os.path.exists(res_contents_dir):
+            #     print "res_contents_dir exists"
+            #     for file_name in os.listdir(res_contents_dir):
+            #         print "file_name: %s" % file_name
+            #         if file_name.endswith('.shp'):
+            #             res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
+            #             break
+            #         elif file_name.endswith('.tif'):
+            #             res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
+            #             make_file_zipfile(os.path.join(res_contents_dir, file_name), file_name, res_filepath_or_obj)
+            #             break
+            #         elif file_name.endswith('.sqlite'):
+            #             site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
+            #             layer_name = res_title
+            #         elif file_name.endswith('.json'):
+            #             res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
+            #
+            #
+            # print 'res_filepath_or_obj: %s' % res_filepath_or_obj
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -187,7 +191,18 @@ def load_file(request):
     else:
         return get_json_response('error', 'Invalid request made.')
 
-    if res_type != 'TimeSeriesResource':
+    # if res_type == 'GenericResource' and res_filepath_or_obj.endswith('.json'):
+    if res_type == 'GenericResource':
+        with open('/home/alan/Documents/mapProject.json') as project_file:
+        # with open(res_filepath_or_obj) as project_file:
+            project_info = project_file.read()
+
+        return JsonResponse({
+            'success': 'Files uploaded successfully.',
+            'project_info': project_info
+        })
+
+    if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
         layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip)
         print 'layer_id: %s' % layer_id
 
@@ -329,6 +344,7 @@ def save_project(request):
             else:
                 return_json['error'] = 'HydroShare rejected the upload for some reason.'
         finally:
+            raw_input('')
             if os.path.exists(project_file_tempdir):
                 shutil.rmtree(project_file_tempdir)
 

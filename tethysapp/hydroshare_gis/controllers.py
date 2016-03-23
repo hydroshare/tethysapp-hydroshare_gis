@@ -11,7 +11,7 @@ from StringIO import StringIO
 
 hs_tempdir = '/tmp/hs_gis_files/'
 project_file_tempdir = '/tmp/hs_proj_files'
-
+engine = None
 
 @login_required()
 def home(request):
@@ -106,8 +106,8 @@ def load_file(request):
             # for store in stores['result']:
             #     engine.delete_store(store, True, True)
 
-            # hs = get_oauth_hs(request)
-            hs = HydroShare()
+            hs = get_oauth_hs(request)
+            # hs = HydroShare()
 
             print 'GET REQUEST MADE'
             res_id = request.GET['res_id']
@@ -281,18 +281,55 @@ def generate_attribute_table(request):
 
 def save_project(request):
     global project_file_tempdir
+    return_json = {}
+
     if request.is_ajax() and request.method == 'GET':
-        map_project = loads(request.GET['projectInfo'])
+        try:
+            get_data = request.GET
+            project_info = loads(get_data['projectInfo'])
+            res_title = str(get_data['resTitle'])
+            res_abstract = str(get_data['resAbstract'])
+            res_keywords_raw = str(get_data['resKeywords'])
+            res_keywords = res_keywords_raw.split(',')
+            res_type = 'GenericResource'
 
+            if not os.path.exists(project_file_tempdir):
+                os.mkdir(project_file_tempdir)
 
-        if not os.path.exists(project_file_tempdir):
-            os.mkdir(project_file_tempdir)
+            proj_file = os.path.join(project_file_tempdir, 'mapProject.json')
+            with open(proj_file, 'w+') as proj_file_reader:
+                proj_file_reader.write(dumps(project_info))
 
-        proj_file = os.path.join(project_file_tempdir, 'currentProject')
-        with open(proj_file, 'w+') as proj_file_reader:
-            proj_file_reader.write(dumps(map_project))
+            hs = get_oauth_hs(request)
 
-        return JsonResponse({
-            'success': 'Resources created successfully.',
-            'res_id': '###res_id to go here####'
-        })
+            # upload the temp file to HydroShare
+            if os.path.exists(proj_file):
+                res_id = hs.createResource(resource_type=res_type,
+                                           resource_title=res_title,
+                                           resource_file=proj_file,
+                                           keywords=res_keywords,
+                                           abstract=res_abstract
+                                           )
+
+                return_json['success'] = 'Resources created successfully.'
+                return_json['res_id'] = res_id
+
+        except ObjectDoesNotExist as e:
+            print str(e)
+            return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+
+        except TokenExpiredError as e:
+            print str(e)
+            return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+        except Exception, err:
+            if "401 Unauthorized" in str(err):
+                return_json['error'] = 'Username or password invalid.'
+            elif "400 Bad Request" in str(err):
+                return_json['success'] = 'File uploaded successfully despite 400 Bad Request Error.'
+            else:
+                return_json['error'] = 'HydroShare rejected the upload for some reason.'
+        finally:
+            if os.path.exists(project_file_tempdir):
+                shutil.rmtree(project_file_tempdir)
+
+            return JsonResponse(return_json)

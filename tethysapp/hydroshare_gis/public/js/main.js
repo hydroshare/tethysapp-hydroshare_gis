@@ -85,6 +85,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         zoomToLayer,
     //  **********Query Selectors************
         $btnApplySymbology,
+        $btnShowModalSaveProject,
         $btnSaveProject,
         $currentLayersList,
         $emptyBar,
@@ -93,6 +94,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalInfo,
         $modalLoadFile,
         $modalLoadRes,
+        $modalSaveProject,
         $modalSymbology,
         $progressBar,
         $progressText,
@@ -163,16 +165,16 @@ var HS_GIS = (function packageHydroShareGIS() {
 
             $currentLayersList.prepend(
                 '<li class="ui-state-default" ' +
-                'data-layer-index="' + layerIndex + '" ' +
-                'data-layer-id="' + layerId + '" ' +
-                'data-res-type="' + resType + '" ' +
-                'data-geom-type="' + geomType + '" ' +
-                'data-layer-attributes="' + layerAttributes + '">' +
-                '<input class="chkbx-layer" type="checkbox" checked>' +
-                '<span class="layer-name">' + layerName + '</span>' +
-                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
-                '</li>'
+                    'data-layer-index="' + layerIndex + '" ' +
+                    'data-layer-id="' + layerId + '" ' +
+                    'data-res-type="' + resType + '" ' +
+                    'data-geom-type="' + geomType + '" ' +
+                    'data-layer-attributes="' + layerAttributes + '">' +
+                    '<input class="chkbx-layer" type="checkbox" checked>' +
+                    '<span class="layer-name">' + layerName + '</span>' +
+                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
+                    '</li>'
             );
 
             projectInfo.map.layers[layerIndex] = {
@@ -259,6 +261,12 @@ var HS_GIS = (function packageHydroShareGIS() {
     addInitialEventListeners = function () {
 
         $btnSaveProject.on('click', onClickSaveProject);
+
+        $btnShowModalSaveProject.on('click', function () { $modalSaveProject.modal('show'); });
+
+        $('#res-title').on('keyup', function () {
+            $btnSaveProject.prop('disabled', $(this).val() === '');
+        });
 
         $('.basemap-option').on('click', changeBaseMap);
 
@@ -763,8 +771,9 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     initializeJqueryVariables = function () {
-        $btnSaveProject = $('#btn-save');
+        $btnShowModalSaveProject = $('#btn-show-modal-save-project');
         $btnApplySymbology = $('#btn-apply-symbology');
+        $btnSaveProject = $('#btn-save-project');
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
         $loadingAnimMain = $('#div-loading');
@@ -772,6 +781,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadRes = $('#modalLoadRes');
+        $modalSaveProject = $('#modalSaveProject');
         $modalSymbology = $('#modalSymbology');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
@@ -998,7 +1008,10 @@ var HS_GIS = (function packageHydroShareGIS() {
             dataType: 'json',
             contentType: 'json',
             data: {
-                'projectInfo': JSON.stringify(projectInfo)
+                'projectInfo': JSON.stringify(projectInfo),
+                'resTitle': $('#res-title').val(),
+                'resAbstract': $('#res-abstract').val(),
+                'resKeywords': $('#res-keywords').val()
             },
             error: function () {
                 alert('An error occurred while attempting to save the project!');

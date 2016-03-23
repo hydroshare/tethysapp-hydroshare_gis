@@ -37,7 +37,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled="disabled">Upload</button>
+                    <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled>Upload</button>
                 </div>
             </div>
             <!--End modal content-->
@@ -69,7 +69,7 @@
                         <img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled="disabled">Upload</button>
+                    <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled>Upload</button>
                 </div>
             </div>
             <!--End modal content-->
@@ -164,13 +164,13 @@
                             <label for="point-shape">Point marker shape:</label>
                             <select id="point-shape">
                                 {% for val in point_shape_options %}
-                                <option value="{{ val }}">{{ val }}</option>
+                                    <option value="{{ val }}">{{ val }}</option>
                                 {% endfor %}
                             </select>
                             <label for="point-size">Point marker size:</label>
                             <select id="point-size">
                                 {% for val in point_size_options %}
-                                <option value="{{ val }}">{{ val }}</option>
+                                    <option value="{{ val }}">{{ val }}</option>
                                 {% endfor %}
                             </select>
                         </fieldset>
@@ -190,7 +190,7 @@
                             <label for="poly-stroke-width">Line width:</label>
                             <select id="poly-stroke-width">
                                 {% for val in stroke_width_options %}
-                                <option value="{{ val }}">{{ val }}</option>
+                                    <option value="{{ val }}">{{ val }}</option>
                                 {% endfor %}
                             </select>
                         </fieldset>
@@ -206,7 +206,7 @@
                             <label for="font-size">Font size:</label>
                             <select id="font-size">
                                 {% for val in font_size_options %}
-                                <option value="{{ val }}">{{ val }}</option>
+                                    <option value="{{ val }}">{{ val }}</option>
                                 {% endfor %}
                             </select>
                             <label for="font-fill">Font color:</label>
@@ -250,6 +250,43 @@
         </div>
     </div>
     <!--End modal-->
+
+    <!-- Save Project Modal -->
+    <div id="modalSaveProject" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Save Map Project as HydroShare Resource</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="res-title" class="control-label">*Resource Title:</label>
+                        <input type="text" class="form-control" id="res-title">
+                    </div>
+                    <div class="form-group">
+                        <label for="res-abstract" class="control-label">Resource Abstract:</label>
+                        <textarea rows="6" cols="50" id="res-abstract" class="form-control">This resource contains a HydroShare Map Project file created using the HydroShare GIS web app. The Map Project file is in JSON format and contains data regarding the state of the project upon creating this resource.
+                        </textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="res-keywords" class="control-label">Resource Keywords:</label>
+                        <input type="text" class="form-control" id="res-keywords" value="Map, Project">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div id="display-status" class="col-md-8"></div>
+                    <div id="footer-buttons" class="col-md-4">
+                        <button type="button" class="btn btn-default footer" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary footer" disabled id="btn-save-project">Proceed</button>
+                    </div>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!-- End modal -->
 
     <div id="div-loading" class="hidden">
         <img src="/static/hydroshare_gis/images/main-loading-anim.gif" />

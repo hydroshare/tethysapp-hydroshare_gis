@@ -124,9 +124,7 @@ var SLD_TEMPLATES = (function () {
         getSldString: function (cssStyles, geomType, layerId) {
             var rawSldString;
 
-            cssStyles = {
-                'layer-id': layerId
-            };
+            cssStyles['layer-id'] = layerId;
 
             if (cssStyles.labels) {
                 rawSldString = addLabels(geomTypeDict[geomType]);

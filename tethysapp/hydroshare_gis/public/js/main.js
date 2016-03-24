@@ -41,6 +41,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         projectInfo,
     //  *********FUNCTIONS***********
         addContextMenuToListItem,
+        addLayerToMap,
         addLayerToUI,
         addListenersToListItem,
         addDefaultBehaviorToAjax,
@@ -124,6 +125,57 @@ var HS_GIS = (function packageHydroShareGIS() {
             });
     };
 
+    addLayerToMap = function (data) {
+        var lyrParams,
+            newLayer = null,
+            sldString,
+            lyrExtents = data.lyrExtents,
+            url = data.url,
+            lyrId = data.lyrId,
+            resType = data.resType,
+            geomType = data.geomType,
+            cssStyles = data.cssStyles,
+            visible = data.visible;
+
+        if (resType === 'TimeSeriesResource') {
+            newLayer = new ol.layer.Vector({
+                source: new ol.source.Vector({
+                    features: [new ol.Feature(new ol.geom.Point(lyrExtents))]
+                }),
+                style: new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 6,
+                        fill: new ol.style.Fill({
+                            color: getRandomColor()
+                        })
+                    })
+                }),
+                visible: visible
+            });
+        } else {
+            lyrParams = {
+                'LAYERS': lyrId,
+                'TILED': true
+            };
+            if (cssStyles && cssStyles !== 'Default') {
+                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId);
+                lyrParams.SLD_BODY = sldString;
+            }
+            newLayer = new ol.layer.Tile({
+                extent: lyrExtents,
+                source: new ol.source.TileWMS({
+                    url: url,
+                    params: lyrParams,
+                    serverType: 'geoserver'
+                }),
+                visible: visible
+            });
+        }
+        if (newLayer !== null) {
+            map.addLayer(newLayer);
+        }
+    };
+
     addLayerToUI = function (response) {
         var geoserverUrl,
             geomType,
@@ -132,7 +184,6 @@ var HS_GIS = (function packageHydroShareGIS() {
             layerName,
             layerId,
             layerIndex,
-            newLayer,
             resType,
             rawLayerExtents,
             tsSiteInfo,
@@ -148,44 +199,34 @@ var HS_GIS = (function packageHydroShareGIS() {
             geoserverUrl = response.geoserver_url;
             tsSiteInfo = response.site_info;
 
-            if (response.res_type === 'TimeSeriesResource') {
+            if (resType === 'TimeSeriesResource') {
                 layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
-                newLayer = new ol.layer.Vector({
-                    source: new ol.source.Vector({
-                        features: [new ol.Feature(new ol.geom.Point(layerExtents))]
-                    }),
-                    style: new ol.style.Style({
-                        image: new ol.style.Circle({
-                            radius: 6,
-                            fill: new ol.style.Fill({
-                                color: getRandomColor()
-                            })
-                        })
-                    })
-                });
             } else {
                 layerExtents = reprojectExtents(rawLayerExtents);
-                newLayer = new ol.layer.Tile({
-                    extent: layerExtents,
-                    source: new ol.source.TileWMS({
-                        url: geoserverUrl + '/wms',
-                        params: {
-                            'LAYERS': layerId,
-                            'TILED': true
-                        },
-                        serverType: 'geoserver'
-                    })
-                });
             }
 
-            map.addLayer(newLayer);
+            addLayerToMap({
+                resType: resType,
+                lyrExtents: layerExtents,
+                url: geoserverUrl + '/wms',
+                lyrId: layerId
+            });
 
             layerIndex = layerCount.get();
 
             createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName);
+            $newLayerListItem = $currentLayersList.find(':first-child');
+            addContextMenuToListItem($newLayerListItem, resType);
+            addListenersToListItem($newLayerListItem, layerIndex);
 
+            drawLayersInListOrder(false); // Must be called after creating the new layer list item
+            zoomToLayer(layerExtents, map.getSize(), resType);
+
+            // Add layer data to project info
+            projectInfo.map.geoserverUrl = geoserverUrl;
             projectInfo.map.layers[layerIndex] = {
                 attributes: layerAttributes,
+                cssStyles: "Default",
                 extents: layerExtents,
                 geomType: geomType,
                 id: layerId,
@@ -193,20 +234,8 @@ var HS_GIS = (function packageHydroShareGIS() {
                 listOrder: 1,
                 name: layerName,
                 resType: resType,
-                sld: "Default",
                 visible: true
             };
-            projectInfo.map.geoserverUrl = geoserverUrl;
-
-            drawLayersInListOrder(true);
-
-            zoomToLayer(layerExtents, map.getSize(), resType);
-
-            $newLayerListItem = $currentLayersList.find(':first-child');
-
-            addContextMenuToListItem($newLayerListItem, resType);
-
-            addListenersToListItem($newLayerListItem, layerIndex);
         }
     };
 
@@ -919,35 +948,28 @@ var HS_GIS = (function packageHydroShareGIS() {
         var i,
             layers = projectInfo.map.layers,
             numLayers = Object.keys(layers).length,
-            newLayer,
             key,
-            layerParams,
             $newLayerListItem;
 
         $('.basemap-option[value="' + projectInfo.map.baseMap + '"]').trigger('click');
+
         for (i = 1; i <= numLayers; i++) {
             for (key in layers) {
                 if (layers.hasOwnProperty(key)) {
-                    layerParams = {
-                        'LAYERS': layers[key].id,
-                        'TILED': true
-                    };
                     if (layers[key].listOrder === i) {
-                        if (layers[key].sld !== 'Default') {
-                            layerParams.SLD_BODY = layers[key].sld;
-                        }
-                        newLayer = new ol.layer.Tile({
-                            extent: layers[key].extents,
-                            source: new ol.source.TileWMS({
-                                url: projectInfo.map.geoserverUrl + '/wms',
-                                params: layerParams,
-                                serverType: 'geoserver'
-                            })
+                        addLayerToMap({
+                            lyrExtents: layers[key].extents,
+                            url: projectInfo.map.geoserverUrl,
+                            lyrId: layers[key].id,
+                            resType: layers[key].resType,
+                            geomType: layers[key].geomType,
+                            cssStyles: layers[key].cssStyles,
+                            visible: layers[key].visible
                         });
-                        map.addLayer(newLayer);
                         createLayerListItem('append', layers[key].index, layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
                         $newLayerListItem = $currentLayersList.find(':last-child');
                         addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                        addListenersToListItem($newLayerListItem, layers[key].index);
                     }
                 }
             }
@@ -1219,10 +1241,10 @@ var HS_GIS = (function packageHydroShareGIS() {
         if (cssStyles === null) {
             return;
         }
+        projectInfo.map.layers[layerIndex].cssStyles = cssStyles;
         sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
-        projectInfo.map.layers[layerIndex].sld = sldString;
     };
 
     updateUploadProgress = function (fileSize, currProg) {

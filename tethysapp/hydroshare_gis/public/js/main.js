@@ -697,8 +697,9 @@ var HS_GIS = (function packageHydroShareGIS() {
         return cookieValue;
     };
 
-    getCssStyles = function (cssStyles, geomType) {
-        var color;
+    getCssStyles = function (geomType) {
+        var color,
+            cssStyles = {};
 
         // Check conditions for the fill color
         if (geomType === 'point' || geomType === 'polygon') {
@@ -1212,15 +1213,13 @@ var HS_GIS = (function packageHydroShareGIS() {
             layerId = $this.attr('data-layer-id'),
             layerIndex = $this.attr('data-layer-index'),
             sldString,
-            cssStyles = {
-                'layer-id': layerId
-            };
+            cssStyles;
 
-        cssStyles = getCssStyles(cssStyles, geomType);
+        cssStyles = getCssStyles(geomType);
         if (cssStyles === null) {
             return;
         }
-        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType);
+        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
         projectInfo.map.layers[layerIndex].sld = sldString;

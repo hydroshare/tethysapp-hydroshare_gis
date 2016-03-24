@@ -74,23 +74,23 @@ var SLD_TEMPLATES = (function () {
         '<PropertyName>{{label-field}}</PropertyName>' +
         '</Label>' +
         '<Font>' +
-            //'<CssParameter name="font-family">Arial</CssParameter>' +
+        //'<CssParameter name="font-family">Arial</CssParameter>' +
         '<CssParameter name="font-size">{{font-size}}</CssParameter>' +
-            //'<CssParameter name="font-style">normal</CssParameter>' +
-            //'<CssParameter name="font-weight">normal</CssParameter>' +
+        //'<CssParameter name="font-style">normal</CssParameter>' +
+        //'<CssParameter name="font-weight">normal</CssParameter>' +
         '</Font>' +
-            //'<LabelPlacement>' +
-            //'<PointPlacement>' +
-            //'<AnchorPoint>' +
-            //'<AnchorPointX>0.5</AnchorPointX>' +
-            //'<AnchorPointY>1.0</AnchorPointY>' +
-            //'</AnchorPoint>' +
-            //'<Displacement>' +
-            //'<DisplacementX>0</DisplacementX>' +
-            //'<DisplacementY>-12</DisplacementY>' +
-            //'</Displacement>' +
-            //'</PointPlacement>' +
-            //'</LabelPlacement>' +
+        //'<LabelPlacement>' +
+        //'<PointPlacement>' +
+        //'<AnchorPoint>' +
+        //'<AnchorPointX>0.5</AnchorPointX>' +
+        //'<AnchorPointY>1.0</AnchorPointY>' +
+        //'</AnchorPoint>' +
+        //'<Displacement>' +
+        //'<DisplacementX>0</DisplacementX>' +
+        //'<DisplacementY>-12</DisplacementY>' +
+        //'</Displacement>' +
+        //'</PointPlacement>' +
+        //'</LabelPlacement>' +
         '<Fill>' +
         '<CssParameter name="fill">{{font-fill}}</CssParameter>' +
         '<CssParameter name="fill-opacity">{{font-fill-opacity}}</CssParameter>' +
@@ -121,8 +121,12 @@ var SLD_TEMPLATES = (function () {
     };
 
     return {
-        getSldString: function (cssStyles, geomType) {
+        getSldString: function (cssStyles, geomType, layerId) {
             var rawSldString;
+
+            cssStyles = {
+                'layer-id': layerId
+            };
 
             if (cssStyles.labels) {
                 rawSldString = addLabels(geomTypeDict[geomType]);

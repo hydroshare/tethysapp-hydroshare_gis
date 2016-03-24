@@ -348,7 +348,11 @@ var HS_GIS = (function packageHydroShareGIS() {
             var outlineString,
                 color;
 
-            $('#outline-options').toggleClass('hidden');
+            if ($(this).prop('checked') === true) {
+                $('#outline-options').removeClass('hidden');
+            } else {
+                $('#outline-options').addClass('hidden');
+            }
 
             if ($('#outline-options').hasClass('hidden')) {
                 $('#symbology-preview').css('outline', '0');
@@ -364,8 +368,13 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
 
         $('#chkbx-include-labels').on('change', function () {
-            $('#label-options').toggleClass('hidden');
-            $('#label-preview').toggleClass('hidden');
+            if ($(this).prop('checked') === true) {
+                $('#label-options').removeClass('hidden');
+                $('#label-preview').removeClass('hidden');
+            } else {
+                $('#label-options').addClass('hidden');
+                $('#label-preview').addClass('hidden');
+            }
         });
 
         $('#geom-fill').spectrum({
@@ -959,7 +968,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                     if (layers[key].listOrder === i) {
                         addLayerToMap({
                             lyrExtents: layers[key].extents,
-                            url: projectInfo.map.geoserverUrl,
+                            url: projectInfo.map.geoserverUrl + '/wms',
                             lyrId: layers[key].id,
                             resType: layers[key].resType,
                             geomType: layers[key].geomType,
@@ -1070,6 +1079,10 @@ var HS_GIS = (function packageHydroShareGIS() {
         $('#label-field').html(optionsHtmlString);
 
         $modalSymbology.find('fieldset').addClass('hidden');
+        $('#chkbx-include-outline').prop('checked', false);
+        $('#chkbx-include-outline').trigger('change');
+        $('#chkbx-include-labels').prop('checked', false);
+        $('#chkbx-include-labels').trigger('change');
 
         if (geomType === 'polygon') {
             $('.polygon').removeClass('hidden');
@@ -1353,7 +1366,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     generateResourceList();
 
     layerCount = (function () {
-        // The count = 2 accounts for the 3 base maps added before this count is initialized
+        // The count = 2 (0-based) accounts for the 3 base maps added before this count is initialized
         var count = 2;
         return {
             'get': function () {

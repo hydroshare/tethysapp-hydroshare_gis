@@ -860,12 +860,6 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeLayersContextMenu = function () {
         layersContextMenuGeneral = [
             {
-                name: 'Modify symbology',
-                title: 'Modify symbology',
-                fun: function (e) {
-                    onClickModifySymbology(e);
-                }
-            }, {
                 name: 'Rename',
                 title: 'Rename',
                 fun: function (e) {
@@ -887,6 +881,13 @@ var HS_GIS = (function packageHydroShareGIS() {
         ];
 
         layersContextMenuShpfile = layersContextMenuGeneral.slice();
+        layersContextMenuShpfile.unshift({
+            name: 'Modify symbology',
+            title: 'Modify symbology',
+            fun: function (e) {
+                onClickModifySymbology(e);
+            }
+        });
         layersContextMenuShpfile.unshift({
             name: 'View attribute table',
             title: 'View attribute table',
@@ -953,14 +954,14 @@ var HS_GIS = (function packageHydroShareGIS() {
         });
     };
 
-    loadProjectFile = function (projectInfo) {
+    loadProjectFile = function (fileProjectInfo) {
         var i,
-            layers = projectInfo.map.layers,
+            layers = fileProjectInfo.map.layers,
             numLayers = Object.keys(layers).length,
             key,
             $newLayerListItem;
 
-        $('.basemap-option[value="' + projectInfo.map.baseMap + '"]').trigger('click');
+        $('.basemap-option[value="' + fileProjectInfo.map.baseMap + '"]').trigger('click');
 
         for (i = 1; i <= numLayers; i++) {
             for (key in layers) {
@@ -968,7 +969,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                     if (layers[key].listOrder === i) {
                         addLayerToMap({
                             lyrExtents: layers[key].extents,
-                            url: projectInfo.map.geoserverUrl + '/wms',
+                            url: fileProjectInfo.map.geoserverUrl + '/wms',
                             lyrId: layers[key].id,
                             resType: layers[key].resType,
                             geomType: layers[key].geomType,
@@ -984,8 +985,10 @@ var HS_GIS = (function packageHydroShareGIS() {
             }
         }
         drawLayersInListOrder(false);
-        map.getView().setCenter(projectInfo.map.center);
-        map.getView().setZoom(projectInfo.map.zoomLevel);
+        map.getView().setCenter(fileProjectInfo.map.center);
+        map.getView().setZoom(fileProjectInfo.map.zoomLevel);
+
+        projectInfo = fileProjectInfo;
     };
 
     loadResource = function (res_id, res_type, res_title) {
@@ -1079,10 +1082,12 @@ var HS_GIS = (function packageHydroShareGIS() {
         $('#label-field').html(optionsHtmlString);
 
         $modalSymbology.find('fieldset').addClass('hidden');
-        $('#chkbx-include-outline').prop('checked', false);
-        $('#chkbx-include-outline').trigger('change');
-        $('#chkbx-include-labels').prop('checked', false);
-        $('#chkbx-include-labels').trigger('change');
+        $('#chkbx-include-outline')
+            .prop('checked', false)
+            .trigger('change');
+        $('#chkbx-include-labels')
+            .prop('checked', false)
+            .trigger('change');
 
         if (geomType === 'polygon') {
             $('.polygon').removeClass('hidden');

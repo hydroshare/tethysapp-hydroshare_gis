@@ -81,6 +81,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         processSaveProjectResponse,
         redrawDataTable,
         reprojectExtents,
+        setupSymbologyModalState,
         showMainLoadAnim,
         updateProgressBar,
         updateSymbology,
@@ -443,6 +444,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         $btnApplySymbology.on('click', function () {
             updateSymbology($(this));
+            $(this).prop('disabled', true);
         });
     };
 
@@ -902,8 +904,8 @@ var HS_GIS = (function packageHydroShareGIS() {
             title: 'View time series'
             //fun: function (e) {
             //    var clickedElement = e.trigger.context,
-            //        $dataElement = $(clickedElement).parent().parent(),
-            //        resId = $dataElement.attr('data-layer-id');
+            //        $lyrListItem = $(clickedElement).parent().parent(),
+            //        resId = $lyrListItem.attr('data-layer-id');
             //
             //    console.log(resId);
             //}
@@ -1040,14 +1042,14 @@ var HS_GIS = (function packageHydroShareGIS() {
     onClickDeleteLayer = function (e) {
         var clickedElement = e.trigger.context,
             count,
-            $dataElement = $(clickedElement).parent().parent(),
-            deleteIndex = Number($dataElement.attr('data-layer-index')),
+            $lyrListItem = $(clickedElement).parent().parent(),
+            deleteIndex = Number($lyrListItem.attr('data-layer-index')),
             i,
             index,
             layer;
 
         map.getLayers().removeAt(deleteIndex);
-        $dataElement.remove();
+        $lyrListItem.remove();
         delete projectInfo.map.layers[deleteIndex];
 
         count = layerCount.get();
@@ -1062,52 +1064,20 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     onClickModifySymbology = function (e) {
         var clickedElement = e.trigger.context,
-            $dataElement = $(clickedElement).parent().parent(),
-            geomType = $dataElement.attr('data-geom-type'),
-            layerId = $dataElement.attr('data-layer-id'),
-            layerIndex = $dataElement.attr('data-layer-index'),
-            labelFieldOptions = $dataElement.attr('data-layer-attributes').split(','),
-            optionsHtmlString = '';
+            $lyrListItem = $(clickedElement).parent().parent();
 
-        $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $dataElement.find('.layer-name').text());
-        $modalSymbology.find('#btn-apply-symbology').attr({
-            'data-geom-type': geomType,
-            'data-layer-id': layerId,
-            'data-layer-index': layerIndex
-        });
-
-        labelFieldOptions.forEach(function (option) {
-            optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
-        });
-        $('#label-field').html(optionsHtmlString);
-
-        $modalSymbology.find('fieldset').addClass('hidden');
-        $('#chkbx-include-outline')
-            .prop('checked', false)
-            .trigger('change');
-        $('#chkbx-include-labels')
-            .prop('checked', false)
-            .trigger('change');
-
-        if (geomType === 'polygon') {
-            $('.polygon').removeClass('hidden');
-        } else if (geomType === 'point') {
-            $('.point').removeClass('hidden');
-        } else if (geomType === 'line') {
-            $('#chkbx-include-outline').prop('checked', true);
-            $('.line').removeClass('hidden');
-        }
+        setupSymbologyModalState($lyrListItem);
         $modalSymbology.modal('show');
     };
 
     onClickRenameLayer = function (e) {
         var clickedElement = e.trigger.context,
-            $dataElement = $(clickedElement).parent().parent(),
-            $LayerNameSpan = $dataElement.find('span'),
-            layerIndex = $dataElement.attr('data-layer-index');
+            $lyrListItem = $(clickedElement).parent().parent(),
+            $LayerNameSpan = $lyrListItem.find('span'),
+            layerIndex = $lyrListItem.attr('data-layer-index');
 
         $LayerNameSpan.addClass('hidden');
-        $dataElement.find('input')
+        $lyrListItem.find('input')
             .removeClass('hidden')
             .select()
             .on('keyup', function (e) {
@@ -1143,10 +1113,10 @@ var HS_GIS = (function packageHydroShareGIS() {
     onClickShowAttrTable = function (e) {
         showMainLoadAnim();
         var clickedElement = e.trigger.context,
-            $dataElement = $(clickedElement).parent().parent(),
-            layerName = $dataElement.text(),
-            layerId = $dataElement.attr('data-layer-id'),
-            layerAttributes = $dataElement.attr('data-layer-attributes');
+            $lyrListItem = $(clickedElement).parent().parent(),
+            layerName = $lyrListItem.text(),
+            layerId = $lyrListItem.attr('data-layer-id'),
+            layerAttributes = $lyrListItem.attr('data-layer-attributes');
 
         generateAttributeTable(layerId, layerAttributes, layerName);
     };
@@ -1156,12 +1126,12 @@ var HS_GIS = (function packageHydroShareGIS() {
             index,
             layerExtent,
             resType,
-            $dataElement;
+            $lyrListItem;
 
         clickedElement = e.trigger.context;
-        $dataElement = $(clickedElement).parent().parent();
-        index = Number($dataElement.attr('data-layer-index'));
-        resType = $dataElement.attr('data-res-type');
+        $lyrListItem = $(clickedElement).parent().parent();
+        index = Number($lyrListItem.attr('data-layer-index'));
+        resType = $lyrListItem.attr('data-res-type');
         if (resType === 'TimeSeriesResource') {
             layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
         } else {
@@ -1228,6 +1198,43 @@ var HS_GIS = (function packageHydroShareGIS() {
         extents = tempCoord1.concat(tempCoord2);
 
         return extents;
+    };
+
+    setupSymbologyModalState = function ($lyrListItem) {
+        var geomType = $lyrListItem.attr('data-geom-type'),
+            layerId = $lyrListItem.attr('data-layer-id'),
+            layerIndex = $lyrListItem.attr('data-layer-index'),
+            labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
+            optionsHtmlString = '';
+
+        $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $lyrListItem.find('.layer-name').text());
+        $modalSymbology.find('#btn-apply-symbology').attr({
+            'data-geom-type': geomType,
+            'data-layer-id': layerId,
+            'data-layer-index': layerIndex
+        });
+
+        labelFieldOptions.forEach(function (option) {
+            optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
+        });
+        $('#label-field').html(optionsHtmlString);
+
+        $modalSymbology.find('fieldset').addClass('hidden');
+        $('#chkbx-include-outline')
+            .prop('checked', false)
+            .trigger('change');
+        $('#chkbx-include-labels')
+            .prop('checked', false)
+            .trigger('change');
+
+        if (geomType === 'polygon') {
+            $('.polygon').removeClass('hidden');
+        } else if (geomType === 'point') {
+            $('.point').removeClass('hidden');
+        } else if (geomType === 'line') {
+            $('#chkbx-include-outline').prop('checked', true);
+            $('.line').removeClass('hidden');
+        }
     };
 
     showMainLoadAnim = function () {

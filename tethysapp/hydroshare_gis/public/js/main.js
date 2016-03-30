@@ -307,6 +307,10 @@ var HS_GIS = (function packageHydroShareGIS() {
             hideProgressBar();
         });
 
+        $modalSaveProject.on('shown.bs.modal', function () {
+            $('#save-status').addClass('hidden');
+        });
+
         $('#btn-upload-res').on('click', uploadResourceButtonHandler);
 
         $('#btn-upload-file').on('click', uploadFileButtonHandler);
@@ -1086,6 +1090,10 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     onClickSaveProject = function () {
+        $('#save-status')
+            .html('<img src="/static/hydroshare_gis/images/loading-animation.gif"')
+            .removeClass('hidden');
+
         projectInfo.map.baseMap = $('.selected-basemap-option').attr('value');
         projectInfo.map.center = map.getView().getCenter();
         projectInfo.map.zoomLevel = map.getView().getZoom();
@@ -1104,9 +1112,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             error: function () {
                 alert('An error occurred while attempting to save the project!');
             },
-            success: function (response) {
-                processSaveProjectResponse(response);
-            }
+            success: processSaveProjectResponse
         });
     };
 
@@ -1156,7 +1162,16 @@ var HS_GIS = (function packageHydroShareGIS() {
     processSaveProjectResponse = function (response) {
         if (response.hasOwnProperty('success')) {
             var resId = response.res_id;
-            console.log("Save successful. Access resource at https://www.hydroshare.org/resource/" + resId);
+            $('#save-status')
+                .addClass('success')
+                .html('Save successful. Access resource <a href="https://www.hydroshare.org/resource/">here</a>.' + resId);
+        } else if (response.hasOwnProperty('error')) {
+            $('#save-status')
+                .addClass('error')
+                .html(response.error);
+            setTimeout(function () {
+                $('#save-status').addClass('hidden');
+            }, 5000);
         }
     };
 

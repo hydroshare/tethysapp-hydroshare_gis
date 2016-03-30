@@ -1,9 +1,9 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ObjectDoesNotExist
 from oauthlib.oauth2 import TokenExpiredError
 from utilities import *
 from geoserver.catalog import FailedRequestError
+from django.core.exceptions import ObjectDoesNotExist
 
 import shutil
 from json import dumps, loads
@@ -106,34 +106,31 @@ def load_file(request):
             # for store in stores['result']:
             #     engine.delete_store(store, True, True)
 
-            hs = get_oauth_hs(request)
-            # hs = HydroShare()
+            try:
+                hs = get_oauth_hs(request)
+            except ObjectDoesNotExist as e:
+                print str(e)
+                hs = HydroShare()
 
-            print 'GET REQUEST MADE'
             res_id = request.GET['res_id']
-            print 'res_id: %s' % res_id
 
             if 'res_type' in request.GET:
                 res_type = request.GET['res_type']
             else:
                 res_type = hs.getSystemMetadata(res_id)['resource_type']
-            print 'res_type: %s' % res_type
+
             if 'res_title' in request.GET:
                 res_title = request.GET['res_title']
             else:
                 res_title = hs.getSystemMetadata(res_id)['resource_title']
-            print 'res_title: %s' % res_title
+
             store_id = 'res_%s' % res_id
-            print 'store_id: %s' % store_id
 
             try:
                 if engine.list_resources(store=store_id)['success']:
-                    print 'RESOURCE ALREADY STORED ON GEOSERVER'
                     # RESOURCE ALREADY STORED ON GEOSERVER
                     layer_name = engine.list_resources(store=store_id)['result'][0]
-                    print 'layer_name: %s' % layer_name
                     layer_id = '%s:%s' % (workspace_id, layer_name)
-                    print 'layer_id: %s' % layer_id
                     layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
                     return JsonResponse({
@@ -147,15 +144,13 @@ def load_file(request):
                         'geom_type': geom_type
                     })
             except FailedRequestError, e:
-                print e
-                pass
+                print str(e)
             except Exception, e:
-                print e
+                print str(e)
 
             # RESOURCE NOT ALREADY STORED ON GEOSERVER
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
-            print 'res_contents_dir: %s' % res_contents_dir
 
             if os.path.exists(res_contents_dir):
                 print "res_contents_dir exists"
@@ -174,9 +169,6 @@ def load_file(request):
                     elif file_name.endswith('.json'):
                         res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
 
-
-            print 'res_filepath_or_obj: %s' % res_filepath_or_obj
-
         except ObjectDoesNotExist as e:
             print str(e)
             return get_json_response('error', 'Login timed out! Please re-sign in with your HydroShare account.')
@@ -191,10 +183,8 @@ def load_file(request):
     else:
         return get_json_response('error', 'Invalid request made.')
 
-    # if res_type == 'GenericResource' and res_filepath_or_obj.endswith('.json'):
-    if res_type == 'GenericResource':
-        with open('/home/alan/Documents/mapProject.json') as project_file:
-        # with open(res_filepath_or_obj) as project_file:
+    if res_type == 'GenericResource' and res_filepath_or_obj.endswith('.json'):
+        with open(res_filepath_or_obj) as project_file:
             project_info = project_file.read()
 
         return JsonResponse({
@@ -204,8 +194,6 @@ def load_file(request):
 
     if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
         layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip)
-        print 'layer_id: %s' % layer_id
-
         layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
         if layer_name and 'res_' in layer_name:
@@ -231,10 +219,13 @@ def load_file(request):
 
 def get_hs_res_list(request):
     if request.is_ajax() and request.method == 'GET':
-        valid_res_list = []
+        resources_list = []
 
-        hs = get_oauth_hs(request)
-        # hs = HydroShare()
+        try:
+            hs = get_oauth_hs(request)
+        except ObjectDoesNotExist as e:
+            print str(e)
+            hs = HydroShare()
 
         for resource in hs.getResourceList(
                 types=['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']):
@@ -246,11 +237,11 @@ def get_hs_res_list(request):
                 for res_file in hs.getResourceFileList(res_id):
                     res_size += res_file['size']
 
-            except Exception, err:
-                print str(err)
-                continue  # Can be removed if public not being public error is fixed
+            except Exception as e:
+                print str(e)
+                continue
 
-            valid_res_list.append({
+            resources_list.append({
                 'title': resource['resource_title'],
                 'type': resource['resource_type'],
                 'id': res_id,
@@ -258,11 +249,11 @@ def get_hs_res_list(request):
                 'owner': resource['creator']
             })
 
-        valid_res_json = dumps(valid_res_list)
+        resources_json = dumps(resources_list)
 
         return JsonResponse({
             'success': 'Resources obtained successfully.',
-            'resources': valid_res_json
+            'resources': resources_json
         })
 
 
@@ -319,8 +310,8 @@ def save_project(request):
 
             # upload the temp file to HydroShare
             if os.path.exists(proj_file):
-                res_id = hs.createResource(resource_type=res_type,
-                                           resource_title=res_title,
+                res_id = hs.createResource(res_type,
+                                           res_title,
                                            resource_file=proj_file,
                                            keywords=res_keywords,
                                            abstract=res_abstract
@@ -336,15 +327,14 @@ def save_project(request):
         except TokenExpiredError as e:
             print str(e)
             return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
-        except Exception, err:
-            if "401 Unauthorized" in str(err):
+        except Exception as e:
+            if "401 Unauthorized" in str(e):
                 return_json['error'] = 'Username or password invalid.'
-            elif "400 Bad Request" in str(err):
+            elif "400 Bad Request" in str(e):
                 return_json['success'] = 'File uploaded successfully despite 400 Bad Request Error.'
             else:
                 return_json['error'] = 'HydroShare rejected the upload for some reason.'
         finally:
-            raw_input('')
             if os.path.exists(project_file_tempdir):
                 shutil.rmtree(project_file_tempdir)
 

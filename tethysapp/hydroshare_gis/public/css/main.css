@@ -132,7 +132,7 @@
     left: 0;
 }
 .modal-header {
-    height: 70px;
+    min-height: 70px;
 }
 .modal-body {
     position: fixed;
@@ -141,9 +141,11 @@
     right: 0;
     left: 0;
     overflow-y: auto;
-    border-bottom: 1px solid #e5e5e5;
 }
 .modal-footer {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: flex-end;
     height: 65px;
     position: fixed;
     bottom: 0;
@@ -300,4 +302,21 @@ input[type="radio"] {
 
 .dataTables_scrollHead {
     overflow-x: auto;
+}
+
+/****************************************************/
+/*                  GENERAL STYLING                 */
+.error {
+    background-color: red;
+    color: white;
+}
+.success {
+    background-color: green;
+    color: white;
+}
+
+@media (max-width: 550px) {
+    #byu-logo-container {
+        display: none;
+    }
 }

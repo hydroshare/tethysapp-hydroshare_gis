@@ -11,7 +11,7 @@ import sqlite3
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'default'
-geoserver_url = 'http://127.0.0.1:8181/geoserver'
+geoserver_url = 'http://appsdev.hydroshare.org:8181/geoserver'
 workspace_id = 'hydroshare_gis'
 uri = 'http://127.0.0.1:8000/apps/hydroshare-gis'
 

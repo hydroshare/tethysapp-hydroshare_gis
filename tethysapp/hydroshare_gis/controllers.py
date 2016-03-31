@@ -153,9 +153,7 @@ def load_file(request):
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 
             if os.path.exists(res_contents_dir):
-                print "res_contents_dir exists"
                 for file_name in os.listdir(res_contents_dir):
-                    print "file_name: %s" % file_name
                     if file_name.endswith('.shp'):
                         res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
                         break

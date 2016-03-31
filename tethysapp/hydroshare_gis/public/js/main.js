@@ -191,16 +191,21 @@ var HS_GIS = (function packageHydroShareGIS() {
             $newLayerListItem;
 
         if (response.hasOwnProperty('success')) {
-            geomType = getGeomType(response.geom_type);
-            layerAttributes = response.layer_attributes;
+            resType = response.res_type;
+            if (resType === 'GeographicFeatureResource') {
+                geomType = getGeomType(response.geom_type);
+                layerAttributes = response.layer_attributes;
+            } else {
+                geomType = "None";
+                layerAttributes = "None";
+            }
             layerName = response.layer_name;
             layerId = response.layer_id || response.res_id;
-            resType = response.res_type;
             rawLayerExtents = response.layer_extents;
             geoserverUrl = response.geoserver_url;
-            tsSiteInfo = response.site_info;
 
             if (resType === 'TimeSeriesResource') {
+                tsSiteInfo = response.site_info;
                 layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
             } else {
                 layerExtents = reprojectExtents(rawLayerExtents);
@@ -318,7 +323,7 @@ var HS_GIS = (function packageHydroShareGIS() {
         $('#input-files').on('change', function () {
             var files = this.files;
             if (!areValidFiles(files)) {
-                $uploadBtn.attr('disabled', 'disabled');
+                $uploadBtn.prop('disabled', true);
                 $('#msg-file')
                     .text("Invalid files. Include only one of the following 3 upload options below.")
                     .removeClass('hidden');
@@ -1164,7 +1169,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             var resId = response.res_id;
             $('#save-status')
                 .addClass('success')
-                .html('Save successful. Access resource <a href="https://www.hydroshare.org/resource/">here</a>.' + resId);
+                .html('Save successful. Access resource <a href="https://www.hydroshare.org/resource/' + resId + '">here</a>.');
         } else if (response.hasOwnProperty('error')) {
             $('#save-status')
                 .addClass('error')
@@ -1344,7 +1349,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     uploadResourceButtonHandler = function () {
 
-        $uploadBtn.attr('disabled', 'disabled');
+        $uploadBtn.prop('disabled', true);
         var $rdoRes = $('.rdo-res:checked'),
             resId = $rdoRes.val(),
             resType = $rdoRes.parent().parent().find('.res_type').text(),

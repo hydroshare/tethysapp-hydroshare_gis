@@ -262,7 +262,7 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
-/*             SYMBOLOGY MODAL                 */
+/*                   SYMBOLOGY MODAL                 */
 #modalSymbology .modal-content {
     position: static;
 }
@@ -286,6 +286,21 @@ input[type="radio"] {
     background-color: red;
     color: white;
 }
+/*****************************************************/
+
+/*****************************************************/
+/*                SAVE PROJECT MODAL                 */
+#modalSaveProject .modal-content {
+    position: static;
+}
+#modalSaveProject .modal-body {
+    position: static;
+}
+#modalSaveProject .modal-footer {
+    position: static;
+}
+/*****************************************************/
+
 /*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading {

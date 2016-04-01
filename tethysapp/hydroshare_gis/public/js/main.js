@@ -18,11 +18,15 @@
  *****************************************************************************/
 
 // Global directives for JSLint/JSHint
+// /*jslint
+//  browser, this, devel, multivar
+//  */
 /*global
  document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
- pageX, pageY, clearInterval, SLD_TEMPLATES, alert */
+ pageX, pageY, clearInterval, SLD_TEMPLATES, alert
+ */
 
-var HS_GIS = (function packageHydroShareGIS() {
+(function packageHydroShareGIS() {
 
     "use strict"; // And enable strict mode for this library
 
@@ -298,7 +302,9 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         $btnSaveProject.on('click', onClickSaveProject);
 
-        $btnShowModalSaveProject.on('click', function () { $modalSaveProject.modal('show'); });
+        $btnShowModalSaveProject.on('click', function () {
+            $modalSaveProject.modal('show');
+        });
 
         $('#res-title').on('keyup', function () {
             $btnSaveProject.prop('disabled', $(this).val() === '');
@@ -458,16 +464,20 @@ var HS_GIS = (function packageHydroShareGIS() {
         $('#num-colors-in-gradient').on('change', function () {
             $('#color-map-placeholder').html();
             var i,
+                inputSelector,
                 htmlString = '',
                 numColors = $(this).val();
+
             for (i = 0; i < numColors; i++) {
                 htmlString += '<label for="color' + i + '">Color:</label>' +
                     '<input type="text" id="color' + i + '">' +
                     '<label for="quantity' + i + '">Raster value:</label>' +
                     '<input type="text" id="quantity' + i + '"><br>';
             }
-            $('#color-map-placeholder').html(htmlString);
-            var inputSelector;
+            $('#color-map-placeholder')
+                .attr('data-num-colors', numColors)
+                .html(htmlString);
+
             for (i = 0; i < numColors; i++) {
                 inputSelector = '#color' + i;
                 $(inputSelector).spectrum({
@@ -476,7 +486,14 @@ var HS_GIS = (function packageHydroShareGIS() {
                     showAlpha: false,
                     showPalette: true,
                     chooseText: "Choose",
-                    cancelText: "Cancel"
+                    cancelText: "Cancel",
+                    change: function (color) {
+                        if (color) {
+                            $btnApplySymbology.prop('disabled', false);
+                        } else {
+                            $btnApplySymbology.prop('disabled', true);
+                        }
+                    }
                 });
             }
         });
@@ -497,20 +514,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                 if (++fileCount > 4) {
                     return false;
                 }
-                if (files.hasOwnProperty(file)) {
-                    if (files[file].name.endsWith('.shp')) {
-                        hasShp = true;
-                    } else if (files[file].name.endsWith('.shx')) {
-                        hasShx = true;
-                    } else if (files[file].name.endsWith('.prj')) {
-                        hasPrj = true;
-                    } else if (files[file].name.endsWith('.dbf')) {
-                        hasDbf = true;
-                    } else if (files[file].name.endsWith('.tif')) {
-                        hasTif = true;
-                    } else if (files[file].name.endsWith('.zip')) {
-                        hasZip = true;
-                    }
+                if (files[file].name.endsWith('.shp')) {
+                    hasShp = true;
+                } else if (files[file].name.endsWith('.shx')) {
+                    hasShx = true;
+                } else if (files[file].name.endsWith('.prj')) {
+                    hasPrj = true;
+                } else if (files[file].name.endsWith('.dbf')) {
+                    hasDbf = true;
+                } else if (files[file].name.endsWith('.tif')) {
+                    hasTif = true;
+                } else if (files[file].name.endsWith('.zip')) {
+                    hasZip = true;
                 }
             }
         }
@@ -523,13 +538,11 @@ var HS_GIS = (function packageHydroShareGIS() {
         $(this).addClass('selected-basemap-option');
         $($(this).children()[0]).text(' (Current)');
 
-        var style = $(this).attr('value'),
-            i,
-            ii = basemapLayers.length;
+        var style = $(this).attr('value');
 
-        for (i = 0; i < ii; ++i) {
-            basemapLayers[i].set('visible', (basemapLayers[i].get('style') === style));
-        }
+        basemapLayers.forEach(function (layer) {
+            layer.set('visible', (layer.get('style') === style));
+        });
     };
 
 // Find if method is CSRF safe
@@ -539,23 +552,32 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     checkURLForParameters = function () {
-        var transformToAssocArray = function (prmstr) {
-                var i,
-                    params = {},
-                    prmArr = prmstr.split("&"),
-                    tmpArr;
+        var transformToAssocArray,
+            getSearchParameters,
+            params;
 
-                for (i = 0; i < prmArr.length; i++) {
-                    tmpArr = prmArr[i].split("=");
-                    params[tmpArr[0]] = tmpArr[1];
-                }
-                return params;
-            },
-            getSearchParameters = function () {
-                var prmstr = window.location.search.substr(1);
-                return prmstr !== null && prmstr !== "" ? transformToAssocArray(prmstr) : {};
-            },
-            params = getSearchParameters();
+        transformToAssocArray = function (prmstr) {
+            var prms,
+                prmArr,
+                tmpArr;
+
+            prmArr = prmstr.split("&");
+            prms = {};
+
+            prmArr.forEach(function (prm) {
+                tmpArr = prm.split("=");
+                prms[tmpArr[0]] = tmpArr[1];
+            });
+
+            return prms;
+        };
+
+        getSearchParameters = function () {
+            var prmstr = window.location.search.substr(1);
+            return prmstr !== null && prmstr !== "" ? transformToAssocArray(prmstr) : {};
+        };
+
+        params = getSearchParameters();
 
         if (params.res_id !== undefined || params.res_id !== null) {
             if (params.src === 'hs') {
@@ -653,33 +675,29 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 var attributeTableHTML,
-                    currAttrVal,
                     featureProperties,
-                    i,
-                    j,
                     layerAttributesList = [],
-                    length,
-                    numAttributes,
                     dataTable,
                     tableHeadingHTML = '';
 
                 if (response.hasOwnProperty('success')) {
                     featureProperties = JSON.parse(response.feature_properties);
                     layerAttributesList = layerAttributes.split(',');
-                    numAttributes = layerAttributesList.length;
-                    for (i = 0; i < numAttributes; i++) {
-                        tableHeadingHTML += '<th>' + layerAttributesList[i] + '</th>';
-                    }
+
+                    layerAttributesList.forEach(function (attribute) {
+                        tableHeadingHTML += '<th>' + attribute + '</th>';
+                    });
+
                     attributeTableHTML = '<table id="tbl-attributes"><thead>' + tableHeadingHTML + '</thead><tbody>';
 
-                    for (i = 0, length = featureProperties.length; i < length; i++) {
+                    featureProperties.forEach(function (property) {
                         attributeTableHTML += '<tr>';
-                        for (j = 0; j < numAttributes; j++) {
-                            currAttrVal = featureProperties[i][layerAttributesList[j]];
-                            attributeTableHTML += '<td class="attribute" data-attribute="' + layerAttributesList[j] + '">' + currAttrVal + '</td>';
-                        }
+                        layerAttributesList.forEach(function (attribute) {
+                            attributeTableHTML += '<td class="attribute" data-attribute="' + attribute + '">' + property[attribute] + '</td>';
+                        });
                         attributeTableHTML += '</tr>';
-                    }
+                    });
+
                     $modalAttrTbl.find('.modal-body').html(attributeTableHTML);
                     dataTable = $('#tbl-attributes').DataTable({
                         'order': [[0, 'asc']],
@@ -775,65 +793,79 @@ var HS_GIS = (function packageHydroShareGIS() {
         var color,
             cssStyles = {};
 
-        // Check conditions for the fill color
-        if (geomType === 'point' || geomType === 'polygon') {
-            color = $('#geom-fill').spectrum('get');
-            if (color !== null) {
-                cssStyles.fill = color.toHexString();
-                cssStyles['fill-opacity'] = color.getAlpha().toString();
-            } else {
-                displaySymbologyModalError('You must select a fill color.');
-                return;
-            }
-        }
+        if (geomType === 'None') {
+            cssStyles['color-map'] = {};
+            (function () {
+                var numColors,
+                    i,
+                    colorSelector,
+                    quantitySelector;
 
-        // Check conditions for the stroke (line) color
-        if (geomType === 'line' || $('#chkbx-include-outline').is(':checked')) {
-            color = $('#poly-stroke').spectrum('get');
-            if (color !== null) {
-                cssStyles.stroke = color.toHexString();
-                cssStyles['stroke-opacity'] = color.getAlpha().toString();
-                cssStyles['stroke-width'] = $('#poly-stroke-width').val();
-            } else {
-                displaySymbologyModalError('You must select a line color.');
-            }
+                numColors = $('#color-map-placeholder').attr('data-num-colors');
+                for (i = 0; i < numColors; i++) {
+                    colorSelector = '#color' + i;
+                    quantitySelector = '#quantity' + i;
+                    cssStyles['color-map'][$(quantitySelector).val()] = $(colorSelector).spectrum('get').toHexString();
+                }
+            }());
         } else {
-            cssStyles.stroke = '#FFFFFF';
-            cssStyles['stroke-opacity'] = "0";
-            cssStyles['stroke-width'] = "0";
-        }
-
-        // Check conditions for the labels
-        cssStyles.labels = $('#chkbx-include-labels').is(':checked');
-        if (cssStyles.labels) {
-            color = $('#font-fill').spectrum('get');
-            if (color !== null) {
-                cssStyles['label-field'] = $('#label-field').val();
-                cssStyles['font-size'] = $('#font-size').val();
-                cssStyles['font-fill'] = color.toHexString();
-                cssStyles['font-fill-opacity'] = color.getAlpha().toString();
-            } else {
-                displaySymbologyModalError('You must select a font color.');
+            // Check conditions for the fill color
+            if (geomType === 'point' || geomType === 'polygon') {
+                color = $('#geom-fill').spectrum('get');
+                if (color !== null) {
+                    cssStyles.fill = color.toHexString();
+                    cssStyles['fill-opacity'] = color.getAlpha().toString();
+                } else {
+                    displaySymbologyModalError('You must select a fill color.');
+                    return;
+                }
             }
-        }
 
-        if (geomType === 'point') {
-            cssStyles['point-shape'] = $('#point-shape').val();
-            cssStyles['point-size'] = $('#point-size').val();
+            // Check conditions for the stroke (line) color
+            if (geomType === 'line' || $('#chkbx-include-outline').is(':checked')) {
+                color = $('#poly-stroke').spectrum('get');
+                if (color !== null) {
+                    cssStyles.stroke = color.toHexString();
+                    cssStyles['stroke-opacity'] = color.getAlpha().toString();
+                    cssStyles['stroke-width'] = $('#poly-stroke-width').val();
+                } else {
+                    displaySymbologyModalError('You must select a line color.');
+                }
+            } else {
+                cssStyles.stroke = '#FFFFFF';
+                cssStyles['stroke-opacity'] = "0";
+                cssStyles['stroke-width'] = "0";
+            }
+
+            // Check conditions for the labels
+            cssStyles.labels = $('#chkbx-include-labels').is(':checked');
+            if (cssStyles.labels) {
+                color = $('#font-fill').spectrum('get');
+                if (color !== null) {
+                    cssStyles['label-field'] = $('#label-field').val();
+                    cssStyles['font-size'] = $('#font-size').val();
+                    cssStyles['font-fill'] = color.toHexString();
+                    cssStyles['font-fill-opacity'] = color.getAlpha().toString();
+                } else {
+                    displaySymbologyModalError('You must select a font color.');
+                }
+            }
+
+            if (geomType === 'point') {
+                cssStyles['point-shape'] = $('#point-shape').val();
+                cssStyles['point-size'] = $('#point-size').val();
+            }
         }
 
         return cssStyles;
     };
 
     getFilesSize = function (files) {
-        var file,
-            fileSize = 0;
+        var fileSize = 0;
 
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                fileSize += files[file].size;
-            }
-        }
+        Object.keys(files).forEach(function (file) {
+            fileSize += files[file].size;
+        });
         return fileSize;
     };
 
@@ -1178,14 +1210,12 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     prepareFilesForAjax = function (files) {
-        var file,
-            data = new FormData();
+        var data = new FormData();
 
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                data.append('files', files[file]);
-            }
-        }
+        Object.keys(files).forEach(function (file) {
+            data.append('files', files[file]);
+        });
+
         return data;
     };
 

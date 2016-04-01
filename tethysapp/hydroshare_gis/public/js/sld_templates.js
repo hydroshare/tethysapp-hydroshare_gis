@@ -84,23 +84,8 @@ var SLD_TEMPLATES = (function () {
         '<PropertyName>{{label-field}}</PropertyName>' +
         '</Label>' +
         '<Font>' +
-        //'<CssParameter name="font-family">Arial</CssParameter>' +
         '<CssParameter name="font-size">{{font-size}}</CssParameter>' +
-        //'<CssParameter name="font-style">normal</CssParameter>' +
-        //'<CssParameter name="font-weight">normal</CssParameter>' +
         '</Font>' +
-        //'<LabelPlacement>' +
-        //'<PointPlacement>' +
-        //'<AnchorPoint>' +
-        //'<AnchorPointX>0.5</AnchorPointX>' +
-        //'<AnchorPointY>1.0</AnchorPointY>' +
-        //'</AnchorPoint>' +
-        //'<Displacement>' +
-        //'<DisplacementX>0</DisplacementX>' +
-        //'<DisplacementY>-12</DisplacementY>' +
-        //'</Displacement>' +
-        //'</PointPlacement>' +
-        //'</LabelPlacement>' +
         '<Fill>' +
         '<CssParameter name="fill">{{font-fill}}</CssParameter>' +
         '<CssParameter name="fill-opacity">{{font-fill-opacity}}</CssParameter>' +
@@ -113,26 +98,20 @@ var SLD_TEMPLATES = (function () {
     };
 
     populateValues = function (rawSldString, cssStyles) {
-        var style,
-            color,
-            colorMap,
+        var colorMap,
             colorMapXml = '',
             sldString = rawSldString;
 
-        for (style in cssStyles) {
-            if (cssStyles.hasOwnProperty(style)) {
-                if (style === 'color-map') {
-                    colorMap = cssStyles[style];
-                    for (color in colorMap) {
-                        if (colorMap.hasOwnProperty(color)) {
-                            colorMapXml += '<ColorMapEntry color="' + color + '" quantity="' + colorMap[color] + '" />';
-                        }
-                    }
-                    sldString = sldString.replace('{{' + style + '}}', colorMapXml);
-                }
-                sldString = sldString.replace('{{' + style + '}}', cssStyles[style]);
+        Object.keys(cssStyles).forEach(function (style) {
+            if (style === 'color-map') {
+                colorMap = cssStyles[style];
+                Object.keys(colorMap).forEach(function (quantity) {
+                    colorMapXml += '<ColorMapEntry color="' + colorMap[quantity] + '" quantity="' + quantity + '" />';
+                });
+                sldString = sldString.replace('{{' + style + '}}', colorMapXml);
             }
-        }
+            sldString = sldString.replace('{{' + style + '}}', cssStyles[style]);
+        });
         return sldString;
     };
 

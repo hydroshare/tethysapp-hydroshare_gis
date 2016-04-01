@@ -5,6 +5,7 @@ var SLD_TEMPLATES = (function () {
         polygon,
         polyline,
         line,
+        raster,
         labels,
         addLabels,
         header,
@@ -68,6 +69,15 @@ var SLD_TEMPLATES = (function () {
 
     polyline = header + line + footer;
 
+    raster =
+        header +
+        '<RasterSymbolizer>' +
+        '<ColorMap>' +
+        '{{color-map}}' +
+        '</ColorMap>' +
+        '</RasterSymbolizer>' +
+        footer;
+
     labels =
         '<TextSymbolizer>' +
         '<Label>' +
@@ -104,10 +114,22 @@ var SLD_TEMPLATES = (function () {
 
     populateValues = function (rawSldString, cssStyles) {
         var style,
+            color,
+            colorMap,
+            colorMapXml = '',
             sldString = rawSldString;
 
         for (style in cssStyles) {
             if (cssStyles.hasOwnProperty(style)) {
+                if (style === 'color-map') {
+                    colorMap = cssStyles[style];
+                    for (color in colorMap) {
+                        if (colorMap.hasOwnProperty(color)) {
+                            colorMapXml += '<ColorMapEntry color="' + color + '" quantity="' + colorMap[color] + '" />';
+                        }
+                    }
+                    sldString = sldString.replace('{{' + style + '}}', colorMapXml);
+                }
                 sldString = sldString.replace('{{' + style + '}}', cssStyles[style]);
             }
         }
@@ -117,7 +139,8 @@ var SLD_TEMPLATES = (function () {
     geomTypeDict = {
         'point': point,
         'polygon': polygon,
-        'line': polyline
+        'line': polyline,
+        'None': raster
     };
 
     return {

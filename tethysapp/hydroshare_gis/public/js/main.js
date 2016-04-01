@@ -97,7 +97,6 @@ var HS_GIS = (function packageHydroShareGIS() {
         $emptyBar,
         $loadingAnimMain,
         $modalAttrTbl,
-        $modalInfo,
         $modalLoadFile,
         $modalLoadRes,
         $modalSaveProject,
@@ -454,6 +453,32 @@ var HS_GIS = (function packageHydroShareGIS() {
         $btnApplySymbology.on('click', function () {
             updateSymbology($(this));
             $(this).prop('disabled', true);
+        });
+
+        $('#num-colors-in-gradient').on('change', function () {
+            $('#color-map-placeholder').html();
+            var i,
+                htmlString = '',
+                numColors = $(this).val();
+            for (i = 0; i < numColors; i++) {
+                htmlString += '<label for="color' + i + '">Color:</label>' +
+                    '<input type="text" id="color' + i + '">' +
+                    '<label for="quantity' + i + '">Raster value:</label>' +
+                    '<input type="text" id="quantity' + i + '"><br>';
+            }
+            $('#color-map-placeholder').html(htmlString);
+            var inputSelector;
+            for (i = 0; i < numColors; i++) {
+                inputSelector = '#color' + i;
+                $(inputSelector).spectrum({
+                    showInput: true,
+                    allowEmpty: true,
+                    showAlpha: false,
+                    showPalette: true,
+                    chooseText: "Choose",
+                    cancelText: "Cancel"
+                });
+            }
         });
     };
 
@@ -858,7 +883,6 @@ var HS_GIS = (function packageHydroShareGIS() {
         $emptyBar = $('#empty-bar');
         $loadingAnimMain = $('#div-loading');
         $modalAttrTbl = $('#modalAttrTbl');
-        $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadRes = $('#modalLoadRes');
         $modalSaveProject = $('#modalSaveProject');
@@ -871,6 +895,12 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeLayersContextMenu = function () {
         layersContextMenuGeneral = [
             {
+                name: 'Modify symbology',
+                title: 'Modify symbology',
+                fun: function (e) {
+                    onClickModifySymbology(e);
+                }
+            }, {
                 name: 'Rename',
                 title: 'Rename',
                 fun: function (e) {
@@ -892,13 +922,6 @@ var HS_GIS = (function packageHydroShareGIS() {
         ];
 
         layersContextMenuShpfile = layersContextMenuGeneral.slice();
-        layersContextMenuShpfile.unshift({
-            name: 'Modify symbology',
-            title: 'Modify symbology',
-            fun: function (e) {
-                onClickModifySymbology(e);
-            }
-        });
         layersContextMenuShpfile.unshift({
             name: 'View attribute table',
             title: 'View attribute table',
@@ -1003,7 +1026,9 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     loadResource = function (res_id, res_type, res_title) {
-        $modalInfo.removeClass('hidden');
+        var $loadResModalInfo = $('#loadres-modal-info');
+
+        $loadResModalInfo.removeClass('hidden');
 
         $.ajax({
             type: 'GET',
@@ -1015,18 +1040,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                 'res_title': res_title
             },
             error: function () {
-                $modalInfo.addClass('hidden');
+                $loadResModalInfo.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
                 console.error('Failure!');
             },
             success: function (response) {
+                $loadResModalInfo.addClass('hidden');
+                $('#btn-upload-res').prop('disabled', false);
                 if (response.hasOwnProperty('project_info')) {
                     loadProjectFile(JSON.parse(response.project_info));
                     hideMainLoadAnim();
                     return;
                 }
-                $modalInfo.addClass('hidden');
-                $('#btn-upload-res').prop('disabled', false);
                 hideMainLoadAnim();
                 addLayerToUI(response);
                 if ($('#chkbx-res-auto-close').is(':checked')) {
@@ -1254,6 +1279,9 @@ var HS_GIS = (function packageHydroShareGIS() {
         } else if (geomType === 'line') {
             $('#chkbx-include-outline').prop('checked', true);
             $('.line').removeClass('hidden');
+        } else if (geomType === 'None') {
+            $('.raster').removeClass('hidden');
+            $('#num-colors-in-gradient').trigger('change');
         }
     };
 

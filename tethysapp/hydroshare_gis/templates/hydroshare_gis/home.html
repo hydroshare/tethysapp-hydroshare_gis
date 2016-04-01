@@ -65,7 +65,7 @@
                     <label for="chkbx-res-auto-close">Automatically close dialog when file is done loading</label>
                 </div>
                 <div class="modal-footer">
-                    <span class="modal-info hidden">Loading...
+                    <span id="loadres-modal-info" class="hidden">Loading...
                         <img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -177,13 +177,13 @@
                         <fieldset id="fill-options" class="hidden polygon point">
                             <label for="geom-fill">Fill color:</label>
                             <input type="text" id="geom-fill">
+                            <br>
                         </fieldset>
-                        <br>
                         <fieldset id="include-outline" class="hidden polygon point">
                             <label for="chkbx-include-outline">Include outline:</label>
                             <input type="checkbox" id="chkbx-include-outline">
+                            <br>
                         </fieldset>
-                        <br>
                         <fieldset id="outline-options" class="hidden line">
                             <label for="poly-stroke">Line color:</label>
                             <input type="text" id="poly-stroke">
@@ -193,8 +193,8 @@
                                     <option value="{{ val }}">{{ val }}</option>
                                 {% endfor %}
                             </select>
+                            <br>
                         </fieldset>
-                        <br>
                         <fieldset id="include-labels" class="hidden polygon point line">
                             <label for="chkbx-include-labels">Include labels:</label>
                             <input type="checkbox" id="chkbx-include-labels">
@@ -212,9 +212,18 @@
                             <label for="font-fill">Font color:</label>
                             <input type="text" id="font-fill">
                         </fieldset>
-                        <br>
+                        <fieldset id="raster-options" class="hidden raster">
+                            <label for="num-colors-in-gradient">Number of colors in gradient:</label>
+                            <select id="num-colors-in-gradient">
+                                {% for val in num_gradient_colors_options %}
+                                    <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                            <div id="color-map-placeholder"></div>
+                            <br>
+                        </fieldset>
                     </form>
-                    <div>
+                    <div class="hidden line polygon">
                         <h4>Preview:</h4>
                         <div id="symbology-preview">
                             <span id="label-preview" class="hidden">Label</span>

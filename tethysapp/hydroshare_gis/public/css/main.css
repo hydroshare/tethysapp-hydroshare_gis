@@ -299,6 +299,9 @@ input[type="radio"] {
 #modalSaveProject .modal-footer {
     position: static;
 }
+#save-status {
+    text-align: center;
+}
 /*****************************************************/
 
 /*****************************************************/

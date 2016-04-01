@@ -28,12 +28,14 @@ def home(request):
     stroke_width_options = range(1,16)
     point_shape_options = ['circle', 'square', 'triangle', 'star', 'cross', 'X']
     font_size_options = range(8, 37, 2)
+    num_gradient_colors_options = range(2, 9)
 
     context = {
         'point_size_options': point_size_options,
         'stroke_width_options': stroke_width_options,
         'point_shape_options': point_shape_options,
-        'font_size_options': font_size_options
+        'font_size_options': font_size_options,
+        'num_gradient_colors_options': num_gradient_colors_options
     }
 
     return render(request, 'hydroshare_gis/home.html', context)
@@ -225,8 +227,9 @@ def get_hs_res_list(request):
             print str(e)
             hs = HydroShare()
 
-        for resource in hs.getResourceList(
-                types=['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']):
+        types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
+
+        for resource in hs.getResourceList(types=types):
 
             res_id = resource['resource_id']
             res_size = 0

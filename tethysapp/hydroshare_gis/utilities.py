@@ -26,7 +26,7 @@ def get_oauth_hs(request):
     token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
     auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
 
-    return HydroShare(auth=auth, hostname=hs_hostname)
+    return HydroShare(auth=auth, hostname=hs_hostname, use_https=True)
 
 
 def get_json_response(response_type, message):

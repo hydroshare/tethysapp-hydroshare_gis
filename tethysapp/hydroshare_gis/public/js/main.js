@@ -23,7 +23,7 @@
 //  */
 /*global
  document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
- pageX, pageY, clearInterval, SLD_TEMPLATES, alert
+ pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor
  */
 
 (function packageHydroShareGIS() {
@@ -85,7 +85,13 @@
         processSaveProjectResponse,
         redrawDataTable,
         reprojectExtents,
+        setupSymbologyLabelsState,
         setupSymbologyModalState,
+        setupSymbologyPointState,
+        setupSymbologyPolygonState,
+        setupSymbologyPolylineState,
+        setupSymbologyRasterState,
+        setupSymbologyStrokeState,
         showMainLoadAnim,
         updateProgressBar,
         updateSymbology,
@@ -372,9 +378,9 @@
             if ($('#outline-options').hasClass('hidden')) {
                 $('#symbology-preview').css('outline', '0');
             } else {
-                color = $('#poly-stroke').spectrum('get');
+                color = $('#stroke').spectrum('get');
                 if (color !== null) {
-                    outlineString = $('#poly-stroke-width').val().toString();
+                    outlineString = $('#slct-stroke-width').val().toString();
                     outlineString += 'px solid ';
                     outlineString += color.toRgbString();
                     $('#symbology-preview').css('outline', outlineString);
@@ -405,7 +411,7 @@
             }
         });
 
-        $('#poly-stroke').spectrum({
+        $('#stroke').spectrum({
             showInput: true,
             allowEmpty: true,
             showAlpha: true,
@@ -414,7 +420,7 @@
             cancelText: "Cancel",
             change: function (color) {
                 var outlineString;
-                outlineString = $('#poly-stroke-width').val().toString();
+                outlineString = $('#slct-stroke-width').val().toString();
                 outlineString += 'px solid ';
                 outlineString += color.toRgbString();
                 $('#symbology-preview').css('outline', outlineString);
@@ -422,12 +428,12 @@
             }
         });
 
-        $('#poly-stroke-width').on('change', function () {
+        $('#slct-stroke-width').on('change', function () {
             var outlineString;
 
             outlineString = $(this).val().toString();
             outlineString += 'px solid ';
-            outlineString += $('#poly-stroke').spectrum('get').toRgbString();
+            outlineString += $('#stroke').spectrum('get').toRgbString();
             $('#symbology-preview').css('outline', outlineString);
         });
 
@@ -448,7 +454,7 @@
             }
         });
 
-        $('#font-size').on('change', function () {
+        $('#slct-font-size').on('change', function () {
             $('#label-preview').css('font-size', $(this).val() + 'px');
         });
 
@@ -461,7 +467,7 @@
             $(this).prop('disabled', true);
         });
 
-        $('#num-colors-in-gradient').on('change', function () {
+        $('#slct-num-colors-in-gradient').on('change', function () {
             $('#color-map-placeholder').html();
             var i,
                 inputSelector,
@@ -823,11 +829,11 @@
 
             // Check conditions for the stroke (line) color
             if (geomType === 'line' || $('#chkbx-include-outline').is(':checked')) {
-                color = $('#poly-stroke').spectrum('get');
+                color = $('#stroke').spectrum('get');
                 if (color !== null) {
                     cssStyles.stroke = color.toHexString();
                     cssStyles['stroke-opacity'] = color.getAlpha().toString();
-                    cssStyles['stroke-width'] = $('#poly-stroke-width').val();
+                    cssStyles['stroke-width'] = $('#slct-stroke-width').val();
                 } else {
                     displaySymbologyModalError('You must select a line color.');
                 }
@@ -842,8 +848,8 @@
             if (cssStyles.labels) {
                 color = $('#font-fill').spectrum('get');
                 if (color !== null) {
-                    cssStyles['label-field'] = $('#label-field').val();
-                    cssStyles['font-size'] = $('#font-size').val();
+                    cssStyles['label-field'] = $('#slct-label-field').val();
+                    cssStyles['font-size'] = $('#slct-font-size').val();
                     cssStyles['font-fill'] = color.toHexString();
                     cssStyles['font-fill-opacity'] = color.getAlpha().toString();
                 } else {
@@ -852,8 +858,8 @@
             }
 
             if (geomType === 'point') {
-                cssStyles['point-shape'] = $('#point-shape').val();
-                cssStyles['point-size'] = $('#point-size').val();
+                cssStyles['point-shape'] = $('#slct-point-shape').val();
+                cssStyles['point-size'] = $('#slct-point-size').val();
             }
         }
 
@@ -1275,12 +1281,24 @@
         return extents;
     };
 
+    setupSymbologyLabelsState = function (layerCssStyles) {
+        var color;
+
+        $('#chkbx-include-labels').prop('checked', true);
+        $('#label-field').val(layerCssStyles['label-field']);
+        $('#slct-font-size').val(layerCssStyles['font-size']);
+        color = tinycolor(layerCssStyles['font-fill']);
+        color.setAlpha(layerCssStyles['font-fill-opacity']);
+        $('#font-fill').spectrum('set', color);
+    };
+
     setupSymbologyModalState = function ($lyrListItem) {
         var geomType = $lyrListItem.attr('data-geom-type'),
             layerId = $lyrListItem.attr('data-layer-id'),
             layerIndex = $lyrListItem.attr('data-layer-index'),
             labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
-            optionsHtmlString = '';
+            optionsHtmlString = '',
+            layerCssStyles;
 
         $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $lyrListItem.find('.layer-name').text());
         $modalSymbology.find('#btn-apply-symbology').attr({
@@ -1292,7 +1310,7 @@
         labelFieldOptions.forEach(function (option) {
             optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
         });
-        $('#label-field').html(optionsHtmlString);
+        $('#slct-label-field').html(optionsHtmlString);
 
         $modalSymbology.find('fieldset').addClass('hidden');
         $('#chkbx-include-outline')
@@ -1302,17 +1320,101 @@
             .prop('checked', false)
             .trigger('change');
 
+        layerCssStyles = projectInfo.map.layers[layerIndex].cssStyles;
         if (geomType === 'polygon') {
-            $('.polygon').removeClass('hidden');
+            setupSymbologyPolygonState(layerCssStyles);
         } else if (geomType === 'point') {
-            $('.point').removeClass('hidden');
+            setupSymbologyPointState(layerCssStyles);
         } else if (geomType === 'line') {
-            $('#chkbx-include-outline').prop('checked', true);
-            $('.line').removeClass('hidden');
+            setupSymbologyPolylineState(layerCssStyles);
         } else if (geomType === 'None') {
-            $('.raster').removeClass('hidden');
-            $('#num-colors-in-gradient').trigger('change');
+            setupSymbologyRasterState(layerCssStyles);
         }
+    };
+
+    setupSymbologyPointState = function (layerCssStyles) {
+        var color;
+
+        if (layerCssStyles === "Default") {
+            $('#slct-point-shape').val('square');
+            $('#slct-point-size').val(6);
+            $('#geom-fill').spectrum('set', '#FF0000');
+        } else {
+            $('#slct-point-shape').val(layerCssStyles['point-shape']);
+            $('#slct-point-size').val(layerCssStyles['point-size']);
+            color = tinycolor(layerCssStyles.fill);
+            color.setAlpha(layerCssStyles['fill-opacity']);
+            $('#geom-fill').spectrum('set', color);
+
+            if (Number(layerCssStyles['stroke-opacity'] > 0)) {
+                setupSymbologyStrokeState(layerCssStyles);
+            }
+
+            if (layerCssStyles.labels) {
+                setupSymbologyLabelsState(layerCssStyles);
+            }
+        }
+        $('.point').removeClass('hidden');
+    };
+
+    setupSymbologyPolygonState = function (layerCssStyles) {
+        var color;
+
+        if (layerCssStyles === "Default") {
+            $('#geom-fill').spectrum('set', '#AAAAAA');
+            $('#stroke').spectrum('set', '#000000');
+            $('#slct-stroke-width').val(1);
+            $('#chkbx-include-outline')
+                .prop('checked', true)
+                .trigger('change');
+        } else {
+            color = tinycolor(layerCssStyles.fill);
+            color.setAlpha(layerCssStyles['fill-opacity']);
+            $('#geom-fill').spectrum('set', color);
+
+            if (Number(layerCssStyles['stroke-opacity'] > 0)) {
+                setupSymbologyStrokeState(layerCssStyles);
+            }
+
+            if (layerCssStyles.labels) {
+                $('#chkbx-include-labels').prop('checked', true);
+                $('#label-field').val(layerCssStyles['label-field']);
+                $('#slct-font-size').val(layerCssStyles['font-size']);
+                color = tinycolor(layerCssStyles['font-fill']);
+                color.setAlpha(layerCssStyles['font-fill-opacity']);
+                $('#font-fill').spectrum('set', color);
+            }
+        }
+
+        $('.polygon').removeClass('hidden');
+    };
+
+    setupSymbologyPolylineState = function (layerCssStyles) {
+        if (layerCssStyles === "Default") {
+            $('#stroke').spectrum('set', '#0000FF');
+            $('#slct-stroke-width').val(1);
+        } else {
+            setupSymbologyStrokeState(layerCssStyles);
+        }
+        $('.line').removeClass('hidden');
+    };
+
+    setupSymbologyRasterState = function (layerCssStyles) {
+        if (layerCssStyles !== "Default") {
+            //TODO
+        }
+        $('.raster').removeClass('hidden');
+        $('#slct-num-colors-in-gradient').trigger('change');
+    };
+
+    setupSymbologyStrokeState = function (layerCssStyles) {
+        var color;
+
+        $('#chkbx-include-outline').prop('checked', true);
+        color = tinycolor(layerCssStyles.stroke);
+        color.setAlpha(layerCssStyles['stroke-opacity']);
+        $('#stroke').spectrum('set', color);
+        $('#slct-stroke-width').val(layerCssStyles['stroke-width']);
     };
 
     showMainLoadAnim = function () {

@@ -161,13 +161,13 @@
                     <form>
                         <h4>Options:</h4>
                         <fieldset id="point-options" class="hidden point">
-                            <label for="point-shape">Point marker shape:</label>
+                            <label for="slct-point-shape">Point marker shape:</label>
                             <select id="slct-point-shape">
                                 {% for val in point_shape_options %}
                                     <option value="{{ val }}">{{ val }}</option>
                                 {% endfor %}
                             </select>
-                            <label for="point-size">Point marker size:</label>
+                            <label for="slct-point-size">Point marker size:</label>
                             <select id="slct-point-size">
                                 {% for val in point_size_options %}
                                     <option value="{{ val }}">{{ val }}</option>
@@ -187,7 +187,7 @@
                         <fieldset id="outline-options" class="hidden line">
                             <label for="stroke">Line color:</label>
                             <input type="text" id="stroke">
-                            <label for="stroke-width">Line width:</label>
+                            <label for="slct-stroke-width">Line width:</label>
                             <select id="slct-stroke-width">
                                 {% for val in stroke_width_options %}
                                     <option value="{{ val }}">{{ val }}</option>
@@ -201,9 +201,9 @@
                         </fieldset>
                         <fieldset id="label-options" class="hidden">
                             <h6>Labels</h6>
-                            <label for="label-field">Label field:</label>
+                            <label for="slct-label-field">Label field:</label>
                             <select id="slct-label-field"></select>
-                            <label for="font-size">Font size:</label>
+                            <label for="slct-font-size">Font size:</label>
                             <select id="slct-font-size">
                                 {% for val in font_size_options %}
                                     <option value="{{ val }}">{{ val }}</option>
@@ -213,7 +213,7 @@
                             <input type="text" id="font-fill">
                         </fieldset>
                         <fieldset id="raster-options" class="hidden raster">
-                            <label for="num-colors-in-gradient">Number of colors in gradient:</label>
+                            <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
                             <select id="slct-num-colors-in-gradient">
                                 {% for val in num_gradient_colors_options %}
                                     <option value="{{ val }}">{{ val }}</option>

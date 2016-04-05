@@ -1145,6 +1145,7 @@
     onClickRenameLayer = function (e) {
         var clickedElement = e.trigger.context,
             $lyrListItem = $(clickedElement).parent().parent(),
+            $layerNameInput = $lyrListItem.find('input[type=text]'),
             $LayerNameSpan = $lyrListItem.find('span'),
             layerIndex = $lyrListItem.attr('data-layer-index');
 
@@ -1154,7 +1155,14 @@
             .select()
             .on('keyup', function (e) {
                 editLayerName(e, $(this), $LayerNameSpan, layerIndex);
+            })
+            .on('click', function (e) {
+                e.stopPropagation();
             });
+
+        $(document).on('click.edtLyrNm', function () {
+            closeLyrEdtInpt($LayerNameSpan, $layerNameInput);
+        });
     };
 
     onClickSaveProject = function () {
@@ -1400,11 +1408,33 @@
     };
 
     setupSymbologyRasterState = function (layerCssStyles) {
-        if (layerCssStyles !== "Default") {
-            //TODO
+        var colorKeys,
+            numKeys,
+            colorMapObj,
+            i,
+            quantitySelector,
+            colorSelector;
+
+        if (layerCssStyles === "Default") {
+            $('#slct-num-colors-in-gradient').trigger('change');
+        } else {
+            colorMapObj = layerCssStyles['color-map'];
+            colorKeys = Object.keys(colorMapObj);
+            numKeys = colorKeys.length;
+            $('#slct-num-colors-in-gradient')
+                .val(numKeys)
+                .trigger('change');
+
+            i = 0;
+            colorKeys.forEach(function (quantity) {
+                quantitySelector = '#quantity' + i;
+                colorSelector = '#color' + i;
+                $(quantitySelector).val(quantity);
+                $(colorSelector).spectrum('set', colorMapObj[quantity]);
+                i += 1;
+            });
         }
         $('.raster').removeClass('hidden');
-        $('#slct-num-colors-in-gradient').trigger('change');
     };
 
     setupSymbologyStrokeState = function (layerCssStyles) {

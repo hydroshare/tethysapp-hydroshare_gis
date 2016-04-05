@@ -37,8 +37,8 @@
     position: relative;
     display: block;
     color: red;
-    width: 0px;
-    height: 0px;
+    width: 0;
+    height: 0;
     border-right:  100px solid transparent;
     border-bottom: 70px  solid red;
     border-left:   100px solid transparent;
@@ -70,8 +70,8 @@
     color: red;
     top: 3px;
     left: -105px;
-    width: 0px;
-    height: 0px;
+    width: 0;
+    height: 0;
     border-right: 100px solid transparent;
     border-bottom: 70px solid red;
     border-left: 100px solid transparent;

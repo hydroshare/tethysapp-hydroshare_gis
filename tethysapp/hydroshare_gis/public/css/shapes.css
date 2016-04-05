@@ -1,42 +1,27 @@
 /********************************************/
 /*               CIRCLE                     */
 .circle {
-    width: 100px;
-    height: 100px;
-    background: red;
-    -moz-border-radius: 50px;
-    -webkit-border-radius: 50px;
-    border-radius: 50px;
+    -moz-border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border-radius: 50%;
 }
 /********************************************/
 
-/********************************************/
-/*               SQUARE                     */
-.square {
-    width: 100px;
-    height: 100px;
-    background: red;
-}
 /********************************************/
 
 /********************************************/
 /*               TRIANGLE                     */
-.triangle-up {
+.triangle {
     width: 0;
     height: 0;
-    border-left: 50px solid transparent;
-    border-right: 50px solid transparent;
-    border-bottom: 100px solid red;
 }
 /********************************************/
 
 /********************************************/
 /*                 STAR                     */
-.star-five {
-    margin: 50px 0;
+.star {
     position: relative;
     display: block;
-    color: red;
     width: 0;
     height: 0;
     border-right:  100px solid transparent;
@@ -47,58 +32,12 @@
     -ms-transform:     rotate(35deg);
     -o-transform:      rotate(35deg);
 }
-.star-five:before {
-    border-bottom: 80px solid red;
-    border-left: 30px solid transparent;
-    border-right: 30px solid transparent;
-    position: absolute;
-    height: 0;
-    width: 0;
-    top: -45px;
-    left: -65px;
-    display: block;
-    content: '';
-    -webkit-transform: rotate(-35deg);
-    -moz-transform:    rotate(-35deg);
-    -ms-transform:     rotate(-35deg);
-    -o-transform:      rotate(-35deg);
-
-}
-.star-five:after {
-    position: absolute;
-    display: block;
-    color: red;
-    top: 3px;
-    left: -105px;
-    width: 0;
-    height: 0;
-    border-right: 100px solid transparent;
-    border-bottom: 70px solid red;
-    border-left: 100px solid transparent;
-    -webkit-transform: rotate(-70deg);
-    -moz-transform:    rotate(-70deg);
-    -ms-transform:     rotate(-70deg);
-    -o-transform:      rotate(-70deg);
-    content: '';
-}
 /********************************************/
 
 /********************************************/
 /*               CROSS                      */
 .cross {
-    background: red;
-    height: 100px;
     position: relative;
-    width: 20px;
-}
-.cross:after {
-    background: red;
-    content: "";
-    height: 20px;
-    left: -40px;
-    position: absolute;
-    top: 40px;
-    width: 100px;
 }
 /********************************************/
 

@@ -263,23 +263,33 @@ input[type="radio"] {
 
 /*****************************************************/
 /*                   SYMBOLOGY MODAL                 */
+#modalSymbology .modal-dialog {
+    max-width: 800px;
+    width: auto;
+}
 #modalSymbology .modal-content {
     position: static;
 }
 #modalSymbology .modal-body {
     position: static;
     display: flex;
-    flex-flow: row wrap;
+    flex-flow: row nowrap;
     justify-content: space-between;
 }
 #modalSymbology .modal-footer {
     position: static;
 }
+#symbology-preview-container {
+    margin-right: 50px;
+}
 #symbology-preview {
-    width: 40px;
-    height: 40px;
     text-align: center;
     margin: auto;
+}
+#label-preview {
+    position: relative;
+    top: -14px;
+    right: -56px;
     font-size: 8px;
 }
 #symbology-modal-info {

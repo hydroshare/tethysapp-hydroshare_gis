@@ -59,6 +59,7 @@
         createLayerListItem,
         displaySymbologyModalError,
         drawLayersInListOrder,
+        drawPointSymbologyPreview,
         editLayerName,
         generateAttributeTable,
         generateResourceList,
@@ -406,7 +407,26 @@
             chooseText: "Choose",
             cancelText: "Cancel",
             change: function (color) {
-                $('#symbology-preview').css('background-color', color.toRgbString());
+                var shape,
+                    size,
+                    geomType;
+
+                if (color === null) {
+                    $btnApplySymbology.prop('disabled', true);
+                    return;
+                }
+
+                color = color.toRgbString();
+                geomType = $('#btn-apply-symbology').attr('data-geom-type');
+
+                if (geomType === 'point') {
+                    shape = $('#slct-point-shape').val();
+                    size = $('#slct-point-size').val();
+
+                    drawPointSymbologyPreview(shape, size, color);
+                } else if (geomType === 'polygon') {
+                    drawPointSymbologyPreview('square', 40, color);
+                }
                 $btnApplySymbology.prop('disabled', false);
             }
         });
@@ -502,6 +522,18 @@
                     }
                 });
             }
+        });
+
+        $('#slct-point-shape, #slct-point-size').on('change', function () {
+            var shape,
+                size,
+                color;
+
+            shape = $('#slct-point-shape').val();
+            size = $('#slct-point-size').val();
+            color = $('#geom-fill').spectrum('get').toRgbString();
+
+            drawPointSymbologyPreview(shape, size, color);
         });
     };
 
@@ -654,6 +686,116 @@
                 projectInfo.map.layers[index].listOrder = i - 2;
             }
         }
+    };
+
+    drawPointSymbologyPreview = function (shape, size, color) {
+        var cssObj = {},
+            shapeStyleSheet = document.styleSheets[10],
+            cssRule;
+
+        $('#symbology-preview').text();
+
+        if (shape === 'X') {
+            cssObj = {
+                'height': size + 'px',
+                'width': size + 'px',
+                'color': color,
+                'font-size': size + 'px'
+            };
+            $('#symbology-preview').text('X');
+        } else if (shape === 'triangle') {
+            cssObj = {
+                'border-left': Math.ceil(size / 2) + 'px solid transparent',
+                'border-right': Math.ceil(size / 2) + 'px solid transparent',
+                'border-bottom': size + 'px solid ' + color
+            };
+        } else if (shape === 'cross') {
+            cssObj = {
+                'height': size + 'px',
+                'width': Math.ceil(size / 5) + 'px',
+                'background-color': color
+            };
+
+            if (shapeStyleSheet.rules.length === 5) {
+                shapeStyleSheet.deleteRule(4);
+            }
+
+            cssRule = '.cross:after {' +
+                'background: ' + color + '; ' +
+                'content: ""; ' +
+                'height: ' + Math.ceil(size / 5) + 'px; ' +
+                'left: -' + Math.ceil(size * 2 / 5) + 'px; ' +
+                'position: absolute; ' +
+                'top: ' + Math.ceil(size * 2 / 5) + 'px; ' +
+                'width: ' + size + 'px;' +
+                '}';
+
+            shapeStyleSheet.insertRule(cssRule, 4);
+
+        } else if (shape === 'star') {
+            cssObj = {
+                'border-right':  size + 'px solid transparent',
+                'border-bottom': Math.ceil(size * 0.7) + 'px  solid ' + color,
+                'border-left':   size + 'px solid transparent'
+            };
+
+            if (shapeStyleSheet.rules.length === 5) {
+                shapeStyleSheet.deleteRule(4);
+            } else if (shapeStyleSheet.rules.length === 6) {
+                shapeStyleSheet.deleteRule(4);
+                shapeStyleSheet.deleteRule(4);
+            }
+
+            cssRule = '.star:before {' +
+                'border-bottom: ' + Math.ceil(size * 0.8) + 'px solid ' + color + '; ' +
+                'border-left: ' + Math.ceil(size * 0.3) + 'px solid transparent; ' +
+                'border-right: ' + Math.ceil(size * 0.3) + 'px solid transparent;' +
+                'position: absolute;' +
+                'height: 0;' +
+                'width: 0;' +
+                'top: -' + Math.ceil(size * 0.45) + 'px;' +
+                'left: -' + Math.ceil(size * 0.65) + 'px;' +
+                'display: block;' +
+                'content: ""; ' +
+                '-webkit-transform: rotate(-35deg); ' +
+                '-moz-transform: rotate(-35deg); ' +
+                '-ms-transform: rotate(-35deg); ' +
+                '-o-transform: rotate(-35deg);' +
+                '}';
+
+            shapeStyleSheet.insertRule(cssRule, 4);
+
+            cssRule = '.star:after {' +
+                'position: absolute;' +
+                'display: block;' +
+                'color: ' + color + ';' +
+                'left: -' + Math.ceil(size * 1.05) + 'px;' +
+                'width: 0;' +
+                'height: 0;' +
+                'border-right: ' + size + 'px solid transparent;' +
+                'border-bottom: ' + Math.ceil(size * 0.7) + 'px  solid ' + color + ';' +
+                'border-left: ' + size + 'px solid transparent;' +
+                '-webkit-transform: rotate(-70deg);' +
+                '-moz-transform: rotate(-70deg);' +
+                '-ms-transform: rotate(-70deg);' +
+                '-o-transform: rotate(-70deg);' +
+                'content: "";' +
+                '}';
+
+            shapeStyleSheet.insertRule(cssRule, 5);
+
+        } else {
+            cssObj = {
+                'height': size + 'px',
+                'width': size + 'px',
+                'background-color': color
+            };
+        }
+        $('#symbology-preview')
+            .removeClass()
+            .addClass(shape)
+            .removeAttr('style')
+            .css(cssObj);
     };
 
     editLayerName = function (e, $layerNameInput, $layerNameSpan, layerIndex) {
@@ -1347,12 +1489,27 @@
             $('#slct-point-shape').val('square');
             $('#slct-point-size').val(6);
             $('#geom-fill').spectrum('set', '#FF0000');
+            $('#symbology-preview')
+                .removeClass()
+                .css({
+                    'height': '6px',
+                    'width': '6px',
+                    'background-color': '#FF0000'
+                });
         } else {
             $('#slct-point-shape').val(layerCssStyles['point-shape']);
             $('#slct-point-size').val(layerCssStyles['point-size']);
             color = tinycolor(layerCssStyles.fill);
             color.setAlpha(layerCssStyles['fill-opacity']);
             $('#geom-fill').spectrum('set', color);
+            $('#symbology-preview')
+                .removeClass()
+                .addClass(layerCssStyles['point-shape'])
+                .css({
+                    'height': layerCssStyles['point-size'] + 'px',
+                    'width': layerCssStyles['point-size'] + '6px',
+                    'background-color': color.toHexString()
+                });
 
             if (Number(layerCssStyles['stroke-opacity'] > 0)) {
                 setupSymbologyStrokeState(layerCssStyles);
@@ -1368,8 +1525,16 @@
     setupSymbologyPolygonState = function (layerCssStyles) {
         var color;
 
+        $('#symbology-preview')
+            .removeClass()
+            .css({
+                'height': '40px',
+                'width': '40px'
+            });
+
         if (layerCssStyles === "Default") {
             $('#geom-fill').spectrum('set', '#AAAAAA');
+            $('#symbology-preview').css('background-color', '#AAAAAA');
             $('#stroke').spectrum('set', '#000000');
             $('#slct-stroke-width').val(1);
             $('#chkbx-include-outline')
@@ -1379,6 +1544,7 @@
             color = tinycolor(layerCssStyles.fill);
             color.setAlpha(layerCssStyles['fill-opacity']);
             $('#geom-fill').spectrum('set', color);
+            $('#symbology-preview').css('background-color', color.toRgbString());
 
             if (Number(layerCssStyles['stroke-opacity'] > 0)) {
                 setupSymbologyStrokeState(layerCssStyles);

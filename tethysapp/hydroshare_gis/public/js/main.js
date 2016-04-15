@@ -17,7 +17,7 @@
  *                      LIBRARY WRAPPER
  *****************************************************************************/
 
-// // Global directives for JSLint/JSHint
+// Global directives for JSLint/JSHint
 // /*jslint
 //  browser, this, devel, multivar
 //  */
@@ -485,11 +485,12 @@
                 'max-height': $('#app-content').height(),
                 'width': '100%'
             });
-            map.renderSync();
+            map.render();
         });
 
         $(window).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function () {
             $('#map').css({
+                'max-height': 'none',
                 'height': $(window).height(),
                 'width': $(window).width()
             });
@@ -526,12 +527,8 @@
                     showPalette: true,
                     chooseText: "Choose",
                     cancelText: "Cancel",
-                    change: function (color) {
-                        if (color) {
-                            $btnApplySymbology.prop('disabled', false);
-                        } else {
-                            $btnApplySymbology.prop('disabled', true);
-                        }
+                    change: function () {
+                        $btnApplySymbology.prop('disabled', false);
                     }
                 });
             }
@@ -630,6 +627,11 @@
                 ++loaded;
                 if (loading === loaded) {
                     var canvas = this;
+                    if (source !== null) {
+                        source.un('tileloadstart', tileLoadStart);
+                        source.un('tileloadend', tileLoadEnd, canvas);
+                        source.un('tileloaderror', tileLoadEnd, canvas);
+                    }
                     window.setTimeout(function () {
                         var data,
                             pdf;
@@ -640,15 +642,10 @@
                         pdf = new jsPDF('landscape', undefined, format);
                         pdf.addImage(data, 'JPEG', 0, 0, dim[0], dim[1]);
                         pdf.save('map.pdf');
-                        if (source !== null) {
-                            source.un('tileloadstart', tileLoadStart);
-                            source.un('tileloadend', tileLoadEnd, canvas);
-                            source.un('tileloaderror', tileLoadEnd, canvas);
-                        }
                         map.setSize(size);
                         map.getView().fit(extent, size);
                         map.renderSync();
-                        $(this).prop('diasbled', false);
+                        $('#btn-export-pdf').prop('disabled', false);
                     }, 100);
                 }
             };
@@ -758,7 +755,7 @@
 
         getSearchParameters = function () {
             var prmstr = window.location.search.substr(1);
-            return prmstr !== null && prmstr !== "" ? transformToAssocArray(prmstr) : {};
+            return (prmstr !== null && prmstr !== "") ? transformToAssocArray(prmstr) : {};
         };
 
         params = getSearchParameters();
@@ -1287,11 +1284,6 @@
         // Base Layer options
         basemapLayers = [
             new ol.layer.Tile({
-                style: 'Road',
-                visible: false,
-                source: new ol.source.MapQuest({layer: 'osm'})
-            }),
-            new ol.layer.Tile({
                 style: 'Aerial',
                 visible: false,
                 source: new ol.source.MapQuest({layer: 'sat'})
@@ -1307,6 +1299,11 @@
                         source: new ol.source.MapQuest({layer: 'hyb'})
                     })
                 ]
+            }),
+            new ol.layer.Tile({
+                style: 'Road',
+                visible: false,
+                source: new ol.source.MapQuest({layer: 'osm'})
             })
         ];
 

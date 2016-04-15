@@ -17,13 +17,13 @@
  *                      LIBRARY WRAPPER
  *****************************************************************************/
 
-// Global directives for JSLint/JSHint
+// // Global directives for JSLint/JSHint
 // /*jslint
 //  browser, this, devel, multivar
 //  */
 /*global
  document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
- pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor
+ pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor, jsPDF, MutationObserver
  */
 
 (function packageHydroShareGIS() {
@@ -36,6 +36,7 @@
     var basemapLayers,
         contextMenuDict,
         dataTableLoadRes,
+        insetMap,
         layersContextMenuGeneral,
         layersContextMenuShpfile,
         layersContextMenuTimeSeries,
@@ -479,7 +480,19 @@
         });
 
         $(window).on('resize', function () {
-            $('#map').css('height', $('#app-content').height());
+            $('#map').css({
+                'height': $('#app-content').height(),
+                'max-height': $('#app-content').height(),
+                'width': '100%'
+            });
+            map.renderSync();
+        });
+
+        $(window).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function () {
+            $('#map').css({
+                'height': $(window).height(),
+                'width': $(window).width()
+            });
         });
 
         $btnApplySymbology.on('click', function () {
@@ -535,6 +548,139 @@
 
             drawPointSymbologyPreview(shape, size, color);
         });
+
+        $('#chkbx-show-inset-map').on('change', function () {
+            if ($(this).is(':checked')) {
+                insetMap = new ol.control.OverviewMap({
+                    collapsed: false,
+                    collapsible: false,
+                    layers: [
+                        new ol.layer.Tile({
+                            style: 'Road',
+                            source: new ol.source.MapQuest({layer: 'osm'})
+                        })
+                    ]
+                });
+                map.addControl(insetMap);
+            } else {
+                map.removeControl(insetMap);
+                insetMap = undefined;
+            }
+        });
+
+        $('#btn-export-png').on('click', function () {
+            if ($('#btn-export-png').prop('download') !== "") {
+                map.once('postcompose', function (event) {
+                    var canvas = event.context.canvas;
+                    $(this).attr('href', canvas.toDataURL('image/png'));
+                }, this);
+                map.renderSync();
+            } else {
+                alert('This example requires a browser that supports the link download attribute.');
+            }
+        });
+
+        $('#btn-export-pdf').on('click', function () {
+            var dims,
+                loading,
+                loaded,
+                format,
+                resolution,
+                dim,
+                width,
+                height,
+                size,
+                extent,
+                source = null,
+                tileLoadStart,
+                tileLoadEnd,
+                baseMapIndex;
+
+            dims = {
+                a0: [1189, 841],
+                a1: [841, 594],
+                a2: [594, 420],
+                a3: [420, 297],
+                a4: [297, 210],
+                a5: [210, 148]
+            };
+
+            loading = 0;
+            loaded = 0;
+
+            $(this).prop('disabled', true);
+
+            format = $('#slct-format').val();
+            resolution = $('#slct-resolution').val();
+            dim = dims[format];
+            width = Math.round(dim[0] * resolution / 25.4);
+            height = Math.round(dim[1] * resolution / 25.4);
+            size = /** @type {ol.Size} */ (map.getSize());
+            extent = map.getView().calculateExtent(size);
+            baseMapIndex = $('#basemap-dropdown').next().find('li').index($('.selected-basemap-option')) - 1;
+            if (baseMapIndex >= 0) {
+                source = map.getLayers().item(baseMapIndex).getSource();
+            }
+
+            tileLoadStart = function () {
+                ++loading;
+            };
+
+            tileLoadEnd = function () {
+                ++loaded;
+                if (loading === loaded) {
+                    var canvas = this;
+                    window.setTimeout(function () {
+                        var data,
+                            pdf;
+
+                        loading = 0;
+                        loaded = 0;
+                        data = canvas.toDataURL('image/png');
+                        pdf = new jsPDF('landscape', undefined, format);
+                        pdf.addImage(data, 'JPEG', 0, 0, dim[0], dim[1]);
+                        pdf.save('map.pdf');
+                        if (source !== null) {
+                            source.un('tileloadstart', tileLoadStart);
+                            source.un('tileloadend', tileLoadEnd, canvas);
+                            source.un('tileloaderror', tileLoadEnd, canvas);
+                        }
+                        map.setSize(size);
+                        map.getView().fit(extent, size);
+                        map.renderSync();
+                        $(this).prop('diasbled', false);
+                    }, 100);
+                }
+            };
+
+            map.once('postcompose', function (event) {
+                if (source !== null) {
+                    source.on('tileloadstart', tileLoadStart);
+                    source.on('tileloadend', tileLoadEnd, event.context.canvas);
+                    source.on('tileloaderror', tileLoadEnd, event.context.canvas);
+                }
+            });
+
+            map.setSize([width, height]);
+            map.getView().fit(extent, /** @type {ol.Size} */ (map.getSize()));
+            map.renderSync();
+        });
+
+        (function () {
+            var target, observer, config;
+            // select the target node
+            target = $('#app-content-wrapper')[0];
+
+            observer = new MutationObserver(function () {
+                window.setTimeout(function () {
+                    map.updateSize();
+                }, 500);
+            });
+
+            config = {attributes: true};
+
+            observer.observe(target, config);
+        }());
     };
 
     areValidFiles = function (files) {
@@ -693,7 +839,14 @@
             shapeStyleSheet = document.styleSheets[10],
             cssRule;
 
-        $('#symbology-preview').text();
+        $('#symbology-preview').text('');
+
+        if (shapeStyleSheet.rules.length === 5) {
+            shapeStyleSheet.deleteRule(4);
+        } else if (shapeStyleSheet.rules.length === 6) {
+            shapeStyleSheet.deleteRule(4);
+            shapeStyleSheet.deleteRule(4);
+        }
 
         if (shape === 'X') {
             cssObj = {
@@ -716,10 +869,6 @@
                 'background-color': color
             };
 
-            if (shapeStyleSheet.rules.length === 5) {
-                shapeStyleSheet.deleteRule(4);
-            }
-
             cssRule = '.cross:after {' +
                 'background: ' + color + '; ' +
                 'content: ""; ' +
@@ -738,13 +887,6 @@
                 'border-bottom': Math.ceil(size * 0.7) + 'px  solid ' + color,
                 'border-left':   size + 'px solid transparent'
             };
-
-            if (shapeStyleSheet.rules.length === 5) {
-                shapeStyleSheet.deleteRule(4);
-            } else if (shapeStyleSheet.rules.length === 6) {
-                shapeStyleSheet.deleteRule(4);
-                shapeStyleSheet.deleteRule(4);
-            }
 
             cssRule = '.star:before {' +
                 'border-bottom: ' + Math.ceil(size * 0.8) + 'px solid ' + color + '; ' +
@@ -1132,6 +1274,16 @@
     };
 
     initializeMap = function () {
+        var mousePositionControl = new ol.control.MousePosition({
+            coordinateFormat: ol.coordinate.createStringXY(4),
+            projection: 'EPSG:3857',
+            className: 'custom-mouse-position',
+            target: document.getElementById('mouse-position'),
+            undefinedHTML: ''
+        });
+
+        var fullScreenControl = new ol.control.FullScreen();
+
         // Base Layer options
         basemapLayers = [
             new ol.layer.Tile({
@@ -1166,6 +1318,9 @@
                 zoom: 2
             })
         });
+
+        map.addControl(mousePositionControl);
+        map.addControl(fullScreenControl);
     };
 
     loadProjectFile = function (fileProjectInfo) {
@@ -1731,7 +1886,11 @@
      ----------------------------------------------*/
 
     $(function () {
-        $('#map').css('height', $('#app-content').height());
+        $('#app-content, #inner-app-content').css('max-height', $(window).height() - 100);
+        $('#map').css({
+            'height': $('#app-content').height(),
+            'max-height': $('#app-content').height()
+        });
         initializeJqueryVariables();
         checkURLForParameters();
         addDefaultBehaviorToAjax();

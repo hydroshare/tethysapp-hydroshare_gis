@@ -1,5 +1,8 @@
 /*****************************************************/
 /*            TETHYS BASE MODIFICATIONS              */
+#app-content-wrapper {
+    overflow-y: hidden;
+}
 #app-content-wrapper #app-content {
     padding-bottom: 0;
 }
@@ -16,6 +19,14 @@
 #btn-app-help {
     margin-left: 100px;
 }
+.option-export {
+    cursor: pointer;
+    padding: 5px;
+}
+.option-export:hover {
+    background-color: darkturquoise;
+    color: white;
+}
 .basemap-option {
     cursor: pointer;
     padding: 5px;
@@ -29,7 +40,7 @@
 }
 .current-basemap-label {
     font-weight: normal;
-    color: lightgray;
+    color: #D3D3D3;
 }
 #beta-feedback-button {
     bottom: 30px;
@@ -65,10 +76,11 @@
 #current-layers {
     width: 100%;
     height: 300px;
-    background-color: lightgrey;
+    background-color: #D3D3D3;
 }
 #current-layers ul {
     -webkit-padding-start: 0;
+    -moz-padding-start: 0;
 }
 #current-layers li {
     position: relative;
@@ -76,17 +88,34 @@
     list-style: none;
     padding: 5px;
     cursor: default;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: justify;
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
     justify-content: space-between;
+    -webkit-align-content: center;
+    -ms-flex-line-pack: center;
     align-content: center;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
     text-align: left;
 }
 .layer-name {
+    -webkit-box-flex: 1;
+    -webkit-flex: 1 1 auto;
+    -ms-flex: 1 1 auto;
     flex: 1 1 auto;
     max-width: 220px;
 }
 .edit-layer-name {
+    -webkit-box-flex: 1;
+    -webkit-flex: 1 1 auto;
+    -ms-flex: 1 1 auto;
     flex: 1 1 auto;
     max-width: 220px;
     line-height: normal;
@@ -143,8 +172,16 @@
     overflow-y: auto;
 }
 .modal-footer {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-flex-flow: row wrap;
+    -ms-flex-flow: row wrap;
     flex-flow: row wrap;
+    -webkit-box-pack: end;
+    -webkit-justify-content: flex-end;
+    -ms-flex-pack: end;
     justify-content: flex-end;
     height: 65px;
     position: fixed;
@@ -272,8 +309,16 @@ input[type="radio"] {
 }
 #modalSymbology .modal-body {
     position: static;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-flex-flow: row nowrap;
+    -ms-flex-flow: row nowrap;
     flex-flow: row nowrap;
+    -webkit-box-pack: justify;
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
     justify-content: space-between;
 }
 #modalSymbology .modal-footer {
@@ -284,6 +329,7 @@ input[type="radio"] {
 }
 #symbology-preview {
     text-align: center;
+    font-weight: bold;
     margin: auto;
 }
 #label-preview {
@@ -322,8 +368,17 @@ input[type="radio"] {
     right: 0;
     bottom: 0;
     left: 0;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
     justify-content: center;
 }
 /****************************************************/
@@ -351,3 +406,29 @@ label {
         display: none;
     }
 }
+
+#mouse-position {
+    position: relative;
+    top: -20px;
+    background-color: white;
+    display: inline-block;
+}
+/****************************************************/
+
+/****************************************************/
+/*                  MAP STYLING                 */
+/*#map:-moz-full-screen {*/
+/*height: 100%;*/
+/*}*/
+/*#map:-webkit-full-screen {*/
+/*height: 100%;*/
+/*}*/
+/*#map:-ms-fullscreen {*/
+/*height: 100%;*/
+/*}*/
+/*#map:fullscreen {*/
+/*height: 100%;*/
+/*}*/
+/*.ol-rotate {*/
+/*top: 3em;*/
+/*}*/

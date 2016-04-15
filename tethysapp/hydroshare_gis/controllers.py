@@ -183,7 +183,7 @@ def load_file(request):
     else:
         return get_json_response('error', 'Invalid request made.')
 
-    if res_type == 'GenericResource' and res_filepath_or_obj.endswith('.json'):
+    if res_type == 'GenericResource' and res_filepath_or_obj and res_filepath_or_obj.endswith('.json'):
         with open(res_filepath_or_obj) as project_file:
             project_info = project_file.read()
 

@@ -1,8 +1,8 @@
-from django.core.files.uploadedfile import TemporaryUploadedFile
 from hs_restclient import HydroShare, HydroShareAuthOAuth2
 from django.http import JsonResponse
 from django.conf import settings
 from tethys_sdk.services import get_spatial_dataset_engine
+from django.core.exceptions import ObjectDoesNotExist
 
 import requests
 import zipfile
@@ -11,9 +11,9 @@ import sqlite3
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'default'
-geoserver_url = 'http://appsdev.hydroshare.org:8181/geoserver'
+geoserver_url = None
 workspace_id = 'hydroshare_gis'
-uri = 'http://127.0.0.1:8000/apps/hydroshare-gis'
+uri = 'https://appsdev.hydroshare.org/apps/hydroshare-gis'
 
 
 def get_oauth_hs(request):
@@ -33,7 +33,7 @@ def get_json_response(response_type, message):
     return JsonResponse({response_type: message})
 
 
-def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
+def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
     global workspace_id
     result = None
 
@@ -43,9 +43,13 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
     full_store_id = '%s:%s' % (workspace_id, store_id)
 
     if res_type == 'RasterResource':
+        coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
+        print 'full_store_id: %s' % full_store_id
+        print 'res_file: %s' % res_file
+        print 'coverage_type: %s' % coverage_type
         result = engine.create_coverage_resource(store_id=full_store_id,
                                                  coverage_file=res_file,
-                                                 coverage_type='geotiff',
+                                                 coverage_type=coverage_type,
                                                  overwrite=True)
 
     elif res_type == 'GeographicFeatureResource':
@@ -72,26 +76,33 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
             return layer_name, layer_id
 
 
-def make_file_zipfile(res_file, filename, zip_path):
+def make_file_zipfile(res_files, filename, zip_path):
     if not os.path.exists(zip_path):
         if not os.path.exists(os.path.dirname(zip_path)):
             os.mkdir(os.path.dirname(zip_path))
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
-        if type(res_file) is not TemporaryUploadedFile:
-            zip_object.write(res_file)
+        if type(res_files) is list:
+            for each_file in res_files:
+                if len(res_files) > 1 and not each_file.endswith('.tif'):
+                    zip_object.write(each_file, filename + os.path.splitext(each_file)[1])
+                else:
+                    zip_object.write(each_file, os.path.basename(each_file))
         else:
-            zip_object.writestr(filename, res_file.read())
+            zip_object.writestr(filename, res_files.read())
         zip_object.close()
 
 
 def return_spatial_dataset_engine():
-    global geoserver_name, workspace_id, uri
+    global geoserver_name, workspace_id, uri, geoserver_url
 
     engine = get_spatial_dataset_engine(name=geoserver_name)
-    if not engine.get_workspace(workspace_id)['success']:
-        # Workspace does not exist and must be created
-        engine.create_workspace(workspace_id=workspace_id, uri=uri)
+    workspace = engine.get_workspace(workspace_id)
+    if not workspace['success']:
+        print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
+        workspace = engine.create_workspace(workspace_id=workspace_id, uri=uri)
+
+    geoserver_url = workspace['result']['catalog'][:-1]
     return engine
 
 
@@ -173,3 +184,11 @@ def request_wfs_info(params):
     r = requests.get(url, params=params, auth=(username, password))
 
     return r
+
+def get_hs_object(request):
+    try:
+        hs = get_oauth_hs(request)
+    except ObjectDoesNotExist as e:
+        print str(e)
+        hs = HydroShare()
+    return hs

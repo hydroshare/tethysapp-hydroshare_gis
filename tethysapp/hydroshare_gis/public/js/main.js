@@ -1272,14 +1272,13 @@
 
     initializeMap = function () {
         var mousePositionControl = new ol.control.MousePosition({
-            coordinateFormat: ol.coordinate.createStringXY(4),
-            projection: 'EPSG:3857',
-            className: 'custom-mouse-position',
-            target: document.getElementById('mouse-position'),
-            undefinedHTML: ''
-        });
-
-        var fullScreenControl = new ol.control.FullScreen();
+                coordinateFormat: ol.coordinate.createStringXY(4),
+                projection: 'EPSG:3857',
+                className: 'custom-mouse-position',
+                target: document.getElementById('mouse-position'),
+                undefinedHTML: ''
+            }),
+            fullScreenControl = new ol.control.FullScreen();
 
         // Base Layer options
         basemapLayers = [

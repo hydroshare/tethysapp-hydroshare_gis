@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from oauthlib.oauth2 import TokenExpiredError
 from utilities import *
 from geoserver.catalog import FailedRequestError
-from django.core.exceptions import ObjectDoesNotExist
 
 import shutil
 from json import dumps, loads
@@ -23,6 +22,12 @@ def home(request):
     global engine
 
     engine = return_spatial_dataset_engine()
+
+    # print "DELETEING ALL STORES FROM GEOSERVER"
+    # stores = engine.list_stores(workspace_id)
+    # for store in stores['result']:
+    #     engine.delete_store(store, True, True)
+    #     print "Store %s deleted" % store
 
     point_size_options = range(1, 31)
     stroke_width_options = range(1,16)
@@ -60,36 +65,36 @@ def load_file(request):
     layer_id = None
     layer_extents = None
     layer_attributes = None
+    is_mosaic = False
 
     if not os.path.exists(hs_tempdir):
         os.mkdir(hs_tempdir)
 
     if request.is_ajax() and request.method == 'POST':
-        res_files = request.FILES.getlist('files')
+        file_list = request.FILES.getlist('files')
 
-        for res_file in res_files:
-            file_name = res_file.name
-            if file_name.endswith('.shp'):
-                res_id = str(file_name[:-4].__hash__())
+        for f in file_list:
+            name = f.name
+            if name.endswith('.shp'):
+                res_id = str(name[:-4].__hash__())
                 res_type = 'GeographicFeatureResource'
-                res_filepath_or_obj = res_files
+                res_filepath_or_obj = file_list
                 break
-            elif file_name.endswith('.tif'):
-                res_id = str(file_name[:-4].__hash__())
+            elif name.endswith('.tif'):
+                res_id = str(name[:-4].__hash__())
                 res_type = 'RasterResource'
-                res_zip = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
-                make_file_zipfile(res_file, file_name, res_zip)
-                res_filepath_or_obj = res_zip
+                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, name[:-4] + '.zip')
+                make_file_zipfile(f, name, res_filepath_or_obj)
                 break
-            elif file_name.endswith('.zip'):
+            elif name.endswith('.zip'):
                 is_zip = True
                 res_id = 'temp_id'
-                res_zip = os.path.join(hs_tempdir, res_id, file_name)
+                res_zip = os.path.join(hs_tempdir, res_id, name)
                 if not os.path.exists(res_zip):
                     if not os.path.exists(os.path.dirname(res_zip)):
                         os.mkdir(os.path.dirname(res_zip))
                 with zipfile.ZipFile(res_zip, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
-                    with zipfile.ZipFile(StringIO(res_file.read())) as z:
+                    with zipfile.ZipFile(StringIO(f.read())) as z:
                         for name in z.namelist():
                             zip_object.writestr(name, z.read(name))
                             if name.endswith('.shp'):
@@ -99,20 +104,11 @@ def load_file(request):
                                 res_id = str(name[:-4].__hash__())
                                 res_type = 'RasterResource'
                 os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
-                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name)
+                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, name)
 
     elif request.is_ajax() and request.method == 'GET':
         try:
-            # CLEAR ALL OF THE GEOSERVER RESOURCES
-            # stores = engine.list_stores(workspace_id)
-            # for store in stores['result']:
-            #     engine.delete_store(store, True, True)
-
-            try:
-                hs = get_oauth_hs(request)
-            except ObjectDoesNotExist as e:
-                print str(e)
-                hs = HydroShare()
+            hs = get_hs_object(request)
 
             res_id = request.GET['res_id']
 
@@ -130,14 +126,16 @@ def load_file(request):
 
             try:
                 if engine.list_resources(store=store_id)['success']:
-                    # RESOURCE ALREADY STORED ON GEOSERVER
-                    layer_name = engine.list_resources(store=store_id)['result'][0]
+                    print 'RESOURCE ALREADY STORED ON GEOSERVER'
+                    layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
+                    print 'layer_name: %s' % layer_name
                     layer_id = '%s:%s' % (workspace_id, layer_name)
+                    print 'layer_id: %s' % layer_id
                     layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
                     return JsonResponse({
                         'success': 'Files uploaded successfully.',
-                        'geoserver_url': geoserver_url,
+                        'geoserver_url': get_geoserver_url(),
                         'layer_name': res_title,
                         'layer_id': layer_id,
                         'layer_extents': dumps(layer_extents),
@@ -145,29 +143,35 @@ def load_file(request):
                         'res_type': res_type,
                         'geom_type': geom_type
                     })
-            except FailedRequestError, e:
-                print str(e)
+            except FailedRequestError:
+                print 'RESOURCE NOT ALREADY STORED ON GEOSERVER'
             except Exception, e:
-                print str(e)
+                print 'Unexpected error encountered:\n%s' % e
 
-            # RESOURCE NOT ALREADY STORED ON GEOSERVER
             hs.getResource(res_id, destination=hs_tempdir, unzip=True)
             res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 
             if os.path.exists(res_contents_dir):
-                for file_name in os.listdir(res_contents_dir):
-                    if file_name.endswith('.shp'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
+                coverage_files = []
+                for name in os.listdir(res_contents_dir):
+                    if name.endswith('.shp'):
+                        res_filepath_or_obj = os.path.join(res_contents_dir, name[:-4])
                         break
-                    elif file_name.endswith('.tif'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
-                        make_file_zipfile(os.path.join(res_contents_dir, file_name), file_name, res_filepath_or_obj)
-                        break
-                    elif file_name.endswith('.sqlite'):
-                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
+                    if name.endswith('.sqlite'):
+                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, name))
                         layer_name = res_title
-                    elif file_name.endswith('.json'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
+                        break
+                    if name.endswith('.json'):
+                        res_filepath_or_obj = os.path.join(res_contents_dir, name)
+                        break
+                    if name.endswith('.vrt') or name.endswith('.tif'):
+                        if name.endswith('.vrt'):
+                            is_mosaic = True
+                        coverage_files.append(os.path.join(res_contents_dir, name))
+
+                if coverage_files:
+                    res_filepath_or_obj = os.path.join(res_contents_dir, store_id + '.zip')
+                    make_file_zipfile(coverage_files, store_id, res_filepath_or_obj)
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -176,6 +180,7 @@ def load_file(request):
             print str(e)
             return get_json_response('error', 'Login timed out! Please re-sign in with your HydroShare account.')
         except Exception, e:
+            print "Unexpected error encountered:"
             print str(e)
             if "401 Unauthorized" in str(e):
                 return get_json_response('error', 'Username or password invalid.')
@@ -193,7 +198,7 @@ def load_file(request):
         })
 
     if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
-        layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip)
+        layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip, is_mosaic)
         layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
         if layer_name and 'res_' in layer_name:
@@ -201,11 +206,12 @@ def load_file(request):
 
     if res_id:
         if os.path.exists(os.path.join(hs_tempdir, res_id)):
+            print "DELETING THE TEMP DIRECTORY"
             shutil.rmtree(os.path.join(hs_tempdir, res_id))
 
     return JsonResponse({
         'success': 'Files uploaded successfully.',
-        'geoserver_url': geoserver_url,
+        'geoserver_url': get_geoserver_url(),
         'layer_name': layer_name,
         'layer_id': layer_id,
         'layer_extents': layer_extents,
@@ -221,11 +227,7 @@ def get_hs_res_list(request):
     if request.is_ajax() and request.method == 'GET':
         resources_list = []
 
-        try:
-            hs = get_oauth_hs(request)
-        except ObjectDoesNotExist as e:
-            print str(e)
-            hs = HydroShare()
+        hs = get_hs_object(request)
 
         types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
 

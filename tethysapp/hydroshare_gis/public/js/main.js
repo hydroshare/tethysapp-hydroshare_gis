@@ -308,6 +308,16 @@
 
     addInitialEventListeners = function () {
 
+        $('#btn-opt-add-to-existing').on('click', function () {
+            $('.opts-add-to-project').addClass('hidden');
+            $('#opts-add-to-existing').toggleClass('hidden');
+        });
+
+        $('#btn-opt-add-to-new').on('click', function () {
+            $('.opts-add-to-project').addClass('hidden');
+            $('#opts-add-to-new').toggleClass('hidden');
+        });
+
         $btnSaveProject.on('click', onClickSaveProject);
 
         $btnShowModalSaveProject.on('click', function () {

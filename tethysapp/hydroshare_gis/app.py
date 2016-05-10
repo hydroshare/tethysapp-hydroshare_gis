@@ -28,15 +28,18 @@ class HydroshareGis(TethysAppBase):
                             controller='hydroshare_gis.controllers.home'),
                     url_map(name='load_file',
                             url='hydroshare-gis/load-file',
-                            controller='hydroshare_gis.controllers.load_file'),
+                            controller='hydroshare_gis.controllers_ajax.load_file'),
                     url_map(name='get_hs_res_list',
                             url='hydroshare-gis/get-hs-res-list',
-                            controller='hydroshare_gis.controllers.get_hs_res_list'),
+                            controller='hydroshare_gis.controllers_ajax.get_hs_res_list'),
                     url_map(name='generate_attribute_table',
                             url='hydroshare-gis/generate-attribute-table',
-                            controller='hydroshare_gis.controllers.generate_attribute_table'),
+                            controller='hydroshare_gis.controllers_ajax.generate_attribute_table'),
                     url_map(name='save_project',
                             url='hydroshare-gis/save-project',
-                            controller='hydroshare_gis.controllers.save_project')
+                            controller='hydroshare_gis.controllers_ajax.save_project'),
+                    url_map(name='add_to_project',
+                            url='hydroshare-gis/add-to-project',
+                            controller='hydroshare_gis.controllers.add_to_project')
                     )
         return url_maps

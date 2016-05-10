@@ -361,6 +361,17 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
+/*                ADD TO PROJECT MODAL                 */
+#ul-existing-projects {
+    list-style: none;
+}
+#ul-existing-projects li:hover {
+    background: blue;
+    color: white;
+}
+/*****************************************************/
+
+/*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading {
     position: fixed;
@@ -400,13 +411,21 @@ label {
     background-color: green;
     color: white;
 }
-
 @media (max-width: 550px) {
     #byu-logo-container {
         display: none;
     }
 }
-
+.flex-container-row {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: space-around;
+}
+.flex-container-col {
+    display: flex;
+    flex-flow: column wrap;
+    justify-content: space-around;
+}
 #mouse-position {
     position: relative;
     top: -20px;
@@ -414,21 +433,3 @@ label {
     display: inline-block;
 }
 /****************************************************/
-
-/****************************************************/
-/*                  MAP STYLING                 */
-/*#map:-moz-full-screen {*/
-/*height: 100%;*/
-/*}*/
-/*#map:-webkit-full-screen {*/
-/*height: 100%;*/
-/*}*/
-/*#map:-ms-fullscreen {*/
-/*height: 100%;*/
-/*}*/
-/*#map:fullscreen {*/
-/*height: 100%;*/
-/*}*/
-/*.ol-rotate {*/
-/*top: 3em;*/
-/*}*/

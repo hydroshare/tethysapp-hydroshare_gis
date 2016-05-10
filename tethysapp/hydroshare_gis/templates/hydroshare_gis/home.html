@@ -335,6 +335,49 @@
     </div>
     <!-- End modal -->
 
+    <!-- Add to Project Modal -->
+    <div id="modalAddToProject" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Add To Map Project</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="flex-container-row" id="add-to-proj-btns">
+                        <button type="button" class="btn" id="btn-opt-add-to-existing">Add to Existing Project</button>
+                        <button type="button" class="btn" id="btn-opt-add-to-new">Add to New Project</button>
+                    </div>
+                    <br><br>
+                    <div id="opts-add-to-existing" class="hidden opts-add-to-project flex-container-col">
+                        {% if existing_projects %}
+                            <h5>Projects you currently own:</h5>
+                            <ul id="ul-existing-projects">
+                                {% for project in existing_projects %}
+                                    <li><input type="radio" name="project"> {{ project }}</li>
+                                {% endfor %}
+                            </ul>
+                            <button type="button" id="btn-add-to-existing-project">Add to Project</button>
+                        {% else %}
+                            <h5>Sorry, you do not own any map projects.</h5>
+                        {% endif %}
+                    </div>
+                    <div id="opts-add-to-new" class="hidden opts-add-to-project">
+                        <label for="project-name">Project Name:</label>
+                        <input type="text" id="project-name">
+                        <button id="btn-create-new-project">Create Project</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
     <div id="div-loading" class="hidden">
         <img src="/static/hydroshare_gis/images/main-loading-anim.gif" />
     </div>

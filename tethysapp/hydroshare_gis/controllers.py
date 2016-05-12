@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
-import requests
+# import requests
 from utilities import get_hs_object
 
 
@@ -44,24 +44,44 @@ def add_to_project(request):
         'num_gradient_colors_options': num_gradient_colors_options
     }
 
-    existing_projects = ['Test Project 1', 'Test Project 2', 'Test Project 3', 'Test Project 4', 'Test Project 5']
+    existing_projects = []
+    resources_to_add = []
 
-    hs = get_hs_object(request)
-    # r = requests.get('https://www.hydroshare.org/hsapi/userInfo/')
-    # json = r.json()
-    # username = json['username']
-    username = 'scrawley'
-    for res in hs.getResourceList(creator=username, types=['GenericResource']):
-        res_id = res['resource_id']
-        try:
-            for res_file in hs.getResourceFileList(res_id):
-                if res_file['content_type'] == 'application/json':
-                    existing_projects.append(res['resource_title'])
+    if request.GET.get('res_ids'):
+        res_ids = request.GET['res_ids'].split(',')
+        hs = get_hs_object(request)
 
-        except Exception as e:
-            print str(e)
-            continue
+        for res_id in res_ids:
+            try:
+                md = hs.getSystemMetadata(res_id)
+                resources_to_add.append({
+                    'title': md['resource_title'],
+                    'id': md['resource_id'],
+                    'type': md['resource_type']
+                })
+            except Exception as e:
+                print str(e)
+                continue
 
-    context['existing_projects'] = existing_projects
+        # r = requests.get('https://www.hydroshare.org/hsapi/userInfo/')
+        # json = r.json()
+        # username = json['username']
+        username = 'scrawley'
+        for res in hs.getResourceList(creator=username, types=['GenericResource']):
+            res_id = res['resource_id']
+            try:
+                for res_file in hs.getResourceFileList(res_id):
+                    if res_file['content_type'] == 'application/json':
+                        existing_projects.append({
+                            'title': res['resource_title'],
+                            'id': res_id
+                        })
+
+            except Exception as e:
+                print str(e)
+                continue
+
+        context['existing_projects'] = existing_projects
+        context['resources_to_add'] = resources_to_add
 
     return render(request, 'hydroshare_gis/home.html', context)

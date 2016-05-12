@@ -362,12 +362,8 @@ input[type="radio"] {
 
 /*****************************************************/
 /*                ADD TO PROJECT MODAL                 */
-#ul-existing-projects {
+.list-no-bullets {
     list-style: none;
-}
-#ul-existing-projects li:hover {
-    background: blue;
-    color: white;
 }
 /*****************************************************/
 

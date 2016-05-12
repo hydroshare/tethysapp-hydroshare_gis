@@ -11,7 +11,7 @@
 {% block app_title %}{{ tethys_app.name }}{% endblock %}
 
 {% block app_navigation_items %}
-    <li class="active"><button id="btn-show-modal-save-project" class="btn btn-warning btn-md">Save as Map Project Resource</button></li>
+    <li class="active"><button id="btn-show-modal-save-project" class="btn btn-warning btn-md">Save Map Project</button></li>
     <li class="active">
         <div class="dropdown">
             <button class="btn btn dropdown-toggle" type="button" id="dropdown-export" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
@@ -72,7 +72,7 @@
     <script src="https://cdn.datatables.net/t/bs/dt-1.10.11,fh-3.1.1,r-2.0.2,sc-1.4.1,se-1.1.2/datatables.min.js" async="async"></script>
     <script src="{% static 'hydroshare_gis/vendor/contextMenu/contextMenu.min.js' %}" async="async"></script>
     <script src="{% static 'hydroshare_gis/js/sld_templates.js' %}" async="async"></script>
-    <script src="https://mrrio.github.io/jsPDF/dist/jspdf.min.js" async="async"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.2.61/jspdf.min.js" async="async"></script>
     <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
     <script src="{% static 'hydroshare_gis/vendor/spectrum/spectrum.js' %}"></script>
     <script src="{% static 'hydroshare_gis/vendor/openlayers/v3.14.2/ol.js' %}"></script>

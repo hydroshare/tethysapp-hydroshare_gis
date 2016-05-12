@@ -68,6 +68,7 @@
         getCssStyles,
         getFilesSize,
         getGeomType,
+        getGeoserverUrl,
         getRandomColor,
         hideMainLoadAnim,
         hideProgressBar,
@@ -77,6 +78,8 @@
         loadProjectFile,
         loadResource,
         modifyDataTableDisplay,
+        onClickAddToExistingProject,
+        onClickAddToNewProject,
         onClickDeleteLayer,
         onClickModifySymbology,
         onClickRenameLayer,
@@ -142,7 +145,6 @@
             newLayer = null,
             sldString,
             lyrExtents = data.lyrExtents,
-            url = data.url,
             lyrId = data.lyrId,
             resType = data.resType,
             geomType = data.geomType,
@@ -176,7 +178,7 @@
             newLayer = new ol.layer.Tile({
                 extent: lyrExtents,
                 source: new ol.source.TileWMS({
-                    url: url,
+                    url: projectInfo.map.geoserverUrl + '/wms',
                     params: lyrParams,
                     serverType: 'geoserver'
                 }),
@@ -189,8 +191,7 @@
     };
 
     addLayerToUI = function (response) {
-        var geoserverUrl,
-            geomType,
+        var geomType,
             layerAttributes,
             layerExtents,
             layerName,
@@ -213,7 +214,6 @@
             layerName = response.layer_name;
             layerId = response.layer_id || response.res_id;
             rawLayerExtents = response.layer_extents;
-            geoserverUrl = response.geoserver_url;
 
             if (resType === 'TimeSeriesResource') {
                 tsSiteInfo = response.site_info;
@@ -225,7 +225,7 @@
             addLayerToMap({
                 resType: resType,
                 lyrExtents: layerExtents,
-                url: geoserverUrl + '/wms',
+                url: projectInfo.map.geoserverUrl + '/wms',
                 lyrId: layerId
             });
 
@@ -240,7 +240,6 @@
             zoomToLayer(layerExtents, map.getSize(), resType);
 
             // Add layer data to project info
-            projectInfo.map.geoserverUrl = geoserverUrl;
             projectInfo.map.layers[layerIndex] = {
                 attributes: layerAttributes,
                 cssStyles: "Default",
@@ -308,14 +307,17 @@
 
     addInitialEventListeners = function () {
 
+        $('#btn-opt-add-to-new').on('click', function () {
+            onClickAddToNewProject();
+        });
+
+        $('#btn-add-to-existing-project').on('click', function () {
+            onClickAddToExistingProject();
+        });
+
         $('#btn-opt-add-to-existing').on('click', function () {
             $('.opts-add-to-project').addClass('hidden');
             $('#opts-add-to-existing').toggleClass('hidden');
-        });
-
-        $('#btn-opt-add-to-new').on('click', function () {
-            $('.opts-add-to-project').addClass('hidden');
-            $('#opts-add-to-new').toggleClass('hidden');
         });
 
         $btnSaveProject.on('click', onClickSaveProject);
@@ -773,7 +775,7 @@
         if (params.res_id !== undefined || params.res_id !== null) {
             if (params.src === 'hs') {
                 showMainLoadAnim();
-                loadResource(params.res_id);
+                loadResource(params.res_id, null, null, true, null);
             }
         }
     };
@@ -1017,7 +1019,7 @@
     generateResourceList = function (numRequests) {
         $.ajax({
             type: 'GET',
-            url: 'get-hs-res-list',
+            url: '/apps/hydroshare-gis/get-hs-res-list',
             dataType: 'json',
             error: function () {
                 if (numRequests < 5) {
@@ -1177,6 +1179,23 @@
             geomType = 'line';
         }
         return geomType;
+    };
+
+    getGeoserverUrl = function () {
+        $.ajax({
+            url: '/apps/hydroshare-gis/get-geoserver-url',
+            contentType: 'json',
+            success: function (response) {
+                if (response.hasOwnProperty('geoserver_url')) {
+                    projectInfo.map.geoserverUrl = response.geoserver_url;
+                } else {
+                    alert('Function "getGeoserverUrl" has failed. The geoserver being used could not be identified.');
+                }
+            },
+            error: function () {
+                alert('Ajax request to "/apps/hydroshare-gis/get-geoserver-url" failed.');
+            }
+        });
     };
 
     getRandomColor = function () {
@@ -1366,20 +1385,24 @@
         projectInfo = fileProjectInfo;
     };
 
-    loadResource = function (res_id, res_type, res_title) {
+    loadResource = function (resId, resType, resTitle, lastResource, additionalResources) {
         var $loadResModalInfo = $('#loadres-modal-info');
+        var data = {'res_id': resId};
+
+        if (resType) {
+            data.res_type = resType;
+        }
+        if (resTitle) {
+            data.res_title = resTitle;
+        }
 
         $loadResModalInfo.removeClass('hidden');
 
         $.ajax({
             type: 'GET',
-            url: 'load-file',
+            url: '/apps/hydroshare-gis/load-file',
             dataType: 'json',
-            data: {
-                'res_id': res_id,
-                'res_type': res_type,
-                'res_title': res_title
-            },
+            data: data,
             error: function () {
                 $loadResModalInfo.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
@@ -1390,10 +1413,38 @@
                 $('#btn-upload-res').prop('disabled', false);
                 if (response.hasOwnProperty('project_info')) {
                     loadProjectFile(JSON.parse(response.project_info));
-                    hideMainLoadAnim();
+                    if (additionalResources) {
+                        (function () {
+                            var i;
+                            var length = additionalResources.length;
+                            var resource;
+
+                            for (i = 0; i < length; i++) {
+                                resource = additionalResources[i];
+                                loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                            }
+                        }());
+                    }
+                    if (lastResource) {
+                        hideMainLoadAnim();
+                    }
                     return;
                 }
-                hideMainLoadAnim();
+                if (additionalResources) {
+                    (function () {
+                        var i;
+                        var length = additionalResources.length;
+                        var resource;
+
+                        for (i = 0; i < length; i++) {
+                            resource = additionalResources[i];
+                            loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                        }
+                    }());
+                }
+                if (lastResource) {
+                    hideMainLoadAnim();
+                }
                 addLayerToUI(response);
                 if ($('#chkbx-res-auto-close').is(':checked')) {
                     $modalLoadRes.modal('hide');
@@ -1412,6 +1463,49 @@
         });
 
         redrawDataTable(dataTable, $modal);
+    };
+
+    onClickAddToExistingProject = function () {
+        var $rdoSelectedProj,
+            resId,
+            resTitle,
+            additionalResources;
+
+        showMainLoadAnim();
+        $('#modalAddToProject').modal('hide');
+
+        $rdoSelectedProj = $('.opt-existing-project:checked');
+        resId = $rdoSelectedProj.val();
+        resTitle = $rdoSelectedProj.parent().text();
+        additionalResources = [];
+        $('#ul-resources-to-add').find('li').each(function (i, li) {
+            var $li = $(li);
+            additionalResources.push({
+                'id': $li.attr('data-id'),
+                'type': $li.attr('data-type'),
+                'title': $li.attr('data-title')
+            });
+        });
+        loadResource(resId, 'GenericResource', resTitle, false, additionalResources);
+    };
+
+    onClickAddToNewProject = function () {
+        var additionalResources = [];
+        var firstResource;
+
+        showMainLoadAnim();
+        $('#modalAddToProject').modal('hide');
+
+        $('#ul-resources-to-add').find('li').each(function (i, li) {
+            var $li = $(li);
+            additionalResources.push({
+                'id': $li.attr('data-id'),
+                'type': $li.attr('data-type'),
+                'title': $li.attr('data-title')
+            });
+        });
+        firstResource = additionalResources.shift();
+        loadResource(firstResource.id, firstResource.type, firstResource.title, (additionalResources.length === 0), additionalResources);
     };
 
     onClickDeleteLayer = function (e) {
@@ -1479,7 +1573,7 @@
 
         $.ajax({
             type: 'GET',
-            url: 'save-project',
+            url: '/apps/hydroshare-gis/save-project',
             dataType: 'json',
             contentType: 'json',
             data: {
@@ -1836,7 +1930,7 @@
         fileSize = getFilesSize(files);
         fileLoaded = false;
         $.ajax({
-            url: 'load-file/',
+            url: '/apps/hydroshare-gis/load-file/',
             type: 'POST',
             data: data,
             dataType: 'json',
@@ -1872,7 +1966,7 @@
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
-        loadResource(resId, resType, resTitle);
+        loadResource(resId, resType, resTitle, true, null);
     };
 
     zoomToLayer = function (layerExtent, mapSize, resType) {
@@ -1911,11 +2005,27 @@
         $currentLayersList.disableSelection();
     });
 
-    $('#modalWelcome').modal('show');
+    if (window.location.pathname.indexOf('add-to-project') > -1) {
+        $('#modalAddToProject').modal('show');
+    } else {
+        $('#modalWelcome').modal('show');
+    }
 
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
+    projectInfo = {
+        'map': {
+            'baseMap': 'None',
+            'layers': {},
+            'zoomLevel': 2,
+            'center': [0, 0],
+            'geoserverUrl': null
+        }
+    };
+
+    getGeoserverUrl();
+
     generateResourceList();
 
     layerCount = (function () {
@@ -1933,14 +2043,4 @@
             }
         };
     }());
-
-    projectInfo = {
-        'map': {
-            'baseMap': null,
-            'layers': {},
-            'zoomLevel': null,
-            'center': null,
-            'geoserverUrl': null
-        }
-    };
 }());

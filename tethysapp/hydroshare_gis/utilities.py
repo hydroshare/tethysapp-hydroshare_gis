@@ -139,9 +139,12 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
     return extents, attributes_string[:-1], geom_type
 
 
-def get_geoserver_url():
+def get_geoserver_url(request=None):
     global geoserver_url
-    return geoserver_url
+    if request:
+        return JsonResponse({'geoserver_url': geoserver_url})
+    else:
+        return geoserver_url
 
 
 def extract_site_info_from_time_series(sqlite_file_path):

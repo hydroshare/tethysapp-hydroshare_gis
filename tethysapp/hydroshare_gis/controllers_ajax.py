@@ -94,9 +94,7 @@ def load_file(request):
                 if engine.list_resources(store=store_id)['success']:
                     print 'RESOURCE ALREADY STORED ON GEOSERVER'
                     layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
-                    print 'layer_name: %s' % layer_name
                     layer_id = '%s:%s' % (workspace_id, layer_name)
-                    print 'layer_id: %s' % layer_id
                     layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
                     return JsonResponse({
@@ -314,3 +312,7 @@ def save_project(request):
                 shutil.rmtree(project_file_tempdir)
 
             return JsonResponse(return_json)
+
+
+def ajax_get_geoserver_url(request):
+    return get_geoserver_url(request)

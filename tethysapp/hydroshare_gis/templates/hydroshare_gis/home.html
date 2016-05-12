@@ -342,31 +342,37 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Add To Map Project</h4>
+                    <h4 class="modal-title">Add Resource(s) To Map Project</h4>
                 </div>
                 <div class="modal-body">
-                    <div class="flex-container-row" id="add-to-proj-btns">
-                        <button type="button" class="btn" id="btn-opt-add-to-existing">Add to Existing Project</button>
-                        <button type="button" class="btn" id="btn-opt-add-to-new">Add to New Project</button>
-                    </div>
+                    {% if resources_to_add %}
+                        <h5>Resource(s) to be added to Map Project:</h5>
+                        <ul id="ul-resources-to-add" class="list-no-bullets">
+                            {% for resource in resources_to_add %}
+                                <li data-id="{{ resource.id }}" data-type="{{ resource.type }}" data-title="{{ resource.title }}">{{ resource.title }}</li>
+                            {% endfor %}
+                        </ul>
+                        <br><br>
+                        <div class="flex-container-row" id="add-to-proj-btns">
+                            <button type="button" class="btn" id="btn-opt-add-to-existing">Add to Existing Project</button>
+                            <button type="button" class="btn" id="btn-opt-add-to-new">Add to New Project</button>
+                        </div>
+                    {% else %}
+                        <h6>Sorry, there were no resource id's passed in the URL.</h6>
+                    {% endif %}
                     <br><br>
                     <div id="opts-add-to-existing" class="hidden opts-add-to-project flex-container-col">
                         {% if existing_projects %}
                             <h5>Projects you currently own:</h5>
-                            <ul id="ul-existing-projects">
+                            <ul id="ul-existing-projects" class="list-no-bullets">
                                 {% for project in existing_projects %}
-                                    <li><input type="radio" name="project"> {{ project }}</li>
+                                    <li><input type="radio" name="project" class="opt-existing-project" value="{{ project.id }}">{{ project.title }}</li>
                                 {% endfor %}
                             </ul>
-                            <button type="button" id="btn-add-to-existing-project">Add to Project</button>
+                            <button type="button" id="btn-add-to-existing-project">Add Resource(s) to Selected Project</button>
                         {% else %}
                             <h5>Sorry, you do not own any map projects.</h5>
                         {% endif %}
-                    </div>
-                    <div id="opts-add-to-new" class="hidden opts-add-to-project">
-                        <label for="project-name">Project Name:</label>
-                        <input type="text" id="project-name">
-                        <button id="btn-create-new-project">Create Project</button>
                     </div>
                 </div>
                 <div class="modal-footer">

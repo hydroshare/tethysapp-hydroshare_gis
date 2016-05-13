@@ -1411,8 +1411,28 @@
             success: function (response) {
                 $loadResModalInfo.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
-                if (response.hasOwnProperty('project_info')) {
-                    loadProjectFile(JSON.parse(response.project_info));
+                if (response.hasOwnProperty('error')) {
+                    alert(response.error);
+                } else {
+                    if (response.hasOwnProperty('project_info')) {
+                        loadProjectFile(JSON.parse(response.project_info));
+                        if (additionalResources) {
+                            (function () {
+                                var i;
+                                var length = additionalResources.length;
+                                var resource;
+
+                                for (i = 0; i < length; i++) {
+                                    resource = additionalResources[i];
+                                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                                }
+                            }());
+                        }
+                        if (lastResource) {
+                            hideMainLoadAnim();
+                        }
+                        return;
+                    }
                     if (additionalResources) {
                         (function () {
                             var i;
@@ -1428,26 +1448,10 @@
                     if (lastResource) {
                         hideMainLoadAnim();
                     }
-                    return;
-                }
-                if (additionalResources) {
-                    (function () {
-                        var i;
-                        var length = additionalResources.length;
-                        var resource;
-
-                        for (i = 0; i < length; i++) {
-                            resource = additionalResources[i];
-                            loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                        }
-                    }());
-                }
-                if (lastResource) {
-                    hideMainLoadAnim();
-                }
-                addLayerToUI(response);
-                if ($('#chkbx-res-auto-close').is(':checked')) {
-                    $modalLoadRes.modal('hide');
+                    addLayerToUI(response);
+                    if ($('#chkbx-res-auto-close').is(':checked')) {
+                        $modalLoadRes.modal('hide');
+                    }
                 }
             }
         });
@@ -1496,7 +1500,7 @@
         showMainLoadAnim();
         $('#modalAddToProject').modal('hide');
 
-        $('#ul-resources-to-add').find('li').each(function (i, li) {
+        $('#ul-resources-to-add').find('li').each(function (ignore, li) {
             var $li = $(li);
             additionalResources.push({
                 'id': $li.attr('data-id'),

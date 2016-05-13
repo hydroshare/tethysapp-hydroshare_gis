@@ -40,37 +40,37 @@ def load_file(request):
         file_list = request.FILES.getlist('files')
 
         for f in file_list:
-            name = f.name
-            if name.endswith('.shp'):
-                res_id = str(name[:-4].__hash__())
+            file_name = f.name
+            if file_name.endswith('.shp'):
+                res_id = str(file_name[:-4].__hash__())
                 res_type = 'GeographicFeatureResource'
                 res_filepath_or_obj = file_list
                 break
-            elif name.endswith('.tif'):
-                res_id = str(name[:-4].__hash__())
+            elif file_name.endswith('.tif'):
+                res_id = str(file_name[:-4].__hash__())
                 res_type = 'RasterResource'
-                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, name[:-4] + '.zip')
-                make_file_zipfile(f, name, res_filepath_or_obj)
+                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
+                make_file_zipfile(f, file_name, res_filepath_or_obj)
                 break
-            elif name.endswith('.zip'):
+            elif file_name.endswith('.zip'):
                 is_zip = True
                 res_id = 'temp_id'
-                res_zip = os.path.join(hs_tempdir, res_id, name)
+                res_zip = os.path.join(hs_tempdir, res_id, file_name)
                 if not os.path.exists(res_zip):
                     if not os.path.exists(os.path.dirname(res_zip)):
                         os.mkdir(os.path.dirname(res_zip))
                 with zipfile.ZipFile(res_zip, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
                     with zipfile.ZipFile(StringIO(f.read())) as z:
-                        for name in z.namelist():
-                            zip_object.writestr(name, z.read(name))
-                            if name.endswith('.shp'):
-                                res_id = str(name[:-4].__hash__())
+                        for file_name in z.namelist():
+                            zip_object.writestr(file_name, z.read(file_name))
+                            if file_name.endswith('.shp'):
+                                res_id = str(file_name[:-4].__hash__())
                                 res_type = 'GeographicFeatureResource'
-                            elif name.endswith('.tif'):
-                                res_id = str(name[:-4].__hash__())
+                            elif file_name.endswith('.tif'):
+                                res_id = str(file_name[:-4].__hash__())
                                 res_type = 'RasterResource'
                 os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
-                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, name)
+                res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name)
 
     elif request.is_ajax() and request.method == 'GET':
         try:
@@ -117,21 +117,21 @@ def load_file(request):
 
             if os.path.exists(res_contents_dir):
                 coverage_files = []
-                for name in os.listdir(res_contents_dir):
-                    if name.endswith('.shp'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, name[:-4])
+                for file_name in os.listdir(res_contents_dir):
+                    if file_name.endswith('.shp'):
+                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
                         break
-                    if name.endswith('.sqlite'):
-                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, name))
+                    if file_name.endswith('.sqlite'):
+                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
                         layer_name = res_title
                         break
-                    if name.endswith('.json'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, name)
+                    if file_name.endswith('.json'):
+                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
                         break
-                    if name.endswith('.vrt') or name.endswith('.tif'):
-                        if name.endswith('.vrt'):
+                    if file_name.endswith('.vrt') or file_name.endswith('.tif'):
+                        if file_name.endswith('.vrt'):
                             is_mosaic = True
-                        coverage_files.append(os.path.join(res_contents_dir, name))
+                        coverage_files.append(os.path.join(res_contents_dir, file_name))
 
                 if coverage_files:
                     res_filepath_or_obj = os.path.join(res_contents_dir, store_id + '.zip')
@@ -148,6 +148,8 @@ def load_file(request):
             print str(e)
             if "401 Unauthorized" in str(e):
                 return get_json_response('error', 'Username or password invalid.')
+            if "Server Error when accessing" in str(e):
+                return get_json_response('error', 'This resource is currently inaccessible by HydroShare.')
 
     else:
         return get_json_response('error', 'Invalid request made.')

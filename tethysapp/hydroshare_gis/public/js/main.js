@@ -310,14 +310,29 @@
         $('#btn-add-wms').on('click', function () {
             //http://geoserver.byu.edu/arcgis/rest/services/NWC/NWM_Geofabric/MapServer/export?bbox=-101589.77955203337,-1083684.5494424414,-51689.263084333936,-1043361.9687972802&layers=show:0,1,2
             var wmsUrl = $('#wms-url').val();
+            var urlSplit = wmsUrl.split('/');
+            var wmsName = urlSplit[urlSplit.indexOf('MapServer') - 1];
+            var layerIndex;
+            var $newLayerListItem;
+
             map.addLayer(new ol.layer.Tile({
                 source: new ol.source.TileArcGISRest({
                     url: wmsUrl
                 })
             }));
+
+            layerIndex = layerCount.get();
+
+            createLayerListItem('prepend', layerIndex, wmsUrl, 'RasterResource', 'None', 'None', true, wmsName);
+            $newLayerListItem = $currentLayersList.find(':first-child');
+            addContextMenuToListItem($newLayerListItem, 'RasterResource');
+            addListenersToListItem($newLayerListItem, layerIndex);
+
+            drawLayersInListOrder(false); // Must be called after creating the new layer list item
             $('#modalAddWMS').modal('hide');
             $('#wms-url').val('');
         });
+
         $('#btn-opt-add-to-new').on('click', function () {
             onClickAddToNewProject();
         });

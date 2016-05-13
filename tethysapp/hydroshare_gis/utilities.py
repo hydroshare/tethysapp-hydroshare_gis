@@ -45,9 +45,6 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
 
     if res_type == 'RasterResource':
         coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
-        print 'full_store_id: %s' % full_store_id
-        print 'res_file: %s' % res_file
-        print 'coverage_type: %s' % coverage_type
         result = engine.create_coverage_resource(store_id=full_store_id,
                                                  coverage_file=res_file,
                                                  coverage_type=coverage_type,

@@ -8,6 +8,7 @@ import requests
 import zipfile
 import os
 import sqlite3
+import xmltodict
 
 hs_hostname = 'www.hydroshare.org'
 geoserver_name = 'default'
@@ -50,7 +51,8 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
         result = engine.create_coverage_resource(store_id=full_store_id,
                                                  coverage_file=res_file,
                                                  coverage_type=coverage_type,
-                                                 overwrite=True)
+                                                 overwrite=True,
+                                                 debug=True)
 
     elif res_type == 'GeographicFeatureResource':
         if is_zip is True:
@@ -164,6 +166,22 @@ def extract_site_info_from_time_series(sqlite_file_path):
                     if spatialref:
                         if spatialref['SRSName']:
                             site_info['projection'] = spatialref['SRSName']
+
+    return site_info
+
+
+def extract_site_info_from_ref_time_series(md_url):
+    r = requests.get(md_url)
+    md_dict = xmltodict.parse(r.text)
+    site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
+    lon = float(site_info_list[0].split('=')[1])
+    lat = float(site_info_list[1].split('=')[1])
+    projection = site_info_list[2].split('=')[1]
+    site_info = {
+        'lon': lon,
+        'lat': lat,
+        'projection': projection
+    }
 
     return site_info
 

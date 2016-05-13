@@ -1,7 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
-# import requests
 from utilities import get_hs_object
 
 
@@ -63,10 +62,8 @@ def add_to_project(request):
                 print str(e)
                 continue
 
-        # r = requests.get('https://www.hydroshare.org/hsapi/userInfo/')
-        # json = r.json()
-        # username = json['username']
-        username = 'scrawley'
+        userInfo = hs.getUserInfo()
+        username = userInfo['username']
         for res in hs.getResourceList(creator=username, types=['GenericResource']):
             res_id = res['resource_id']
             try:

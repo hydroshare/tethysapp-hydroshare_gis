@@ -151,7 +151,7 @@
             cssStyles = data.cssStyles,
             visible = data.visible;
 
-        if (resType === 'TimeSeriesResource') {
+        if (resType.indexOf('TimeSeriesResource') > -1) {
             newLayer = new ol.layer.Vector({
                 source: new ol.source.Vector({
                     features: [new ol.Feature(new ol.geom.Point(lyrExtents))]
@@ -215,7 +215,7 @@
             layerId = response.layer_id || response.res_id;
             rawLayerExtents = response.layer_extents;
 
-            if (resType === 'TimeSeriesResource') {
+            if (resType.indexOf('TimeSeriesResource') > -1) {
                 tsSiteInfo = response.site_info;
                 layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
             } else {
@@ -307,6 +307,17 @@
 
     addInitialEventListeners = function () {
 
+        $('#btn-add-wms').on('click', function () {
+            //http://geoserver.byu.edu/arcgis/rest/services/NWC/NWM_Geofabric/MapServer/export?bbox=-101589.77955203337,-1083684.5494424414,-51689.263084333936,-1043361.9687972802&layers=show:0,1,2
+            var wmsUrl = $('#wms-url').val();
+            map.addLayer(new ol.layer.Tile({
+                source: new ol.source.TileArcGISRest({
+                    url: wmsUrl
+                })
+            }));
+            $('#modalAddWMS').modal('hide');
+            $('#wms-url').val('');
+        });
         $('#btn-opt-add-to-new').on('click', function () {
             onClickAddToNewProject();
         });
@@ -801,7 +812,7 @@
                 '<input class="chkbx-layer" type="checkbox">' +
                 '<span class="layer-name">' + layerName + '</span>' +
                 '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
+                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"></div>' +
                 '</li>';
 
         if (position === 'prepend') {
@@ -1281,14 +1292,14 @@
         layersContextMenuTimeSeries = layersContextMenuGeneral.slice();
         layersContextMenuTimeSeries.unshift({
             name: 'View time series',
-            title: 'View time series'
-            //fun: function (e) {
-            //    var clickedElement = e.trigger.context,
-            //        $lyrListItem = $(clickedElement).parent().parent(),
-            //        resId = $lyrListItem.attr('data-layer-id');
-            //
-            //    console.log(resId);
-            //}
+            title: 'View time series',
+            fun: function (e) {
+                var clickedElement = e.trigger.context,
+                    $lyrListItem = $(clickedElement).parent().parent(),
+                    resId = $lyrListItem.attr('data-layer-id');
+
+                window.open('https://appsdev.hydroshare.org/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId);
+            }
         });
 
         contextMenuDict = {
@@ -1482,7 +1493,7 @@
         resId = $rdoSelectedProj.val();
         resTitle = $rdoSelectedProj.parent().text();
         additionalResources = [];
-        $('#ul-resources-to-add').find('li').each(function (i, li) {
+        $('#ul-resources-to-add').find('li').each(function (ignore, li) {
             var $li = $(li);
             additionalResources.push({
                 'id': $li.attr('data-id'),
@@ -1615,7 +1626,7 @@
         $lyrListItem = $(clickedElement).parent().parent();
         index = Number($lyrListItem.attr('data-layer-index'));
         resType = $lyrListItem.attr('data-res-type');
-        if (resType === 'TimeSeriesResource') {
+        if (resType.indexOf('TimeSeriesResource') > -1) {
             layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
         } else {
             layerExtent = map.getLayers().item(index).getExtent();
@@ -1974,7 +1985,7 @@
     };
 
     zoomToLayer = function (layerExtent, mapSize, resType) {
-        if (resType === 'TimeSeriesResource') {
+        if (resType.indexOf('TimeSeriesResource') > -1) {
             map.getView().setCenter(layerExtent);
             map.getView().setZoom(16);
         } else {

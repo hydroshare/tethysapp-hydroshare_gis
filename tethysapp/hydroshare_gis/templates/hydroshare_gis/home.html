@@ -384,6 +384,29 @@
     </div>
     <!--End modal-->
 
+    <!-- Add WMS Layer Modal -->
+    <div id="modalAddWMS" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Add WMS Layer</h4>
+                </div>
+                <div class="modal-body">
+                    <label for="wms-url">WMS Endpoint</label>
+                    <input type="text" id="wms-url">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-add-wms" class="btn btn-default">Add WMS</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
     <div id="div-loading" class="hidden">
         <img src="/static/hydroshare_gis/images/main-loading-anim.gif" />
     </div>

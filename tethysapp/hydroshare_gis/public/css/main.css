@@ -361,9 +361,25 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
-/*                ADD TO PROJECT MODAL                 */
+/*                ADD TO PROJECT MODAL               */
 .list-no-bullets {
     list-style: none;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                ADD WMS LAYER MODAL                */
+#modalAddWMS .modal-content {
+    position: static;
+}
+#modalAddWMS .modal-body {
+    position: static;
+}
+#modalAddWMS .modal-footer {
+    position: static;
+}
+#wms-url {
+    width: 100%;
 }
 /*****************************************************/
 

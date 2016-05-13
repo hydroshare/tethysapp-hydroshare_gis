@@ -92,50 +92,58 @@ def load_file(request):
 
             try:
                 if engine.list_resources(store=store_id)['success']:
-                    print 'RESOURCE ALREADY STORED ON GEOSERVER'
-                    layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
-                    layer_id = '%s:%s' % (workspace_id, layer_name)
-                    layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
+                    layers_dict = engine.list_resources(store=store_id, debug=True)
+                    if len(layers_dict['result']) == 0:
+                        engine.delete_store(store_id=store_id, purge=True, recurse=True)
+                    else:
+                        print 'RESOURCE ALREADY STORED ON GEOSERVER'
+                        layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
+                        layer_id = '%s:%s' % (workspace_id, layer_name)
+                        layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
-                    return JsonResponse({
-                        'success': 'Files uploaded successfully.',
-                        'geoserver_url': get_geoserver_url(),
-                        'layer_name': res_title,
-                        'layer_id': layer_id,
-                        'layer_extents': dumps(layer_extents),
-                        'layer_attributes': layer_attributes,
-                        'res_type': res_type,
-                        'geom_type': geom_type
-                    })
+                        return JsonResponse({
+                            'success': 'Files uploaded successfully.',
+                            'layer_name': res_title,
+                            'layer_id': layer_id,
+                            'layer_extents': dumps(layer_extents),
+                            'layer_attributes': layer_attributes,
+                            'res_type': res_type,
+                            'geom_type': geom_type
+                        })
             except FailedRequestError:
                 print 'RESOURCE NOT ALREADY STORED ON GEOSERVER'
             except Exception, e:
                 print 'Unexpected error encountered:\n%s' % e
 
-            hs.getResource(res_id, destination=hs_tempdir, unzip=True)
-            res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
+            if res_type == 'RefTimeSeriesResource':
+                md = hs.getSystemMetadata(res_id)
+                site_info = extract_site_info_from_ref_time_series(md['science_metadata_url'])
+                layer_name = res_title
+            else:
+                hs.getResource(res_id, destination=hs_tempdir, unzip=True)
+                res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 
-            if os.path.exists(res_contents_dir):
-                coverage_files = []
-                for file_name in os.listdir(res_contents_dir):
-                    if file_name.endswith('.shp'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
-                        break
-                    if file_name.endswith('.sqlite'):
-                        site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
-                        layer_name = res_title
-                        break
-                    if file_name.endswith('.json'):
-                        res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
-                        break
-                    if file_name.endswith('.vrt') or file_name.endswith('.tif'):
-                        if file_name.endswith('.vrt'):
-                            is_mosaic = True
-                        coverage_files.append(os.path.join(res_contents_dir, file_name))
+                if os.path.exists(res_contents_dir):
+                    coverage_files = []
+                    for file_name in os.listdir(res_contents_dir):
+                        if file_name.endswith('.shp'):
+                            res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
+                            break
+                        if file_name.endswith('.sqlite'):
+                            site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
+                            layer_name = res_title
+                            break
+                        if file_name.endswith('.json'):
+                            res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
+                            break
+                        if file_name.endswith('.vrt') or file_name.endswith('.tif'):
+                            if file_name.endswith('.vrt'):
+                                is_mosaic = True
+                            coverage_files.append(os.path.join(res_contents_dir, file_name))
 
-                if coverage_files:
-                    res_filepath_or_obj = os.path.join(res_contents_dir, store_id + '.zip')
-                    make_file_zipfile(coverage_files, store_id, res_filepath_or_obj)
+                    if coverage_files:
+                        res_filepath_or_obj = os.path.join(res_contents_dir, store_id + '.zip')
+                        make_file_zipfile(coverage_files, store_id, res_filepath_or_obj)
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -177,7 +185,6 @@ def load_file(request):
 
     return JsonResponse({
         'success': 'Files uploaded successfully.',
-        'geoserver_url': get_geoserver_url(),
         'layer_name': layer_name,
         'layer_id': layer_id,
         'layer_extents': layer_extents,

@@ -586,6 +586,7 @@
 
         $('#chkbx-show-inset-map').on('change', function () {
             if ($(this).is(':checked')) {
+                projectInfo.map.showInset = true;
                 insetMap = new ol.control.OverviewMap({
                     collapsed: false,
                     collapsible: false,
@@ -598,6 +599,7 @@
                 });
                 map.addControl(insetMap);
             } else {
+                projectInfo.map.showInset = false;
                 map.removeControl(insetMap);
                 insetMap = undefined;
             }
@@ -1409,6 +1411,7 @@
         map.getView().setZoom(fileProjectInfo.map.zoomLevel);
 
         projectInfo = fileProjectInfo;
+        $('#chkbx-show-inset-map').trigger('change');
     };
 
     loadResource = function (resId, resType, resTitle, lastResource, additionalResources) {
@@ -2047,6 +2050,7 @@
     projectInfo = {
         'map': {
             'baseMap': 'None',
+            'showInset': false,
             'layers': {},
             'zoomLevel': 2,
             'center': [0, 0],

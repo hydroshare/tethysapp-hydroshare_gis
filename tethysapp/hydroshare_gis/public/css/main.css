@@ -385,7 +385,7 @@ input[type="radio"] {
 
 /*****************************************************/
 /*                 MAIN LOADING DIV                  */
-#div-loading {
+#div-loading, #res-load-status {
     position: fixed;
     top: 0;
     right: 0;
@@ -403,6 +403,13 @@ input[type="radio"] {
     -webkit-justify-content: center;
     -ms-flex-pack: center;
     justify-content: center;
+}
+#res-load-status {
+    z-index: 2000;
+}
+#status-text {
+    font-size: 16pt;
+    font-weight: bold;
 }
 /****************************************************/
 

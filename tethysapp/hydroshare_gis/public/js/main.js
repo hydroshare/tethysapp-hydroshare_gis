@@ -98,6 +98,7 @@
         setupSymbologyRasterState,
         setupSymbologyStrokeState,
         showMainLoadAnim,
+        showResLoadingStatus,
         updateProgressBar,
         updateSymbology,
         updateUploadProgress,
@@ -1441,7 +1442,7 @@
                 $loadResModalInfo.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
                 if (response.hasOwnProperty('error')) {
-                    alert(response.error);
+                    showResLoadingStatus(false, response.error);
                 } else {
                     if (response.hasOwnProperty('project_info')) {
                         loadProjectFile(JSON.parse(response.project_info));
@@ -1476,6 +1477,7 @@
                     }
                     if (lastResource) {
                         hideMainLoadAnim();
+                        showResLoadingStatus(true, 'Resource added successfully!');
                     }
                     addLayerToUI(response);
                     if ($('#chkbx-res-auto-close').is(':checked')) {
@@ -1912,6 +1914,18 @@
         });
         $loadingAnimMain.removeClass('hidden');
 
+    };
+
+    showResLoadingStatus = function (success, message) {
+        var successClass = success ? 'success' : 'error';
+        var $resLoadingStatus = $('#res-load-status');
+        var $statusText = $('#status-text');
+        $statusText.text(message)
+            .addClass(successClass);
+        $resLoadingStatus.removeClass('hidden');
+        setTimeout(function () {
+            $resLoadingStatus.addClass('hidden');
+        }, 2000);
     };
 
     updateProgressBar = function (value) {

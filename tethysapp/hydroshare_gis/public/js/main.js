@@ -1411,6 +1411,8 @@
         map.getView().setCenter(fileProjectInfo.map.center);
         map.getView().setZoom(fileProjectInfo.map.zoomLevel);
 
+        $('#chkbx-show-inset-map').prop('checked', fileProjectInfo.map.showInset);
+
         projectInfo = fileProjectInfo;
         $('#chkbx-show-inset-map').trigger('change');
     };

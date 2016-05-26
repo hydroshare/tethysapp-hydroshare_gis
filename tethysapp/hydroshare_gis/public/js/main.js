@@ -193,7 +193,7 @@
         }
     };
 
-    addLayerToUI = function (response) {
+    addLayerToUI = function (response, resId) {
         var geomType,
             cssStyles,
             layerAttributes,
@@ -257,7 +257,7 @@
 
             layerIndex = layerCount.get();
 
-            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo);
+            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
             $newLayerListItem = $currentLayersList.find(':first-child');
             addContextMenuToListItem($newLayerListItem, resType);
             addListenersToListItem($newLayerListItem, layerIndex);
@@ -361,7 +361,7 @@
 
             layerIndex = layerCount.get();
 
-            createLayerListItem('prepend', layerIndex, wmsUrl, 'RasterResource', 'None', 'None', true, wmsName);
+            createLayerListItem('prepend', layerIndex, wmsUrl, 'RasterResource', 'None', 'None', true, wmsName, 'None');
             $newLayerListItem = $currentLayersList.find(':first-child');
             addContextMenuToListItem($newLayerListItem, 'RasterResource');
             addListenersToListItem($newLayerListItem, layerIndex);
@@ -884,12 +884,13 @@
         $(document).off('click.edtLyrNm');
     };
 
-    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName, bandInfo) {
+    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName, bandInfo, resId) {
         var $newLayerListItem,
             listHtmlString =
                 '<li class="ui-state-default" ' +
                 'data-layer-index="' + layerIndex + '" ' +
                 'data-layer-id="' + layerId + '" ' +
+                'data-res-id="' + resId + '" ' +
                 'data-res-type="' + resType + '" ' +
                 'data-geom-type="' + geomType + '" ' +
                 'data-layer-attributes="' + layerAttributes + '" ' +
@@ -1563,7 +1564,7 @@
                         hideMainLoadAnim();
                         showResLoadingStatus(true, 'Resource added successfully!');
                     }
-                    addLayerToUI(response);
+                    addLayerToUI(response, resId);
                     if ($('#chkbx-res-auto-close').is(':checked')) {
                         $modalLoadRes.modal('hide');
                     }
@@ -1661,7 +1662,7 @@
     onClickOpenInHS = function (e) {
         var clickedElement = e.trigger.context,
             $lyrListItem = $(clickedElement).parent().parent(),
-            resId = $lyrListItem.attr('data-layer-id').split(':res_')[1];
+            resId = $lyrListItem.attr('data-res-id');
 
         window.open('https://www.hydroshare.org/resource/' + resId);
     };
@@ -2096,7 +2097,7 @@
                 fileLoaded = true;
                 updateProgressBar('100%');
                 $('#btn-upload-file').prop('disabled', false);
-                addLayerToUI(response);
+                addLayerToUI(response, 'None');
                 if ($('#chkbx-file-auto-close').is(':checked')) {
                     $modalLoadFile.modal('hide');
                 }

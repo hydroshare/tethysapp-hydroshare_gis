@@ -226,22 +226,23 @@
                 layerExtents = reprojectExtents(rawLayerExtents);
             }
 
-            cssStyles = bandInfo === 'None' ? 'Default' : {
-                'color-map': {}
-            };
-
-            cssStyles['color-map'][bandInfo.nd] = {
-                color: '#000000',
-                opacity: 0
-            };
-            cssStyles['color-map'][bandInfo.min] = {
-                color: '#000000',
-                opacity: 1
-            };
-            cssStyles['color-map'][bandInfo.max] = {
-                color: '#ffffff',
-                opacity: 1
-            };
+            if (bandInfo === 'None') {
+                cssStyles = 'Default';
+            } else {
+                cssStyles = {'color-map': {}};
+                cssStyles['color-map'][bandInfo.nd] = {
+                    color: '#000000',
+                    opacity: 0
+                };
+                cssStyles['color-map'][bandInfo.min] = {
+                    color: '#000000',
+                    opacity: 1
+                };
+                cssStyles['color-map'][bandInfo.max] = {
+                    color: '#ffffff',
+                    opacity: 1
+                };
+            }
 
             addLayerToMap({
                 cssStyles: cssStyles,

@@ -38,6 +38,7 @@
         dataTableLoadRes,
         insetMap,
         layersContextMenuGeneral,
+        layersContextMenuNonRes,
         layersContextMenuShpfile,
         layersContextMenuTimeSeries,
         layerCount,
@@ -82,6 +83,7 @@
         onClickAddToNewProject,
         onClickDeleteLayer,
         onClickModifySymbology,
+        onClickOpenInHS,
         onClickRenameLayer,
         onClickSaveProject,
         onClickShowAttrTable,
@@ -1360,6 +1362,12 @@
                     onClickZoomToLayer(e);
                 }
             }, {
+                name: 'Open in HydroShare',
+                title: 'Open in HydroShare',
+                fun: function (e) {
+                    onClickOpenInHS(e);
+                }
+            }, {
                 name: 'Delete',
                 title: 'Delete',
                 fun: function (e) {
@@ -1390,11 +1398,15 @@
             }
         });
 
+        layersContextMenuNonRes = layersContextMenuGeneral.slice();
+        layersContextMenuNonRes.slice(3, 1);
+
         contextMenuDict = {
             'GeographicFeatureResource': layersContextMenuShpfile,
             'TimeSeriesResource': layersContextMenuTimeSeries,
             'RefTimeSeriesResource': layersContextMenuTimeSeries,
-            'RasterResource': layersContextMenuGeneral
+            'RasterResource': layersContextMenuGeneral,
+            'None': layersContextMenuNonRes
         };
     };
 
@@ -1644,6 +1656,14 @@
 
         setupSymbologyModalState($lyrListItem);
         $modalSymbology.modal('show');
+    };
+
+    onClickOpenInHS = function (e) {
+        var clickedElement = e.trigger.context,
+            $lyrListItem = $(clickedElement).parent().parent(),
+            resId = $lyrListItem.attr('data-layer-id').split('_')[1];
+
+        window.open('https://www.hydroshare.org/resource/' + resId);
     };
 
     onClickRenameLayer = function (e) {

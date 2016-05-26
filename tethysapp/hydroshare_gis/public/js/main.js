@@ -634,6 +634,7 @@
                     }
                 });
             }
+            $('.color-val-pair').removeClass('hidden');
         });
 
         $('#slct-point-shape, #slct-point-size').on('change', function () {

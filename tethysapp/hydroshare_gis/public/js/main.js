@@ -214,7 +214,7 @@
                 geomType = "None";
                 layerAttributes = "None";
             }
-            bandInfo = (resType === 'RasterResource') ? response.band_info : 'None';
+            bandInfo = (resType === 'RasterResource' && response.band_info) ? response.band_info : 'None';
             layerName = response.layer_name;
             layerId = response.layer_id || response.res_id;
             rawLayerExtents = response.layer_extents;

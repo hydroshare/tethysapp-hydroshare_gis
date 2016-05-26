@@ -170,16 +170,19 @@ def extract_site_info_from_time_series(sqlite_file_path):
 def extract_site_info_from_ref_time_series(md_url):
     r = requests.get(md_url)
     md_dict = xmltodict.parse(r.text)
-    site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
-    lon = float(site_info_list[0].split('=')[1])
-    lat = float(site_info_list[1].split('=')[1])
-    projection = site_info_list[2].split('=')[1]
-    site_info = {
-        'lon': lon,
-        'lat': lat,
-        'projection': projection
-    }
-
+    try:
+        site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
+        lon = float(site_info_list[0].split('=')[1])
+        lat = float(site_info_list[1].split('=')[1])
+        projection = site_info_list[2].split('=')[1]
+        site_info = {
+            'lon': lon,
+            'lat': lat,
+            'projection': projection
+        }
+    except Exception as e:
+        print str(e)
+        site_info = None
     return site_info
 
 
@@ -216,12 +219,15 @@ def get_band_info(hs, res_id):
     md = hs.getSystemMetadata(res_id)
     r = requests.get(md['science_metadata_url'])
     md_dict = xmltodict.parse(r.text)
-    band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
-    band_info = {
-        'min': float(band_info_raw['hsterms:minimumValue']),
-        'max': float(band_info_raw['hsterms:maximumValue']),
-        'nd': float(band_info_raw['hsterms:noDataValue'])
-    }
-
+    try:
+        band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
+        band_info = {
+            'min': float(band_info_raw['hsterms:minimumValue']),
+            'max': float(band_info_raw['hsterms:maximumValue']),
+            'nd': float(band_info_raw['hsterms:noDataValue'])
+        }
+    except Exception as e:
+        print str(e)
+        band_info = None
     return band_info
 

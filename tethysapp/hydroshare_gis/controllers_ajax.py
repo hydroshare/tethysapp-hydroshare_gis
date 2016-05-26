@@ -32,6 +32,7 @@ def load_file(request):
     layer_extents = None
     layer_attributes = None
     is_mosaic = False
+    band_info = None
 
     if not os.path.exists(hs_tempdir):
         os.mkdir(hs_tempdir)
@@ -100,6 +101,8 @@ def load_file(request):
                         layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
                         layer_id = '%s:%s' % (workspace_id, layer_name)
                         layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
+                        if res_type == 'RasterResource':
+                            band_info = get_band_info(hs, res_id)
 
                         return JsonResponse({
                             'success': 'Files uploaded successfully.',
@@ -108,7 +111,8 @@ def load_file(request):
                             'layer_extents': dumps(layer_extents),
                             'layer_attributes': layer_attributes,
                             'res_type': res_type,
-                            'geom_type': geom_type
+                            'geom_type': geom_type,
+                            'band_info': band_info
                         })
             except FailedRequestError:
                 print 'RESOURCE NOT ALREADY STORED ON GEOSERVER'
@@ -144,6 +148,9 @@ def load_file(request):
                     if coverage_files:
                         res_filepath_or_obj = os.path.join(res_contents_dir, store_id + '.zip')
                         make_file_zipfile(coverage_files, store_id, res_filepath_or_obj)
+
+                if res_type == 'RasterResource':
+                    band_info = get_band_info(hs, res_id)
 
         except ObjectDoesNotExist as e:
             print str(e)
@@ -192,7 +199,8 @@ def load_file(request):
         'res_type': res_type,
         'site_info': site_info,
         'res_id': res_id,
-        'geom_type': geom_type
+        'geom_type': geom_type,
+        'band_info': band_info
     })
 
 

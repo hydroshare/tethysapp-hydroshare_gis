@@ -104,9 +104,16 @@ var SLD_TEMPLATES = (function () {
 
         Object.keys(cssStyles).forEach(function (style) {
             if (style === 'color-map') {
-                colorMap = cssStyles[style];
-                Object.keys(colorMap).forEach(function (quantity) {
-                    colorMapXml += '<ColorMapEntry color="' + colorMap[quantity] + '" quantity="' + quantity + '" />';
+                colorMap = JSON.parse(JSON.stringify(cssStyles[style]));
+                // TEMPFIX: Hide edge artifacts
+                // See http://osgeo-org.1560.x6.nabble.com/Artifacts-in-reprojected-rasters-has-this-been-fixed-td5213036.html
+                colorMap[255] = {
+                    color: '#000000',
+                    opacity: 0
+                };
+                // END TEMPFIX
+                Object.keys(colorMap).sort(function (a, b) {return Number(a) - Number(b); }).forEach(function (quantity) {
+                    colorMapXml += '<ColorMapEntry color="' + colorMap[quantity].color + '" quantity="' + quantity + '" opacity="' + colorMap[quantity]['opacity'] + '"/>';
                 });
                 sldString = sldString.replace('{{' + style + '}}', colorMapXml);
             }

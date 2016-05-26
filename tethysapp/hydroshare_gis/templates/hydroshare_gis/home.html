@@ -11,14 +11,14 @@
 
     {{ block.super }}
 
-    <!-- Load File Modal -->
+    <!-- Add File Modal -->
     <div id="modalLoadFile" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <!-- Modal content-->
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Load File</h4>
+                    <h4 class="modal-title">Add File</h4>
                 </div>
                 <div class="modal-body">
                     <input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj, .tif, .zip">
@@ -46,14 +46,14 @@
     </div>
     <!--End modal-->
 
-    <!-- Load HS Resource Modal -->
+    <!-- Add HS Resource Modal -->
     <div id="modalLoadRes" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <!-- Modal content-->
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Load HydroShare Resource</h4>
+                    <h4 class="modal-title">Add HydroShare Resource</h4>
                 </div>
                 <div class="modal-body">
                     <img src="/static/hydroshare_gis/images/loading-animation.gif">
@@ -70,7 +70,7 @@
                         <img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled>Upload</button>
+                    <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled>Add</button>
                 </div>
             </div>
             <!--End modal content-->
@@ -98,9 +98,9 @@
                         <li class="welcome-step">Add a layer to the view
                             <p><b>You have two buttons to choose from:</b></p>
                             <ul>
-                                <li class="welcome-substep1">Load HydroShare Resource
+                                <li class="welcome-substep1">Add HydroShare Resource
                                     <p>A list of all public resources will show up. Select the one you want to load and then click 'Upload'</p></li>
-                                <li class="welcome-substep1">Load File
+                                <li class="welcome-substep1">Add File
                                     <p>A browse button will show up. Select a valid file from your computer and then click 'Upload'</p></li>
                             </ul>
                             <p><b>Once layers load, they will show up in the 'Current Layers' list and their extents will be zoomed to</b></p>
@@ -214,6 +214,11 @@
                             <input type="text" id="font-fill">
                         </fieldset>
                         <fieldset id="raster-options" class="hidden raster">
+                            <div>
+                                <p>Min value: <span id="rast-min-val"></span></p>
+                                <p>Max value: <span id="rast-max-val"></span></p>
+                                <p>No Data value: <span id="rast-nd-val"></span></p>
+                            </div>
                             <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
                             <select id="slct-num-colors-in-gradient">
                                 {% for val in num_gradient_colors_options %}

@@ -193,12 +193,14 @@
 
     addLayerToUI = function (response) {
         var geomType,
+            cssStyles,
             layerAttributes,
             layerExtents,
             layerName,
             layerId,
             layerIndex,
             resType,
+            bandInfo,
             rawLayerExtents,
             tsSiteInfo,
             $newLayerListItem;
@@ -212,6 +214,7 @@
                 geomType = "None";
                 layerAttributes = "None";
             }
+            bandInfo = (resType === 'RasterResource') ? response.band_info : 'None';
             layerName = response.layer_name;
             layerId = response.layer_id || response.res_id;
             rawLayerExtents = response.layer_extents;
@@ -223,7 +226,26 @@
                 layerExtents = reprojectExtents(rawLayerExtents);
             }
 
+            cssStyles = bandInfo === 'None' ? 'Default' : {
+                'color-map': {}
+            };
+
+            cssStyles['color-map'][bandInfo.nd] = {
+                color: '#000000',
+                opacity: 0
+            };
+            cssStyles['color-map'][bandInfo.min] = {
+                color: '#000000',
+                opacity: 1
+            };
+            cssStyles['color-map'][bandInfo.max] = {
+                color: '#ffffff',
+                opacity: 1
+            };
+
             addLayerToMap({
+                cssStyles: cssStyles,
+                geomType: geomType,
                 resType: resType,
                 lyrExtents: layerExtents,
                 url: projectInfo.map.geoserverUrl + '/wms',
@@ -232,7 +254,7 @@
 
             layerIndex = layerCount.get();
 
-            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName);
+            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo);
             $newLayerListItem = $currentLayersList.find(':first-child');
             addContextMenuToListItem($newLayerListItem, resType);
             addListenersToListItem($newLayerListItem, layerIndex);
@@ -243,7 +265,7 @@
             // Add layer data to project info
             projectInfo.map.layers[layerIndex] = {
                 attributes: layerAttributes,
-                cssStyles: "Default",
+                cssStyles: cssStyles,
                 extents: layerExtents,
                 geomType: geomType,
                 id: layerId,
@@ -316,11 +338,23 @@
             var layerIndex;
             var $newLayerListItem;
 
-            map.addLayer(new ol.layer.Tile({
-                source: new ol.source.TileArcGISRest({
-                    url: wmsUrl
-                })
-            }));
+            if (wmsUrl.indexOf('/rest/') > -1) {
+                map.addLayer(new ol.layer.Tile({
+                    source: new ol.source.TileArcGISRest({
+                        url: wmsUrl
+                    })
+                }));
+            } else {
+                map.addLayer(new ol.layer.Tile({
+                    source: new ol.source.TileWMS({
+                        url: wmsUrl,
+                        params: {
+                            LAYERS: '0'
+                        },
+                        crossOrigin: 'Anonymous'
+                    })
+                }));
+            }
 
             layerIndex = layerCount.get();
 
@@ -541,28 +575,56 @@
         });
 
         $('#slct-num-colors-in-gradient').on('change', function () {
-            $('#color-map-placeholder').html();
             var i,
                 inputSelector,
                 htmlString = '',
-                numColors = $(this).val();
+                numColors = this.value,
+                prevNumColors,
+                createColorValPairHtml;
 
-            for (i = 0; i < numColors; i++) {
-                htmlString += '<label for="color' + i + '">Color:</label>' +
-                    '<input type="text" id="color' + i + '">' +
-                    '<label for="quantity' + i + '">Raster value:</label>' +
-                    '<input type="text" id="quantity' + i + '"><br>';
+            createColorValPairHtml = function (j) {
+                return '<fieldset class="color-val-pair">' +
+                    '<label for="color' + j + '">Color:</label>' +
+                    '<input type="text" id="color' + j + '">' +
+                    '<label for="quantity' + j + '">Raster value:</label>' +
+                    '<input type="text" id="quantity' + j + '">' +
+                    '<br></fieldset>';
+            };
+
+            prevNumColors = $('.color-val-pair').length;
+            i = prevNumColors;
+
+            if (prevNumColors === undefined) {
+                prevNumColors = 0;
+                $('#color-map-placeholder').html();
+
+                for (i = 0; i < numColors; i++) {
+                    htmlString += createColorValPairHtml(i);
+                }
+            } else if (prevNumColors > numColors) {
+                while (i > numColors) {
+                    $('.color-val-pair').last().remove();
+                    i--;
+                }
+            } else if (prevNumColors < numColors) {
+                while (i < numColors) {
+                    htmlString += createColorValPairHtml(i);
+                    i++;
+                }
             }
-            $('#color-map-placeholder')
-                .attr('data-num-colors', numColors)
-                .html(htmlString);
 
-            for (i = 0; i < numColors; i++) {
+            $('#color-map-placeholder').attr('data-num-colors', numColors);
+
+            if (htmlString !== '') {
+                $('#color-map-placeholder').append(htmlString);
+            }
+
+            for (i = prevNumColors; i < numColors; i++) {
                 inputSelector = '#color' + i;
                 $(inputSelector).spectrum({
                     showInput: true,
                     allowEmpty: true,
-                    showAlpha: false,
+                    showAlpha: true,
                     showPalette: true,
                     chooseText: "Choose",
                     cancelText: "Cancel",
@@ -818,7 +880,7 @@
         $(document).off('click.edtLyrNm');
     };
 
-    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName) {
+    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName, bandInfo) {
         var $newLayerListItem,
             listHtmlString =
                 '<li class="ui-state-default" ' +
@@ -826,7 +888,10 @@
                 'data-layer-id="' + layerId + '" ' +
                 'data-res-type="' + resType + '" ' +
                 'data-geom-type="' + geomType + '" ' +
-                'data-layer-attributes="' + layerAttributes + '">' +
+                'data-layer-attributes="' + layerAttributes + '" ' +
+                'data-band-min="' + bandInfo.min + '" ' +
+                'data-band-max="' + bandInfo.max + '" ' +
+                'data-band-nd="' + bandInfo.nd + '">' +
                 '<input class="chkbx-layer" type="checkbox">' +
                 '<span class="layer-name">' + layerName + '</span>' +
                 '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
@@ -1133,7 +1198,10 @@
                 for (i = 0; i < numColors; i++) {
                     colorSelector = '#color' + i;
                     quantitySelector = '#quantity' + i;
-                    cssStyles['color-map'][$(quantitySelector).val()] = $(colorSelector).spectrum('get').toHexString();
+                    cssStyles['color-map'][$(quantitySelector).val()] = {
+                        'color': $(colorSelector).spectrum('get').toHexString(),
+                        'opacity': $(colorSelector).spectrum('get').getAlpha().toString()
+                    };
                 }
             }());
         } else {
@@ -1739,6 +1807,11 @@
             layerId = $lyrListItem.attr('data-layer-id'),
             layerIndex = $lyrListItem.attr('data-layer-index'),
             labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
+            bandInfo = {
+                'min': $lyrListItem.attr('data-band-min'),
+                'max': $lyrListItem.attr('data-band-max'),
+                'nd': $lyrListItem.attr('data-band-nd')
+            },
             optionsHtmlString = '',
             layerCssStyles;
 
@@ -1770,7 +1843,7 @@
         } else if (geomType === 'line') {
             setupSymbologyPolylineState(layerCssStyles);
         } else if (geomType === 'None') {
-            setupSymbologyRasterState(layerCssStyles);
+            setupSymbologyRasterState(layerCssStyles, bandInfo);
         }
     };
 
@@ -1865,8 +1938,9 @@
         $('.line').removeClass('hidden');
     };
 
-    setupSymbologyRasterState = function (layerCssStyles) {
+    setupSymbologyRasterState = function (layerCssStyles, bandInfo) {
         var colorKeys,
+            color,
             numKeys,
             colorMapObj,
             i,
@@ -1877,7 +1951,7 @@
             $('#slct-num-colors-in-gradient').trigger('change');
         } else {
             colorMapObj = layerCssStyles['color-map'];
-            colorKeys = Object.keys(colorMapObj);
+            colorKeys = Object.keys(colorMapObj).sort(function (a, b) {return Number(a) - Number(b); });
             numKeys = colorKeys.length;
             $('#slct-num-colors-in-gradient')
                 .val(numKeys)
@@ -1888,10 +1962,16 @@
                 quantitySelector = '#quantity' + i;
                 colorSelector = '#color' + i;
                 $(quantitySelector).val(quantity);
-                $(colorSelector).spectrum('set', colorMapObj[quantity]);
+                color = tinycolor(colorMapObj[quantity].color);
+                color.setAlpha(colorMapObj[quantity].opacity);
+                $(colorSelector).spectrum('set', color);
                 i += 1;
             });
         }
+
+        $('#rast-min-val').text(bandInfo.min);
+        $('#rast-max-val').text(bandInfo.max);
+        $('#rast-nd-val').text(bandInfo.nd);
         $('.raster').removeClass('hidden');
     };
 

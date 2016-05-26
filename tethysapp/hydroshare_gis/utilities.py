@@ -10,7 +10,8 @@ import os
 import sqlite3
 import xmltodict
 
-hs_hostname = 'www.hydroshare.org'
+
+hs_hostname = 'playground.hydroshare.org'
 geoserver_name = 'default'
 geoserver_url = None
 workspace_id = 'hydroshare_gis'
@@ -48,8 +49,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
         result = engine.create_coverage_resource(store_id=full_store_id,
                                                  coverage_file=res_file,
                                                  coverage_type=coverage_type,
-                                                 overwrite=True,
-                                                 debug=True)
+                                                 overwrite=True)
 
     elif res_type == 'GeographicFeatureResource':
         if is_zip is True:
@@ -208,5 +208,20 @@ def get_hs_object(request):
         hs = get_oauth_hs(request)
     except ObjectDoesNotExist as e:
         print str(e)
-        hs = HydroShare()
+        hs = HydroShare(hostname=hs_hostname, use_https=True)
     return hs
+
+
+def get_band_info(hs, res_id):
+    md = hs.getSystemMetadata(res_id)
+    r = requests.get(md['science_metadata_url'])
+    md_dict = xmltodict.parse(r.text)
+    band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
+    band_info = {
+        'min': float(band_info_raw['hsterms:minimumValue']),
+        'max': float(band_info_raw['hsterms:maximumValue']),
+        'nd': float(band_info_raw['hsterms:noDataValue'])
+    }
+
+    return band_info
+

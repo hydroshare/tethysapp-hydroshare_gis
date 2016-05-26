@@ -1661,7 +1661,7 @@
     onClickOpenInHS = function (e) {
         var clickedElement = e.trigger.context,
             $lyrListItem = $(clickedElement).parent().parent(),
-            resId = $lyrListItem.attr('data-layer-id').split('_')[1];
+            resId = $lyrListItem.attr('data-layer-id').split(':res_')[1];
 
         window.open('https://www.hydroshare.org/resource/' + resId);
     };

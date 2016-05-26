@@ -168,9 +168,9 @@ def extract_site_info_from_time_series(sqlite_file_path):
 
 
 def extract_site_info_from_ref_time_series(md_url):
-    r = requests.get(md_url)
-    md_dict = xmltodict.parse(r.text)
     try:
+        r = requests.get(md_url)
+        md_dict = xmltodict.parse(r.text)
         site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
         lon = float(site_info_list[0].split('=')[1])
         lat = float(site_info_list[1].split('=')[1])

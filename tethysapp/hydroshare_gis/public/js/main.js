@@ -193,7 +193,7 @@
         }
     };
 
-    addLayerToUI = function (response, resId) {
+    addLayerToUI = function (response, resId, lastResource) {
         var geomType,
             cssStyles,
             layerAttributes,
@@ -208,6 +208,10 @@
             $newLayerListItem;
 
         if (response.hasOwnProperty('success')) {
+            if (lastResource) {
+                hideMainLoadAnim();
+                showResLoadingStatus(true, 'Resource(s) added successfully!');
+            }
             resType = response.res_type;
             if (resType === 'GeographicFeatureResource') {
                 geomType = getGeomType(response.geom_type);
@@ -278,6 +282,11 @@
                 resType: resType,
                 visible: true
             };
+        } else {
+            if (lastResource) {
+                hideMainLoadAnim();
+                showResLoadingStatus(false, response.error);
+            }
         }
     };
 
@@ -1560,11 +1569,7 @@
                             }
                         }());
                     }
-                    if (lastResource) {
-                        hideMainLoadAnim();
-                        showResLoadingStatus(true, 'Resource added successfully!');
-                    }
-                    addLayerToUI(response, resId);
+                    addLayerToUI(response, resId, lastResource);
                     if ($('#chkbx-res-auto-close').is(':checked')) {
                         $modalLoadRes.modal('hide');
                     }
@@ -2026,6 +2031,7 @@
         var $resLoadingStatus = $('#res-load-status');
         var $statusText = $('#status-text');
         $statusText.text(message)
+            .removeClass('success error')
             .addClass(successClass);
         $resLoadingStatus.removeClass('hidden');
         setTimeout(function () {

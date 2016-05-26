@@ -122,6 +122,9 @@ def load_file(request):
             if res_type == 'RefTimeSeriesResource':
                 md = hs.getSystemMetadata(res_id)
                 site_info = extract_site_info_from_ref_time_series(md['science_metadata_url'])
+                if not site_info:
+                    return get_json_response('error',
+                                             'Resource not added. Required resource data not available.')
                 layer_name = res_title
             else:
                 hs.getResource(res_id, destination=hs_tempdir, unzip=True)

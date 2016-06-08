@@ -11,15 +11,13 @@ import sqlite3
 import xmltodict
 
 
-hs_hostname = 'playground.hydroshare.org'
 geoserver_name = 'default'
 geoserver_url = None
 workspace_id = 'hydroshare_gis'
-uri = 'https://appsdev.hydroshare.org/apps/hydroshare-gis'
 
 
 def get_oauth_hs(request):
-    global hs_hostname
+    hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
 
     client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
     client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
@@ -28,7 +26,7 @@ def get_oauth_hs(request):
     token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
     auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
 
-    return HydroShare(auth=auth, hostname=hs_hostname, use_https=True)
+    return HydroShare(auth=auth, hostname=hs_hostname)
 
 
 def get_json_response(response_type, message):
@@ -93,13 +91,13 @@ def make_file_zipfile(res_files, filename, zip_path):
 
 
 def return_spatial_dataset_engine():
-    global geoserver_name, workspace_id, uri, geoserver_url
+    global geoserver_name, workspace_id, geoserver_url
 
     engine = get_spatial_dataset_engine(name=geoserver_name)
     workspace = engine.get_workspace(workspace_id)
     if not workspace['success']:
         print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
-        workspace = engine.create_workspace(workspace_id=workspace_id, uri=uri)
+        workspace = engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-hydroshare_gis')
 
     geoserver_url = workspace['result']['catalog'][:-1]
     return engine
@@ -211,7 +209,8 @@ def get_hs_object(request):
         hs = get_oauth_hs(request)
     except ObjectDoesNotExist as e:
         print str(e)
-        hs = HydroShare(hostname=hs_hostname, use_https=True)
+        hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+        hs = HydroShare(hostname=hs_hostname)
     return hs
 
 

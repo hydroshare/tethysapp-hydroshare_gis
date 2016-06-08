@@ -6,9 +6,9 @@ from geoserver.catalog import FailedRequestError
 import shutil
 from json import dumps, loads
 from StringIO import StringIO
+from tempfile import TemporaryFile
 
 hs_tempdir = '/tmp/hs_gis_files/'
-project_file_tempdir = '/tmp/hs_proj_files'
 engine = return_spatial_dataset_engine()
 
 
@@ -279,7 +279,6 @@ def generate_attribute_table(request):
         })
 
 def save_project(request):
-    global project_file_tempdir
     return_json = {}
 
     if request.is_ajax() and request.method == 'GET':
@@ -292,44 +291,26 @@ def save_project(request):
             res_keywords = res_keywords_raw.split(',')
             res_type = 'GenericResource'
 
-            if not os.path.exists(project_file_tempdir):
-                os.mkdir(project_file_tempdir)
-
-            proj_file = os.path.join(project_file_tempdir, 'mapProject.json')
-            with open(proj_file, 'w+') as proj_file_reader:
-                proj_file_reader.write(dumps(project_info))
-
             hs = get_oauth_hs(request)
-
-            # upload the temp file to HydroShare
-            if os.path.exists(proj_file):
+            with TemporaryFile() as f:
+                f.write(dumps(project_info))
                 res_id = hs.createResource(res_type,
                                            res_title,
-                                           resource_file=proj_file,
+                                           resource_file=f,
+                                           resource_filename='mapProj.json',
                                            keywords=res_keywords,
                                            abstract=res_abstract
                                            )
 
-                return_json['success'] = 'Resources created successfully.'
-                return_json['res_id'] = res_id
+            return_json['success'] = 'Resources created successfully.'
+            return_json['res_id'] = res_id
 
-        except ObjectDoesNotExist as e:
-            print str(e)
-            return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
-
-        except TokenExpiredError as e:
+        except (ObjectDoesNotExist, TokenExpiredError) as e:
             print str(e)
             return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
         except Exception as e:
-            if "401 Unauthorized" in str(e):
-                return_json['error'] = 'Username or password invalid.'
-            elif "400 Bad Request" in str(e):
-                return_json['success'] = 'File uploaded successfully despite 400 Bad Request Error.'
-            else:
-                return_json['error'] = 'HydroShare rejected the upload for some reason.'
-        finally:
-            if os.path.exists(project_file_tempdir):
-                shutil.rmtree(project_file_tempdir)
+            print str(e)
+            return_json['error'] = 'HydroShare rejected the upload for some reason.'
 
             return JsonResponse(return_json)
 

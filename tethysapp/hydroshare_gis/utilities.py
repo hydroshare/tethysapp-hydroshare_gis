@@ -12,7 +12,6 @@ import xmltodict
 
 
 geoserver_name = 'default'
-geoserver_url = None
 workspace_id = 'hydroshare_gis'
 
 
@@ -91,10 +90,9 @@ def make_file_zipfile(res_files, filename, zip_path):
 
 
 def return_spatial_dataset_engine():
-    global geoserver_name, workspace_id, geoserver_url
+    global geoserver_name, workspace_id
     try:
         engine = get_spatial_dataset_engine(name=geoserver_name)
-        geoserver_url = engine.endpoint
         workspace = engine.get_workspace(workspace_id)
         if not workspace['success']:
             print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
@@ -107,8 +105,8 @@ def return_spatial_dataset_engine():
 
 
 def get_layer_extents_and_attributes(res_id, layer_name, res_type):
-    global geoserver_url
     geom_type = None
+    geoserver_url = get_geoserver_url()
 
     if res_type == 'GeographicFeatureResource':
         url = geoserver_url + '/rest/workspaces/hydroshare_gis/datastores/res_' + res_id + \
@@ -140,7 +138,9 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
 
 
 def get_geoserver_url(request=None):
-    global geoserver_url
+    engine = get_spatial_dataset_engine(name=geoserver_name)
+    geoserver_url = engine.endpoint.split('/rest')[0]
+
     if request:
         return JsonResponse({'geoserver_url': geoserver_url})
     else:
@@ -168,10 +168,9 @@ def extract_site_info_from_time_series(sqlite_file_path):
     return site_info
 
 
-def extract_site_info_from_ref_time_series(md_url):
+def extract_site_info_from_ref_time_series(hs, res_id):
     try:
-        r = requests.get(md_url)
-        md_dict = xmltodict.parse(r.text)
+        md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
         site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
         lon = float(site_info_list[0].split('=')[1])
         lat = float(site_info_list[1].split('=')[1])
@@ -218,10 +217,8 @@ def get_hs_object(request):
 
 
 def get_band_info(hs, res_id):
-    md = hs.getSystemMetadata(res_id)
-    r = requests.get(md['science_metadata_url'])
-    md_dict = xmltodict.parse(r.text)
     try:
+        md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
         band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
         band_info = {
             'min': float(band_info_raw['hsterms:minimumValue']),

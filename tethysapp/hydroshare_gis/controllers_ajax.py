@@ -9,7 +9,6 @@ from StringIO import StringIO
 from tempfile import TemporaryFile
 
 hs_tempdir = '/tmp/hs_gis_files/'
-engine = return_spatial_dataset_engine()
 
 
 def load_file(request):
@@ -19,7 +18,7 @@ def load_file(request):
     :param request: the request object sent by the browser
     :returns JsonResponse: a JSON formatted response containing success value and GeoJSON object if successful
     """
-    global hs_tempdir, engine
+    global hs_tempdir
     res_id = None
     res_type = None
     res_title = None
@@ -75,30 +74,24 @@ def load_file(request):
 
     elif request.is_ajax() and request.method == 'GET':
         try:
-            hs = get_hs_object(request)
-
             res_id = request.GET['res_id']
 
-            if 'res_type' in request.GET:
-                res_type = request.GET['res_type']
-            else:
-                res_type = hs.getSystemMetadata(res_id)['resource_type']
+            hs = get_hs_object(request)
+            md = hs.getSystemMetadata(res_id)
 
-            if 'res_title' in request.GET:
-                res_title = request.GET['res_title']
-            else:
-                res_title = hs.getSystemMetadata(res_id)['resource_title']
-
+            res_type = request.GET['res_type'] if request.GET.get('res_type') else md['resource_type']
+            res_title = request.GET['res_title'] if request.GET.get('res_title') else md['resource_title']
             store_id = 'res_%s' % res_id
 
             try:
-                if engine.list_resources(store=store_id)['success']:
-                    layers_dict = engine.list_resources(store=store_id, debug=True)
-                    if len(layers_dict['result']) == 0:
+                engine = return_spatial_dataset_engine()
+                resource = engine.list_resources(store=store_id)
+                if resource['success']:
+                    if len(resource['result']) == 0:
                         engine.delete_store(store_id=store_id, purge=True, recurse=True)
                     else:
                         print 'RESOURCE ALREADY STORED ON GEOSERVER'
-                        layer_name = engine.list_resources(store=store_id, debug=True)['result'][0]
+                        layer_name = resource['result'][0]
                         layer_id = '%s:%s' % (workspace_id, layer_name)
                         layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
                         if res_type == 'RasterResource':
@@ -121,8 +114,7 @@ def load_file(request):
 
             print 'RESOURCE NOT ALREADY STORED ON GEOSERVER'
             if res_type == 'RefTimeSeriesResource':
-                md = hs.getSystemMetadata(res_id)
-                site_info = extract_site_info_from_ref_time_series(md['science_metadata_url'])
+                site_info = extract_site_info_from_ref_time_series(hs, res_id)
                 if not site_info:
                     return get_json_response('error',
                                              'Resource not added. Required resource data not available.')
@@ -216,6 +208,7 @@ def load_file(request):
 def get_hs_res_list(request):
     if request.is_ajax() and request.method == 'GET':
         # print "DELETEING ALL STORES FROM GEOSERVER"
+        # engine = return_spatial_dataset_engine()
         # stores = engine.list_stores(workspace_id)
         # for store in stores['result']:
         #     engine.delete_store(store, True, True)

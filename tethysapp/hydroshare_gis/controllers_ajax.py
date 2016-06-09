@@ -294,6 +294,7 @@ def save_project(request):
             hs = get_oauth_hs(request)
             with TemporaryFile() as f:
                 f.write(dumps(project_info))
+                f.seek(0)
                 res_id = hs.createResource(res_type,
                                            res_title,
                                            resource_file=f,

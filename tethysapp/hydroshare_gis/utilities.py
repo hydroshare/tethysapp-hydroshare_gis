@@ -92,14 +92,18 @@ def make_file_zipfile(res_files, filename, zip_path):
 
 def return_spatial_dataset_engine():
     global geoserver_name, workspace_id, geoserver_url
+    try:
+        engine = get_spatial_dataset_engine(name=geoserver_name)
+        workspace = engine.get_workspace(workspace_id)
+        if not workspace['success']:
+            print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
+            workspace = engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-hydroshare_gis')
 
-    engine = get_spatial_dataset_engine(name=geoserver_name)
-    workspace = engine.get_workspace(workspace_id)
-    if not workspace['success']:
-        print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
-        workspace = engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-hydroshare_gis')
-
-    geoserver_url = workspace['result']['catalog'][:-1]
+        geoserver_url = workspace['result']['catalog'][:-1]
+    except Exception as e:
+        print str(e)
+        engine = None
+    
     return engine
 
 

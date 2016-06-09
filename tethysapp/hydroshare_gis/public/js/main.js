@@ -1537,6 +1537,7 @@
                 $('#btn-upload-res').prop('disabled', false);
                 if (response.hasOwnProperty('error')) {
                     showResLoadingStatus(false, response.error);
+                    hideMainLoadAnim();
                 } else {
                     if (response.hasOwnProperty('project_info')) {
                         loadProjectFile(JSON.parse(response.project_info));
@@ -2030,13 +2031,14 @@
         var successClass = success ? 'success' : 'error';
         var $resLoadingStatus = $('#res-load-status');
         var $statusText = $('#status-text');
+        var showTime = success ? 2000 : 4000
         $statusText.text(message)
             .removeClass('success error')
             .addClass(successClass);
         $resLoadingStatus.removeClass('hidden');
         setTimeout(function () {
             $resLoadingStatus.addClass('hidden');
-        }, 2000);
+        }, showTime);
     };
 
     updateProgressBar = function (value) {

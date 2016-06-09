@@ -119,6 +119,7 @@ def load_file(request):
             except Exception, e:
                 print 'Unexpected error encountered:\n%s' % e
 
+            print 'RESOURCE NOT ALREADY STORED ON GEOSERVER'
             if res_type == 'RefTimeSeriesResource':
                 md = hs.getSystemMetadata(res_id)
                 site_info = extract_site_info_from_ref_time_series(md['science_metadata_url'])
@@ -166,8 +167,13 @@ def load_file(request):
             print str(e)
             if "401 Unauthorized" in str(e):
                 return get_json_response('error', 'Username or password invalid.')
-            if "Server Error when accessing" in str(e):
+            elif "Server Error when accessing" in str(e):
                 return get_json_response('error', 'This resource is currently inaccessible by HydroShare.')
+            elif "was not found" in str(e):
+                hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+                return get_json_response('error', 'This resource was not found on %s ' % hs_hostname)
+            else:
+                return get_json_response('error', 'An unexpected error was encountered. Resource(s) not added.')
 
     else:
         return get_json_response('error', 'Invalid request made.')

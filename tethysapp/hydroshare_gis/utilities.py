@@ -94,16 +94,15 @@ def return_spatial_dataset_engine():
     global geoserver_name, workspace_id, geoserver_url
     try:
         engine = get_spatial_dataset_engine(name=geoserver_name)
+        geoserver_url = engine.endpoint
         workspace = engine.get_workspace(workspace_id)
         if not workspace['success']:
             print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
-            workspace = engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-hydroshare_gis')
-
-        geoserver_url = workspace['result']['catalog'][:-1]
+            engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-hydroshare_gis')
     except Exception as e:
         print str(e)
         engine = None
-    
+
     return engine
 
 
@@ -119,7 +118,7 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
               '/coverages/' + layer_name + '.json'
 
     username = 'admin'
-    password = 'geoserver'
+    password = 'geoserver' if 'appsdev' in geoserver_url else 'hydroshare'
     r = requests.get(url, auth=(username, password))
     json = r.json()
 

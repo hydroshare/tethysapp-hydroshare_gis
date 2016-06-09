@@ -4,24 +4,26 @@
 
 {% block app_content %}
     <div id="map"></div>
+    <div id="mouse-position"></div>
 {% endblock %}
 
 {% block app_content_wrapper_override %}
 
     {{ block.super }}
 
-    <!-- Load File Modal -->
+    <!-- Add File Modal -->
     <div id="modalLoadFile" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <!-- Modal content-->
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Load File</h4>
+                    <h4 class="modal-title">Add File</h4>
                 </div>
                 <div class="modal-body">
                     <input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj, .tif, .zip">
                     <br>
+                    <div id="msg-file" class="hidden"></div>
                     <div id="empty-bar" class="hidden"></div>
                     <div id="progress-bar" class="hidden"></div>
                     <div id="progress-text" class="hidden">0%</div>
@@ -36,7 +38,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-default btn-upload" id="btn-upload-file">Upload</button>
+                    <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled>Upload</button>
                 </div>
             </div>
             <!--End modal content-->
@@ -44,14 +46,14 @@
     </div>
     <!--End modal-->
 
-    <!-- Load HS Resource Modal -->
+    <!-- Add HS Resource Modal -->
     <div id="modalLoadRes" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <!-- Modal content-->
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Load HydroShare Resource</h4>
+                    <h4 class="modal-title">Add HydroShare Resource</h4>
                 </div>
                 <div class="modal-body">
                     <img src="/static/hydroshare_gis/images/loading-animation.gif">
@@ -64,11 +66,11 @@
                     <label for="chkbx-res-auto-close">Automatically close dialog when file is done loading</label>
                 </div>
                 <div class="modal-footer">
-                    <span class="modal-info hidden">Loading...
+                    <span id="loadres-modal-info" class="hidden">Loading...
                         <img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </span>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-default btn-upload hidden" id="btn-upload-res">Upload</button>
+                    <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled>Add</button>
                 </div>
             </div>
             <!--End modal content-->
@@ -96,9 +98,9 @@
                         <li class="welcome-step">Add a layer to the view
                             <p><b>You have two buttons to choose from:</b></p>
                             <ul>
-                                <li class="welcome-substep1">Load HydroShare Resource
+                                <li class="welcome-substep1">Add HydroShare Resource
                                     <p>A list of all public resources will show up. Select the one you want to load and then click 'Upload'</p></li>
-                                <li class="welcome-substep1">Load File
+                                <li class="welcome-substep1">Add File
                                     <p>A browse button will show up. Select a valid file from your computer and then click 'Upload'</p></li>
                             </ul>
                             <p><b>Once layers load, they will show up in the 'Current Layers' list and their extents will be zoomed to</b></p>
@@ -115,7 +117,7 @@
                                     </p>
                                 </li>
                                 <li class="welcome-substep1">Rename a layer
-                                <p>Right click the layer and select "Rename" or double click the layer name. Press 'Enter' when done.</p>
+                                    <p>Right click the layer and select "Rename" or double click the layer name. Press 'Enter' when done.</p>
                                 </li>
                                 <li class="welcome-substep1">Zoom to a layer
                                     <p>Right click the layer and select "Zoom to"</p>
@@ -147,6 +149,103 @@
     </div>
     <!--End modal-->
 
+    <!-- Symbology Modal -->
+    <div id="modalSymbology" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title"></h4>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <h4>Options:</h4>
+                        <fieldset id="point-options" class="hidden point">
+                            <label for="slct-point-shape">Point marker shape:</label>
+                            <select id="slct-point-shape">
+                                {% for val in point_shape_options %}
+                                    <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="slct-point-size">Point marker size:</label>
+                            <select id="slct-point-size">
+                                {% for val in point_size_options %}
+                                    <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                        </fieldset>
+                        <fieldset id="fill-options" class="hidden polygon point">
+                            <label for="geom-fill">Fill color:</label>
+                            <input type="text" id="geom-fill">
+                            <br>
+                        </fieldset>
+                        <fieldset id="include-outline" class="hidden polygon point">
+                            <label for="chkbx-include-outline">Include outline:</label>
+                            <input type="checkbox" id="chkbx-include-outline">
+                            <br>
+                        </fieldset>
+                        <fieldset id="outline-options" class="hidden line">
+                            <label for="stroke">Line color:</label>
+                            <input type="text" id="stroke">
+                            <label for="slct-stroke-width">Line width:</label>
+                            <select id="slct-stroke-width">
+                                {% for val in stroke_width_options %}
+                                    <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                            <br>
+                        </fieldset>
+                        <fieldset id="include-labels" class="hidden polygon point line">
+                            <label for="chkbx-include-labels">Include labels:</label>
+                            <input type="checkbox" id="chkbx-include-labels">
+                        </fieldset>
+                        <fieldset id="label-options" class="hidden">
+                            <h6>Labels</h6>
+                            <label for="slct-label-field">Label field:</label>
+                            <select id="slct-label-field"></select>
+                            <label for="slct-font-size">Font size:</label>
+                            <select id="slct-font-size">
+                                {% for val in font_size_options %}
+                                    <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="font-fill">Font color:</label>
+                            <input type="text" id="font-fill">
+                        </fieldset>
+                        <fieldset id="raster-options" class="hidden raster">
+                            <div>
+                                <p>Min value: <span id="rast-min-val"></span></p>
+                                <p>Max value: <span id="rast-max-val"></span></p>
+                                <p>No Data value: <span id="rast-nd-val"></span></p>
+                            </div>
+                            <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
+                            <select id="slct-num-colors-in-gradient">
+                                {% for val in num_gradient_colors_options %}
+                                    <option value="{{ val }}">{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                            <div id="color-map-placeholder"></div>
+                            <br>
+                        </fieldset>
+                    </form>
+                    <div id="symbology-preview-container" class="hidden line polygon point">
+                        <h4>Preview:</h4>
+                        <div id="symbology-preview"></div>
+                        <span id="label-preview" class="hidden">Label</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <span id="symbology-modal-info" class="hidden"></span>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" id="btn-apply-symbology" disabled class="btn btn-default">Apply</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
     <!-- Attribute Table Modal -->
     <div id="modalAttrTbl" class="modal fade" role="dialog">
         <div class="modal-dialog">
@@ -166,6 +265,155 @@
     </div>
     <!--End modal-->
 
+    <!-- Save Project Modal -->
+    <div id="modalSaveProject" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Save Map Project as HydroShare Resource</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="res-title" class="control-label">*Resource Title:</label>
+                        <input type="text" class="form-control" id="res-title">
+                    </div>
+                    <div class="form-group">
+                        <label for="res-abstract" class="control-label">Resource Abstract:</label>
+                        <textarea rows="6" cols="50" id="res-abstract" class="form-control">This resource contains a HydroShare Map Project file created using the HydroShare GIS web app. The Map Project file is in JSON format and contains data regarding the state of the project upon creating this resource.</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="res-keywords" class="control-label">Resource Keywords:</label>
+                        <input type="text" class="form-control" id="res-keywords" value="Map, Project">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div id="save-status" class="col-md-8"></div>
+                    <div id="footer-buttons" class="col-md-4">
+                        <button type="button" class="btn btn-default footer" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary footer" disabled id="btn-save-project">Proceed</button>
+                    </div>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!-- End modal -->
+
+    <!-- Save Project Modal -->
+    <div id="modalExportMap" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title"></h4>
+                </div>
+                <div class="modal-body">
+                    <form class="form">
+                        <label for="slct-format">Page size </label>
+                        <select id="slct-format">
+                            <option value="a0">A0 (slow)</option>
+                            <option value="a1">A1</option>
+                            <option value="a2">A2</option>
+                            <option value="a3">A3</option>
+                            <option value="a4" selected>A4</option>
+                            <option value="a5">A5 (fast)</option>
+                        </select>
+                        <label for="slct-resolution">Resolution </label>
+                        <select id="slct-resolution">
+                            <option value="72">72 dpi (fast)</option>
+                            <option value="150">150 dpi</option>
+                            <option value="300">300 dpi (slow)</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default footer" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary footer" id="btn-export-pdf">Export to PDF</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!-- End modal -->
+
+    <!-- Add to Project Modal -->
+    <div id="modalAddToProject" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Add Resource(s) To Map Project</h4>
+                </div>
+                <div class="modal-body">
+                    {% if resources_to_add %}
+                        <h5>Resource(s) to be added to Map Project:</h5>
+                        <ul id="ul-resources-to-add" class="list-no-bullets">
+                            {% for resource in resources_to_add %}
+                                <li data-id="{{ resource.id }}" data-type="{{ resource.type }}" data-title="{{ resource.title }}">{{ resource.title }}</li>
+                            {% endfor %}
+                        </ul>
+                        <br><br>
+                        <div class="flex-container-row" id="add-to-proj-btns">
+                            <button type="button" class="btn" id="btn-opt-add-to-existing">Add to Existing Project</button>
+                            <button type="button" class="btn" id="btn-opt-add-to-new">Add to New Project</button>
+                        </div>
+                    {% else %}
+                        <h6>Sorry, there were no resource id's passed in the URL.</h6>
+                    {% endif %}
+                    <br><br>
+                    <div id="opts-add-to-existing" class="hidden opts-add-to-project flex-container-col">
+                        {% if existing_projects %}
+                            <h5>Projects you currently own:</h5>
+                            <ul id="ul-existing-projects" class="list-no-bullets">
+                                {% for project in existing_projects %}
+                                    <li><input type="radio" name="project" class="opt-existing-project" value="{{ project.id }}">{{ project.title }}</li>
+                                {% endfor %}
+                            </ul>
+                            <button type="button" id="btn-add-to-existing-project">Add Resource(s) to Selected Project</button>
+                        {% else %}
+                            <h5>Sorry, you do not own any map projects.</h5>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
+    <!-- Add WMS Layer Modal -->
+    <div id="modalAddWMS" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Add WMS Layer</h4>
+                </div>
+                <div class="modal-body">
+                    <label for="wms-url">WMS Endpoint</label>
+                    <input type="text" id="wms-url">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-add-wms" class="btn btn-default">Add WMS</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
+    <div id="res-load-status" class="hidden">
+        <div id="status-text"></div>
+    </div>
     <div id="div-loading" class="hidden">
         <img src="/static/hydroshare_gis/images/main-loading-anim.gif" />
     </div>

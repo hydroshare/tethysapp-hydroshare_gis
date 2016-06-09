@@ -1,15 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ObjectDoesNotExist
-from oauthlib.oauth2 import TokenExpiredError
-from utilities import *
-from geoserver.catalog import FailedRequestError
 
-import shutil
-from json import dumps
-from StringIO import StringIO
-
-hs_tempdir = '/tmp/hs_gis_files/'
+from utilities import get_hs_object
 
 
 @login_required()
@@ -19,227 +11,74 @@ def home(request):
 
     :param request: the request object sent by the browser
     """
-    global engine
+    point_size_options = range(1, 31)
+    stroke_width_options = range(1,16)
+    point_shape_options = ['circle', 'square', 'triangle', 'star', 'cross', 'X']
+    font_size_options = range(8, 37, 2)
+    num_gradient_colors_options = range(2, 9)
 
-    engine = return_spatial_dataset_engine()
-
-    context = {}
+    context = {
+        'point_size_options': point_size_options,
+        'stroke_width_options': stroke_width_options,
+        'point_shape_options': point_shape_options,
+        'font_size_options': font_size_options,
+        'num_gradient_colors_options': num_gradient_colors_options
+    }
 
     return render(request, 'hydroshare_gis/home.html', context)
 
 
-def load_file(request):
-    """
-    Controller for the "Load file from computer" button.
+def add_to_project(request):
+    point_size_options = range(1, 31)
+    stroke_width_options = range(1, 16)
+    point_shape_options = ['circle', 'square', 'triangle', 'star', 'cross', 'X']
+    font_size_options = range(8, 37, 2)
+    num_gradient_colors_options = range(2, 9)
 
-    :param request: the request object sent by the browser
-    :returns JsonResponse: a JSON formatted response containing success value and GeoJSON object if successful
-    """
-    global hs_tempdir, engine
-    res_id = None
-    res_type = None
-    res_title = None
-    res_files = None
-    is_zip = False
+    context = {
+        'point_size_options': point_size_options,
+        'stroke_width_options': stroke_width_options,
+        'point_shape_options': point_shape_options,
+        'font_size_options': font_size_options,
+        'num_gradient_colors_options': num_gradient_colors_options
+    }
 
-    if not os.path.exists(hs_tempdir):
-        os.mkdir(hs_tempdir)
+    existing_projects = []
+    resources_to_add = []
 
-    if request.is_ajax() and request.method == 'POST':
+    if request.GET.get('res_ids'):
+        res_ids = request.GET['res_ids'].split(',')
+        hs = get_hs_object(request)
 
-        # Get/check files from AJAX request
-        res_files = request.FILES.getlist('files')
-
-        for res_file in res_files:
-            file_name = res_file.name
-            if file_name.endswith('.shp'):
-                res_id = str(file_name[:-4].__hash__())
-                res_type = 'GeographicFeatureResource'
-                break
-            elif file_name.endswith('.tif'):
-                res_id = str(file_name[:-4].__hash__())
-                res_type = 'RasterResource'
-                res_zip = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
-                create_zipfile_from_file(res_file, file_name, res_zip)
-                res_files = res_zip
-                break
-            elif file_name.endswith('.zip'):
-                is_zip = True
-                res_id = 'temp_id'
-                res_zip = os.path.join(hs_tempdir, res_id, file_name)
-                if not os.path.exists(res_zip):
-                    if not os.path.exists(os.path.dirname(res_zip)):
-                        os.mkdir(os.path.dirname(res_zip))
-                with zipfile.ZipFile(res_zip, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
-                    with zipfile.ZipFile(StringIO(res_file.read())) as z:
-                        for name in z.namelist():
-                            zip_object.writestr(name, z.read(name))
-                            if name.endswith('.shp'):
-                                res_id = str(name[:-4].__hash__())
-                                res_type = 'GeographicFeatureResource'
-                            elif name.endswith('.tif'):
-                                res_id = str(name[:-4].__hash__())
-                                res_type = 'RasterResource'
-                os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
-                res_files = os.path.join(hs_tempdir, res_id, file_name)
-
-    elif request.is_ajax() and request.method == 'GET':
-        try:
-            # CLEAR ALL OF THE GEOSERVER RESOURCES
-            # stores = engine.list_stores(workspace_id)
-            # for store in stores['result']:
-            #     engine.delete_store(store, True, True)
-
-            # hs = get_oauth_hs(request)
-            hs = HydroShare()
-
-            print 'GET REQUEST MADE'
-            res_id = request.GET['res_id']
-            print 'res_id: %s' % res_id
-
-            if 'res_type' in request.GET:
-                res_type = request.GET['res_type']
-            else:
-                res_type = hs.getSystemMetadata(res_id)['resource_type']
-            print 'res_type: %s' % res_type
-            if 'res_title' in request.GET:
-                res_title = request.GET['res_title']
-            else:
-                res_title = hs.getSystemMetadata(res_id)['resource_title']
-            print 'res_title: %s' % res_title
-            store_id = 'res_%s' % res_id
-            print 'store_id: %s' % store_id
+        for res_id in res_ids:
             try:
-                if engine.list_resources(store=store_id)['success']:
-                    print 'RESOURCE ALREADY STORED ON GEOSERVER'
-                    # RESOURCE ALREADY STORED ON GEOSERVER
-                    layer_name = engine.list_resources(store=store_id)['result'][0]
-                    print 'layer_name: %s' % layer_name
-                    layer_id = '%s:%s' % (workspace_id, layer_name)
-                    print 'layer_id: %s' % layer_id
-                    layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
+                md = hs.getSystemMetadata(res_id)
+                resources_to_add.append({
+                    'title': md['resource_title'],
+                    'id': md['resource_id'],
+                    'type': md['resource_type']
+                })
+            except Exception as e:
+                print str(e)
+                continue
 
-                    return JsonResponse({
-                        'success': 'Files uploaded successfully.',
-                        'geoserver_url': geoserver_url,
-                        'layer_name': res_title,
-                        'layer_id': layer_id,
-                        'layer_extents': dumps(layer_extents),
-                        'layer_attributes': layer_attributes,
-                        'res_type': res_type
-                    })
-            except FailedRequestError, e:
-                print e
-                pass
-            except Exception, e:
-                print e
+        userInfo = hs.getUserInfo()
+        username = userInfo['username']
+        for res in hs.getResourceList(creator=username, types=['GenericResource']):
+            res_id = res['resource_id']
+            try:
+                for res_file in hs.getResourceFileList(res_id):
+                    if res_file['content_type'] == 'application/json':
+                        existing_projects.append({
+                            'title': res['resource_title'],
+                            'id': res_id
+                        })
 
-            # RESOURCE NOT ALREADY STORED ON GEOSERVER
-            hs.getResource(res_id, destination=hs_tempdir, unzip=True)
-            res_contents_dir = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
-            print 'res_contents_dir: %s' % res_contents_dir
+            except Exception as e:
+                print str(e)
+                continue
 
-            if os.path.exists(res_contents_dir):
-                for file_name in os.listdir(res_contents_dir):
-                    if file_name.endswith('.shp'):
-                        res_files = os.path.join(res_contents_dir, file_name[:-4])
-                        break
-                    elif file_name.endswith('.tif'):
-                        res_files = os.path.join(res_contents_dir, file_name[:-4] + '.zip')
-                        create_zipfile_from_file(os.path.join(res_contents_dir, file_name), file_name, res_files)
-                        break
-            print 'res_files: %s' % res_files
+        context['existing_projects'] = existing_projects
+        context['resources_to_add'] = resources_to_add
 
-        except ObjectDoesNotExist as e:
-            print str(e)
-            return get_json_response('error', 'Login timed out! Please re-sign in with your HydroShare account.')
-        except TokenExpiredError as e:
-            print str(e)
-            return get_json_response('error', 'Login timed out! Please re-sign in with your HydroShare account.')
-        except Exception, e:
-            print str(e)
-            if "401 Unauthorized" in str(e):
-                return get_json_response('error', 'Username or password invalid.')
-
-    else:
-        return get_json_response('error', 'Invalid request made.')
-
-    layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
-    print 'layer_id: %s' % layer_id
-
-    layer_extents, layer_attributes = get_layer_extents_and_attributes(res_id, layer_name, res_type)
-
-    if 'res_' in layer_name:
-        layer_name = res_title
-
-    if res_id:
-        if os.path.exists(os.path.join(hs_tempdir, res_id)):
-            shutil.rmtree(os.path.join(hs_tempdir, res_id))
-
-    return JsonResponse({
-        'success': 'Files uploaded successfully.',
-        'geoserver_url': geoserver_url,
-        'layer_name': layer_name,
-        'layer_id': layer_id,
-        'layer_extents': layer_extents,
-        'layer_attributes': layer_attributes,
-        'res_type': res_type
-    })
-
-
-def get_hs_res_list(request):
-    if request.is_ajax() and request.method == 'GET':
-        valid_res_list = []
-
-        # hs = get_oauth_hs(request)
-        hs = HydroShare()
-
-        for resource in hs.getResourceList(
-                types=['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']):
-            valid_res_list.append({
-                'title': resource['resource_title'],
-                'type': resource['resource_type'],
-                'id': resource['resource_id']
-            })
-
-        valid_res_json = dumps(valid_res_list)
-
-        return JsonResponse({
-            'success': 'Resources obtained successfully.',
-            'resources': valid_res_json
-        })
-
-
-def generate_attribute_table(request):
-    if request.is_ajax() and request.method == 'GET':
-        url = get_geoserver_url()
-
-        layer_id = request.GET['layerId']
-        layer_attributes = request.GET['layerAttributes']
-
-        params = {
-            'service': 'wfs',
-            'version': '2.0.0',
-            'request': 'GetFeature',
-            'typeNames': layer_id,
-            'propertyName': layer_attributes,
-            'outputFormat': 'application/json'
-        }
-        url += '/wfs'
-
-        username = 'admin'
-        password = 'geoserver'
-        r = requests.get(url, params=params, auth=(username, password))
-        print r.url
-        json = r.json()
-
-        feature_properties = []
-
-        features = json['features']
-        for feature in features:
-            feature_properties.append(feature['properties'])
-
-        return JsonResponse({
-            'success': 'Resources obtained successfully.',
-            'feature_properties': dumps(feature_properties)
-        })
+    return render(request, 'hydroshare_gis/home.html', context)

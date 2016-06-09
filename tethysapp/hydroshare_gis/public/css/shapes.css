@@ -1,0 +1,44 @@
+/********************************************/
+/*               CIRCLE                     */
+.circle {
+    -moz-border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border-radius: 50%;
+}
+/********************************************/
+
+/********************************************/
+
+/********************************************/
+/*               TRIANGLE                     */
+.triangle {
+    width: 0;
+    height: 0;
+}
+/********************************************/
+
+/********************************************/
+/*                 STAR                     */
+.star {
+    position: relative;
+    display: block;
+    width: 0;
+    height: 0;
+    border-right:  100px solid transparent;
+    border-bottom: 70px  solid red;
+    border-left:   100px solid transparent;
+    -moz-transform:    rotate(35deg);
+    -webkit-transform: rotate(35deg);
+    -ms-transform:     rotate(35deg);
+    -o-transform:      rotate(35deg);
+}
+/********************************************/
+
+/********************************************/
+/*               CROSS                      */
+.cross {
+    position: relative;
+}
+/********************************************/
+
+/********************************************/

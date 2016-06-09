@@ -9,6 +9,7 @@
  *                  https://www.npmjs.com/package/reproject
  *                  http://www.ajaxload.info/
  *                  http://datatables.net/
+ *                  http://bgrins.github.io/spectrum/
  *
  *****************************************************************************/
 
@@ -17,24 +18,38 @@
  *****************************************************************************/
 
 // Global directives for JSLint/JSHint
-/*global document, $, console, FormData, ol, window, setTimeout, reproject, proj4, pageX, pageY, clearInterval */
+// /*jslint
+//  browser, this, devel, multivar
+//  */
+/*global
+ document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
+ pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor, jsPDF, MutationObserver
+ */
 
-var HS_GIS = (function packageHydroShareGIS() {
+(function packageHydroShareGIS() {
 
     "use strict"; // And enable strict mode for this library
 
     /******************************************************
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
-    var dataTableLoadRes,
-        layers,
+    var basemapLayers,
+        contextMenuDict,
+        dataTableLoadRes,
+        insetMap,
         layersContextMenuGeneral,
-        layersContextMenuVector,
+        layersContextMenuNonRes,
+        layersContextMenuShpfile,
+        layersContextMenuTimeSeries,
         layerCount,
         map,
         fileLoaded,
-    // Functions
+        projectInfo,
+    //  *********FUNCTIONS***********
+        addContextMenuToListItem,
+        addLayerToMap,
         addLayerToUI,
+        addListenersToListItem,
         addDefaultBehaviorToAjax,
         addLoadResSelEvnt,
         addInitialEventListeners,
@@ -43,36 +58,67 @@ var HS_GIS = (function packageHydroShareGIS() {
         checkCsrfSafe,
         checkURLForParameters,
         closeLyrEdtInpt,
+        createLayerListItem,
+        displaySymbologyModalError,
+        drawLayersInListOrder,
+        drawPointSymbologyPreview,
         editLayerName,
-        enableUploadBtn,
         generateAttributeTable,
         generateResourceList,
         getCookie,
+        getCssStyles,
         getFilesSize,
+        getGeomType,
+        getGeoserverUrl,
+        getRandomColor,
         hideMainLoadAnim,
         hideProgressBar,
         initializeJqueryVariables,
         initializeLayersContextMenu,
         initializeMap,
+        loadProjectFile,
         loadResource,
         modifyDataTableDisplay,
+        onClickAddToExistingProject,
+        onClickAddToNewProject,
+        onClickDeleteLayer,
+        onClickModifySymbology,
+        onClickOpenInHS,
+        onClickRenameLayer,
+        onClickSaveProject,
+        onClickShowAttrTable,
+        onClickZoomToLayer,
         prepareFilesForAjax,
+        processSaveProjectResponse,
         redrawDataTable,
         reprojectExtents,
+        setupSymbologyLabelsState,
+        setupSymbologyModalState,
+        setupSymbologyPointState,
+        setupSymbologyPolygonState,
+        setupSymbologyPolylineState,
+        setupSymbologyRasterState,
+        setupSymbologyStrokeState,
         showMainLoadAnim,
+        showResLoadingStatus,
         updateProgressBar,
+        updateSymbology,
         updateUploadProgress,
         uploadFileButtonHandler,
         uploadResourceButtonHandler,
         zoomToLayer,
-    //jQuery Selectors
+    //  **********Query Selectors************
+        $btnApplySymbology,
+        $btnShowModalSaveProject,
+        $btnSaveProject,
         $currentLayersList,
         $emptyBar,
         $loadingAnimMain,
         $modalAttrTbl,
-        $modalInfo,
         $modalLoadFile,
         $modalLoadRes,
+        $modalSaveProject,
+        $modalSymbology,
         $progressBar,
         $progressText,
         $uploadBtn;
@@ -81,83 +127,190 @@ var HS_GIS = (function packageHydroShareGIS() {
      **************FUNCTION DECLARATIONS*******************
      ******************************************************/
 
-    addLayerToUI = function (response) {
-        var contextMenu,
-            geoserverUrl,
-            layerAttributes,
-            layerName,
-            layerId,
-            newLayer,
-            resType,
-            rawLayerExtents,
-            $layerNameInput,
-            $newLayerListElement;
-
-        if (response.hasOwnProperty('success')) {
-            layerAttributes = response.layer_attributes;
-            layerName = response.layer_name;
-            layerId = response.layer_id;
-            resType = response.res_type;
-            rawLayerExtents = response.layer_extents;
-            geoserverUrl = response.geoserver_url;
-
-            newLayer = new ol.layer.Tile({
-                extent: reprojectExtents(rawLayerExtents),
-                source: new ol.source.TileWMS({
-                    url: geoserverUrl + '/wms',
-                    params: {'LAYERS': layerId, 'TILED': true},
-                    serverType: 'geoserver'
-                })
+    addContextMenuToListItem = function ($listItem, resType) {
+        $listItem.find('.hmbrgr-div img')
+            .contextMenu('menu', contextMenuDict[resType], {
+                'triggerOn': 'click',
+                'displayAround': 'trigger',
+                'mouseClick': 'left',
+                'position': 'right',
+                'onOpen': function (e) {
+                    $(e.trigger.context).parent().addClass('hmbrgr-open');
+                },
+                'onClose': function (e) {
+                    $(e.trigger.context).parent().removeClass('hmbrgr-open');
+                }
             });
-            map.addLayer(newLayer);
-            zoomToLayer(newLayer.getExtent(), map.getSize());
+    };
 
-            $currentLayersList.prepend(
-                '<li class="ui-state-default" data-layer-index="' + layerCount.get() + '" data-layer-id="' + layerId + '" data-layer-attributes="' + layerAttributes + '">' +
-                    '<input class="chkbx-layer" type="checkbox" checked>' +
-                    '<span class="layer-name">' + layerName + '</span>' +
-                    '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                    '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"</div>' +
-                    '</li>'
-            );
-            $newLayerListElement = $currentLayersList.find(':first-child');
-            // Apply the dropdown-on-right-click menu to new layer in list
-            contextMenu = (resType === 'GeographicFeatureResource') ? layersContextMenuVector : layersContextMenuGeneral;
-            $newLayerListElement.find('.hmbrgr-div img')
-                .contextMenu('menu', contextMenu, {
-                    'triggerOn': 'click',
-                    'displayAround': 'trigger',
-                    'mouseClick': 'left',
-                    'position': 'right',
-                    'onOpen': function (e) {
-                        $(e.trigger.context).parent().addClass('hmbrgr-open');
-                    },
-                    'onClose': function (e) {
-                        $(e.trigger.context).parent().removeClass('hmbrgr-open');
-                    }
-                });
+    addLayerToMap = function (data) {
+        var lyrParams,
+            newLayer = null,
+            sldString,
+            lyrExtents = data.lyrExtents,
+            lyrId = data.lyrId,
+            resType = data.resType,
+            geomType = data.geomType,
+            cssStyles = data.cssStyles,
+            visible = data.visible;
 
-            $newLayerListElement.find('.layer-name').on('dblclick', function () {
-                var $layerNameSpan = $(this),
-                    layerIndex = Number($currentLayersList.find('li').index($newLayerListElement)) + 3;
-
-                $layerNameSpan.addClass('hidden');
-                $layerNameInput = $newLayerListElement.find('input[type=text]');
-                $layerNameInput
-                    .removeClass('hidden')
-                    .select()
-                    .on('keyup', function (e) {
-                        editLayerName(e, $(this), $layerNameSpan, layerIndex);
+        if (resType.indexOf('TimeSeriesResource') > -1) {
+            newLayer = new ol.layer.Vector({
+                source: new ol.source.Vector({
+                    features: [new ol.Feature(new ol.geom.Point(lyrExtents))]
+                }),
+                style: new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 6,
+                        fill: new ol.style.Fill({
+                            color: getRandomColor()
+                        })
                     })
-                    .on('click', function (e) {
-                        e.stopPropagation();
-                    });
-
-                $(document).on('click.edtLyrNm', function () {
-                    closeLyrEdtInpt($layerNameSpan, $layerNameInput);
-                });
+                }),
+                visible: visible
+            });
+        } else {
+            lyrParams = {
+                'LAYERS': lyrId,
+                'TILED': true
+            };
+            if (cssStyles && cssStyles !== 'Default') {
+                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId);
+                lyrParams.SLD_BODY = sldString;
+            }
+            newLayer = new ol.layer.Tile({
+                extent: lyrExtents,
+                source: new ol.source.TileWMS({
+                    url: projectInfo.map.geoserverUrl + '/wms',
+                    params: lyrParams,
+                    serverType: 'geoserver'
+                }),
+                visible: visible
             });
         }
+        if (newLayer !== null) {
+            map.addLayer(newLayer);
+        }
+    };
+
+    addLayerToUI = function (response, resId, lastResource) {
+        var geomType,
+            cssStyles,
+            layerAttributes,
+            layerExtents,
+            layerName,
+            layerId,
+            layerIndex,
+            resType,
+            bandInfo,
+            rawLayerExtents,
+            tsSiteInfo,
+            $newLayerListItem;
+
+        if (response.hasOwnProperty('success')) {
+            if (lastResource) {
+                hideMainLoadAnim();
+                showResLoadingStatus(true, 'Resource(s) added successfully!');
+            }
+            resType = response.res_type;
+            if (resType === 'GeographicFeatureResource') {
+                geomType = getGeomType(response.geom_type);
+                layerAttributes = response.layer_attributes;
+            } else {
+                geomType = "None";
+                layerAttributes = "None";
+            }
+            bandInfo = (resType === 'RasterResource' && response.band_info) ? response.band_info : 'None';
+            layerName = response.layer_name;
+            layerId = response.layer_id || response.res_id;
+            rawLayerExtents = response.layer_extents;
+
+            if (resType.indexOf('TimeSeriesResource') > -1) {
+                tsSiteInfo = response.site_info;
+                layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
+            } else {
+                layerExtents = reprojectExtents(rawLayerExtents);
+            }
+
+            if (bandInfo === 'None') {
+                cssStyles = 'Default';
+            } else {
+                cssStyles = {'color-map': {}};
+                cssStyles['color-map'][bandInfo.nd] = {
+                    color: '#000000',
+                    opacity: 0
+                };
+                cssStyles['color-map'][bandInfo.min] = {
+                    color: '#000000',
+                    opacity: 1
+                };
+                cssStyles['color-map'][bandInfo.max] = {
+                    color: '#ffffff',
+                    opacity: 1
+                };
+            }
+
+            addLayerToMap({
+                cssStyles: cssStyles,
+                geomType: geomType,
+                resType: resType,
+                lyrExtents: layerExtents,
+                url: projectInfo.map.geoserverUrl + '/wms',
+                lyrId: layerId
+            });
+
+            layerIndex = layerCount.get();
+
+            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
+            $newLayerListItem = $currentLayersList.find(':first-child');
+            addContextMenuToListItem($newLayerListItem, resType);
+            addListenersToListItem($newLayerListItem, layerIndex);
+
+            drawLayersInListOrder(false); // Must be called after creating the new layer list item
+            zoomToLayer(layerExtents, map.getSize(), resType);
+
+            // Add layer data to project info
+            projectInfo.map.layers[layerIndex] = {
+                attributes: layerAttributes,
+                cssStyles: cssStyles,
+                extents: layerExtents,
+                geomType: geomType,
+                id: layerId,
+                index: layerIndex,
+                listOrder: 1,
+                name: layerName,
+                resType: resType,
+                visible: true
+            };
+        } else {
+            if (lastResource) {
+                hideMainLoadAnim();
+                showResLoadingStatus(false, response.error);
+            }
+        }
+    };
+
+    addListenersToListItem = function ($listItem, layerIndex) {
+        var $layerNameInput;
+        $listItem.find('.layer-name').on('dblclick', function () {
+            var $layerNameSpan = $(this);
+
+            $layerNameSpan.addClass('hidden');
+            $layerNameInput = $listItem.find('input[type=text]');
+            $layerNameInput
+                .removeClass('hidden')
+                .select()
+                .on('keyup', function (e) {
+                    editLayerName(e, $(this), $layerNameSpan, layerIndex);
+                })
+                .on('click', function (e) {
+                    e.stopPropagation();
+                });
+
+            $(document).on('click.edtLyrNm', function () {
+                closeLyrEdtInpt($layerNameSpan, $layerNameInput);
+            });
+        });
     };
 
     addDefaultBehaviorToAjax = function () {
@@ -173,6 +326,7 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     addLoadResSelEvnt = function () {
         $modalLoadRes.find('tbody tr').on('click', function () {
+            $('#btn-upload-res').prop('disabled', false);
             $(this)
                 .css({
                     'background-color': '#1abc9c',
@@ -187,21 +341,97 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     addInitialEventListeners = function () {
+
+        $('#btn-add-wms').on('click', function () {
+            //http://geoserver.byu.edu/arcgis/rest/services/NWC/NWM_Geofabric/MapServer/export?bbox=-101589.77955203337,-1083684.5494424414,-51689.263084333936,-1043361.9687972802&layers=show:0,1,2
+            var wmsUrl = $('#wms-url').val();
+            var urlSplit = wmsUrl.split('/');
+            var wmsName = urlSplit[urlSplit.indexOf('MapServer') - 1];
+            var layerIndex;
+            var $newLayerListItem;
+
+            if (wmsUrl.indexOf('/rest/') > -1) {
+                map.addLayer(new ol.layer.Tile({
+                    source: new ol.source.TileArcGISRest({
+                        url: wmsUrl
+                    })
+                }));
+            } else {
+                map.addLayer(new ol.layer.Tile({
+                    source: new ol.source.TileWMS({
+                        url: wmsUrl,
+                        params: {
+                            LAYERS: '0'
+                        },
+                        crossOrigin: 'Anonymous'
+                    })
+                }));
+            }
+
+            layerIndex = layerCount.get();
+
+            createLayerListItem('prepend', layerIndex, wmsUrl, 'RasterResource', 'None', 'None', true, wmsName, 'None');
+            $newLayerListItem = $currentLayersList.find(':first-child');
+            addContextMenuToListItem($newLayerListItem, 'RasterResource');
+            addListenersToListItem($newLayerListItem, layerIndex);
+
+            drawLayersInListOrder(false); // Must be called after creating the new layer list item
+            $('#modalAddWMS').modal('hide');
+            $('#wms-url').val('');
+        });
+
+        $('#btn-opt-add-to-new').on('click', function () {
+            onClickAddToNewProject();
+        });
+
+        $('#btn-add-to-existing-project').on('click', function () {
+            onClickAddToExistingProject();
+        });
+
+        $('#btn-opt-add-to-existing').on('click', function () {
+            $('.opts-add-to-project').addClass('hidden');
+            $('#opts-add-to-existing').toggleClass('hidden');
+        });
+
+        $btnSaveProject.on('click', onClickSaveProject);
+
+        $btnShowModalSaveProject.on('click', function () {
+            $modalSaveProject.modal('show');
+        });
+
+        $('#res-title').on('keyup', function () {
+            $btnSaveProject.prop('disabled', $(this).val() === '');
+        });
+
         $('.basemap-option').on('click', changeBaseMap);
 
         $modalLoadFile.on('hidden.bs.modal', function () {
             $('#input-files').val('');
             hideProgressBar();
-            enableUploadBtn();
         });
 
-        $modalLoadRes.on('hidden.bs.modal', function () {
-            enableUploadBtn();
+        $modalSaveProject.on('shown.bs.modal', function () {
+            $('#save-status').addClass('hidden');
         });
 
         $('#btn-upload-res').on('click', uploadResourceButtonHandler);
 
         $('#btn-upload-file').on('click', uploadFileButtonHandler);
+
+        $('#input-files').on('change', function () {
+            var files = this.files;
+            if (!areValidFiles(files)) {
+                $uploadBtn.prop('disabled', true);
+                $('#msg-file')
+                    .text("Invalid files. Include only one of the following 3 upload options below.")
+                    .removeClass('hidden');
+                setTimeout(function () {
+                    $('#msg-file').addClass('hidden');
+                }, 7000);
+            } else {
+                $uploadBtn.prop('disabled', false);
+            }
+        });
 
         map.getLayers().on('add', function () {
             layerCount.increase();
@@ -212,18 +442,358 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         $(document).on('change', '.chkbx-layer', function () {
             var index = Number($(this).parent().attr('data-layer-index'));
-
-            if ($(this).is(':checked')) {
-                map.getLayers().item(index).setVisible(true);
-            } else {
-                map.getLayers().item(index).setVisible(false);
-            }
+            map.getLayers().item(index).setVisible($(this).is(':checked'));
+            projectInfo.map.layers[index].visible = $(this).is(':checked');
         });
 
         $modalLoadRes.on('shown.bs.modal', function () {
-            $('.dataTables_scrollBody').css('height', $(this).find('.modal-body').height().toString() - 125 + 'px');
-            redrawDataTable(dataTableLoadRes, $(this));
+            if (dataTableLoadRes) {
+                redrawDataTable(dataTableLoadRes, $(this));
+            }
         });
+
+        $('#chkbx-include-outline').on('change', function () {
+            var outlineString,
+                color;
+
+            if ($(this).prop('checked') === true) {
+                $('#outline-options').removeClass('hidden');
+            } else {
+                $('#outline-options').addClass('hidden');
+            }
+
+            if ($('#outline-options').hasClass('hidden')) {
+                $('#symbology-preview').css('outline', '0');
+            } else {
+                color = $('#stroke').spectrum('get');
+                if (color !== null) {
+                    outlineString = $('#slct-stroke-width').val().toString();
+                    outlineString += 'px solid ';
+                    outlineString += color.toRgbString();
+                    $('#symbology-preview').css('outline', outlineString);
+                }
+            }
+        });
+
+        $('#chkbx-include-labels').on('change', function () {
+            if ($(this).prop('checked') === true) {
+                $('#label-options').removeClass('hidden');
+                $('#label-preview').removeClass('hidden');
+            } else {
+                $('#label-options').addClass('hidden');
+                $('#label-preview').addClass('hidden');
+            }
+        });
+
+        $('#geom-fill').spectrum({
+            showInput: true,
+            allowEmpty: true,
+            showAlpha: true,
+            showPalette: true,
+            chooseText: "Choose",
+            cancelText: "Cancel",
+            change: function (color) {
+                var shape,
+                    size,
+                    geomType;
+
+                if (color === null) {
+                    $btnApplySymbology.prop('disabled', true);
+                    return;
+                }
+
+                color = color.toRgbString();
+                geomType = $('#btn-apply-symbology').attr('data-geom-type');
+
+                if (geomType === 'point') {
+                    shape = $('#slct-point-shape').val();
+                    size = $('#slct-point-size').val();
+
+                    drawPointSymbologyPreview(shape, size, color);
+                } else if (geomType === 'polygon') {
+                    drawPointSymbologyPreview('square', 40, color);
+                }
+                $btnApplySymbology.prop('disabled', false);
+            }
+        });
+
+        $('#stroke').spectrum({
+            showInput: true,
+            allowEmpty: true,
+            showAlpha: true,
+            showPalette: true,
+            chooseText: "Choose",
+            cancelText: "Cancel",
+            change: function (color) {
+                var outlineString;
+                outlineString = $('#slct-stroke-width').val().toString();
+                outlineString += 'px solid ';
+                outlineString += color.toRgbString();
+                $('#symbology-preview').css('outline', outlineString);
+                $btnApplySymbology.prop('disabled', false);
+            }
+        });
+
+        $('#slct-stroke-width').on('change', function () {
+            var outlineString;
+
+            outlineString = $(this).val().toString();
+            outlineString += 'px solid ';
+            outlineString += $('#stroke').spectrum('get').toRgbString();
+            $('#symbology-preview').css('outline', outlineString);
+        });
+
+        $('#font-fill').spectrum({
+            showInput: true,
+            allowEmpty: true,
+            showAlpha: true,
+            showPalette: true,
+            chooseText: "Choose",
+            cancelText: "Cancel",
+            change: function (color) {
+                if (color) {
+                    $('#label-preview').css('color', color.toRgbString());
+                    $btnApplySymbology.prop('disabled', false);
+                } else {
+                    $btnApplySymbology.prop('disabled', true);
+                }
+            }
+        });
+
+        $('#slct-font-size').on('change', function () {
+            $('#label-preview').css('font-size', $(this).val() + 'px');
+        });
+
+        $(window).on('resize', function () {
+            $('#map').css({
+                'height': $('#app-content').height(),
+                'max-height': $('#app-content').height(),
+                'width': '100%'
+            });
+            map.render();
+        });
+
+        $(window).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function () {
+            $('#map').css({
+                'max-height': 'none',
+                'height': $(window).height(),
+                'width': $(window).width()
+            });
+        });
+
+        $btnApplySymbology.on('click', function () {
+            updateSymbology($(this));
+            $(this).prop('disabled', true);
+        });
+
+        $('#slct-num-colors-in-gradient').on('change', function () {
+            var i,
+                inputSelector,
+                htmlString = '',
+                numColors = this.value,
+                prevNumColors,
+                createColorValPairHtml;
+
+            createColorValPairHtml = function (j) {
+                return '<fieldset class="color-val-pair">' +
+                    '<label for="color' + j + '">Color:</label>' +
+                    '<input type="text" id="color' + j + '">' +
+                    '<label for="quantity' + j + '">Raster value:</label>' +
+                    '<input type="text" id="quantity' + j + '">' +
+                    '<br></fieldset>';
+            };
+
+            prevNumColors = $('.color-val-pair').length;
+            i = prevNumColors;
+
+            if (prevNumColors === undefined) {
+                prevNumColors = 0;
+                $('#color-map-placeholder').html();
+
+                for (i = 0; i < numColors; i++) {
+                    htmlString += createColorValPairHtml(i);
+                }
+            } else if (prevNumColors > numColors) {
+                while (i > numColors) {
+                    $('.color-val-pair').last().remove();
+                    i--;
+                }
+            } else if (prevNumColors < numColors) {
+                while (i < numColors) {
+                    htmlString += createColorValPairHtml(i);
+                    i++;
+                }
+            }
+
+            $('#color-map-placeholder').attr('data-num-colors', numColors);
+
+            if (htmlString !== '') {
+                $('#color-map-placeholder').append(htmlString);
+            }
+
+            for (i = prevNumColors; i < numColors; i++) {
+                inputSelector = '#color' + i;
+                $(inputSelector).spectrum({
+                    showInput: true,
+                    allowEmpty: true,
+                    showAlpha: true,
+                    showPalette: true,
+                    chooseText: "Choose",
+                    cancelText: "Cancel",
+                    change: function () {
+                        $btnApplySymbology.prop('disabled', false);
+                    }
+                });
+            }
+            $('.color-val-pair').removeClass('hidden');
+        });
+
+        $('#slct-point-shape, #slct-point-size').on('change', function () {
+            var shape,
+                size,
+                color;
+
+            shape = $('#slct-point-shape').val();
+            size = $('#slct-point-size').val();
+            color = $('#geom-fill').spectrum('get').toRgbString();
+
+            drawPointSymbologyPreview(shape, size, color);
+        });
+
+        $('#chkbx-show-inset-map').on('change', function () {
+            if ($(this).is(':checked')) {
+                projectInfo.map.showInset = true;
+                insetMap = new ol.control.OverviewMap({
+                    collapsed: false,
+                    collapsible: false,
+                    layers: [
+                        new ol.layer.Tile({
+                            style: 'Road',
+                            source: new ol.source.MapQuest({layer: 'osm'})
+                        })
+                    ]
+                });
+                map.addControl(insetMap);
+            } else {
+                projectInfo.map.showInset = false;
+                map.removeControl(insetMap);
+                insetMap = undefined;
+            }
+        });
+
+        $('#btn-export-png').on('click', function () {
+            if ($('#btn-export-png').prop('download') !== "") {
+                map.once('postcompose', function (event) {
+                    var canvas = event.context.canvas;
+                    $(this).attr('href', canvas.toDataURL('image/png'));
+                }, this);
+                map.renderSync();
+            } else {
+                alert('This example requires a browser that supports the link download attribute.');
+            }
+        });
+
+        $('#btn-export-pdf').on('click', function () {
+            var dims,
+                loading,
+                loaded,
+                format,
+                resolution,
+                dim,
+                width,
+                height,
+                size,
+                extent,
+                source = null,
+                tileLoadStart,
+                tileLoadEnd,
+                baseMapIndex;
+
+            dims = {
+                a0: [1189, 841],
+                a1: [841, 594],
+                a2: [594, 420],
+                a3: [420, 297],
+                a4: [297, 210],
+                a5: [210, 148]
+            };
+
+            loading = 0;
+            loaded = 0;
+
+            $(this).prop('disabled', true);
+
+            format = $('#slct-format').val();
+            resolution = $('#slct-resolution').val();
+            dim = dims[format];
+            width = Math.round(dim[0] * resolution / 25.4);
+            height = Math.round(dim[1] * resolution / 25.4);
+            size = /** @type {ol.Size} */ (map.getSize());
+            extent = map.getView().calculateExtent(size);
+            baseMapIndex = $('#basemap-dropdown').next().find('li').index($('.selected-basemap-option')) - 1;
+            if (baseMapIndex >= 0) {
+                source = map.getLayers().item(baseMapIndex).getSource();
+            }
+
+            tileLoadStart = function () {
+                ++loading;
+            };
+
+            tileLoadEnd = function () {
+                ++loaded;
+                if (loading === loaded) {
+                    var canvas = this;
+                    if (source !== null) {
+                        source.un('tileloadstart', tileLoadStart);
+                        source.un('tileloadend', tileLoadEnd, canvas);
+                        source.un('tileloaderror', tileLoadEnd, canvas);
+                    }
+                    window.setTimeout(function () {
+                        var data,
+                            pdf;
+
+                        loading = 0;
+                        loaded = 0;
+                        data = canvas.toDataURL('image/png');
+                        pdf = new jsPDF('landscape', undefined, format);
+                        pdf.addImage(data, 'JPEG', 0, 0, dim[0], dim[1]);
+                        pdf.save('map.pdf');
+                        map.setSize(size);
+                        map.getView().fit(extent, size);
+                        map.renderSync();
+                        $('#btn-export-pdf').prop('disabled', false);
+                    }, 100);
+                }
+            };
+
+            map.once('postcompose', function (event) {
+                if (source !== null) {
+                    source.on('tileloadstart', tileLoadStart);
+                    source.on('tileloadend', tileLoadEnd, event.context.canvas);
+                    source.on('tileloaderror', tileLoadEnd, event.context.canvas);
+                }
+            });
+
+            map.setSize([width, height]);
+            map.getView().fit(extent, /** @type {ol.Size} */ (map.getSize()));
+            map.renderSync();
+        });
+
+        (function () {
+            var target, observer, config;
+            // select the target node
+            target = $('#app-content-wrapper')[0];
+
+            observer = new MutationObserver(function () {
+                window.setTimeout(function () {
+                    map.updateSize();
+                }, 500);
+            });
+
+            config = {attributes: true};
+
+            observer.observe(target, config);
+        }());
     };
 
     areValidFiles = function (files) {
@@ -241,20 +811,18 @@ var HS_GIS = (function packageHydroShareGIS() {
                 if (++fileCount > 4) {
                     return false;
                 }
-                if (files.hasOwnProperty(file)) {
-                    if (files[file].name.endsWith('.shp')) {
-                        hasShp = true;
-                    } else if (files[file].name.endsWith('.shx')) {
-                        hasShx = true;
-                    } else if (files[file].name.endsWith('.prj')) {
-                        hasPrj = true;
-                    } else if (files[file].name.endsWith('.dbf')) {
-                        hasDbf = true;
-                    } else if (files[file].name.endsWith('.tif')) {
-                        hasTif = true;
-                    } else if (files[file].name.endsWith('.zip')) {
-                        hasZip = true;
-                    }
+                if (files[file].name.endsWith('.shp')) {
+                    hasShp = true;
+                } else if (files[file].name.endsWith('.shx')) {
+                    hasShx = true;
+                } else if (files[file].name.endsWith('.prj')) {
+                    hasPrj = true;
+                } else if (files[file].name.endsWith('.dbf')) {
+                    hasDbf = true;
+                } else if (files[file].name.endsWith('.tif')) {
+                    hasTif = true;
+                } else if (files[file].name.endsWith('.zip')) {
+                    hasZip = true;
                 }
             }
         }
@@ -267,13 +835,11 @@ var HS_GIS = (function packageHydroShareGIS() {
         $(this).addClass('selected-basemap-option');
         $($(this).children()[0]).text(' (Current)');
 
-        var style = $(this).attr('value'),
-            i,
-            ii = layers.length;
+        var style = $(this).attr('value');
 
-        for (i = 0; i < ii; ++i) {
-            layers[i].set('visible', (layers[i].get('style') === style));
-        }
+        basemapLayers.forEach(function (layer) {
+            layer.set('visible', (layer.get('style') === style));
+        });
     };
 
 // Find if method is CSRF safe
@@ -283,28 +849,37 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     checkURLForParameters = function () {
-        var transformToAssocArray = function (prmstr) {
-                var i,
-                    params = {},
-                    prmArr = prmstr.split("&"),
-                    tmpArr;
+        var transformToAssocArray,
+            getSearchParameters,
+            params;
 
-                for (i = 0; i < prmArr.length; i++) {
-                    tmpArr = prmArr[i].split("=");
-                    params[tmpArr[0]] = tmpArr[1];
-                }
-                return params;
-            },
-            getSearchParameters = function () {
-                var prmstr = window.location.search.substr(1);
-                return prmstr !== null && prmstr !== "" ? transformToAssocArray(prmstr) : {};
-            },
-            params = getSearchParameters();
+        transformToAssocArray = function (prmstr) {
+            var prms,
+                prmArr,
+                tmpArr;
+
+            prmArr = prmstr.split("&");
+            prms = {};
+
+            prmArr.forEach(function (prm) {
+                tmpArr = prm.split("=");
+                prms[tmpArr[0]] = tmpArr[1];
+            });
+
+            return prms;
+        };
+
+        getSearchParameters = function () {
+            var prmstr = window.location.search.substr(1);
+            return (prmstr !== null && prmstr !== "") ? transformToAssocArray(prmstr) : {};
+        };
+
+        params = getSearchParameters();
 
         if (params.res_id !== undefined || params.res_id !== null) {
             if (params.src === 'hs') {
                 showMainLoadAnim();
-                loadResource(params.res_id);
+                loadResource(params.res_id, null, null, true, null);
             }
         }
     };
@@ -318,19 +893,180 @@ var HS_GIS = (function packageHydroShareGIS() {
         $(document).off('click.edtLyrNm');
     };
 
-    editLayerName = function (e, $layerNameInput, $layerNameSpan) {
+    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName, bandInfo, resId) {
+        var $newLayerListItem,
+            listHtmlString =
+                '<li class="ui-state-default" ' +
+                'data-layer-index="' + layerIndex + '" ' +
+                'data-layer-id="' + layerId + '" ' +
+                'data-res-id="' + resId + '" ' +
+                'data-res-type="' + resType + '" ' +
+                'data-geom-type="' + geomType + '" ' +
+                'data-layer-attributes="' + layerAttributes + '" ' +
+                'data-band-min="' + bandInfo.min + '" ' +
+                'data-band-max="' + bandInfo.max + '" ' +
+                'data-band-nd="' + bandInfo.nd + '">' +
+                '<input class="chkbx-layer" type="checkbox">' +
+                '<span class="layer-name">' + layerName + '</span>' +
+                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"></div>' +
+                '</li>';
+
+        if (position === 'prepend') {
+            $currentLayersList.prepend(listHtmlString);
+            $newLayerListItem = $currentLayersList.find(':first-child');
+        } else {
+            $currentLayersList.append(listHtmlString);
+            $newLayerListItem = $currentLayersList.find(':last-child');
+        }
+
+        $newLayerListItem.find('.chkbx-layer').prop('checked', visible);
+    };
+
+    displaySymbologyModalError = function (errorString) {
+        $('#symbology-modal-info')
+            .text(errorString)
+            .removeClass('hidden');
+        setTimeout(function () {
+            $('#symbology-modal-info').addClass('hidden');
+        }, 7000);
+    };
+
+    drawLayersInListOrder = function (modifyProjectInfo) {
+        var i,
+            index,
+            layer,
+            count,
+            zIndex;
+
+        count = layerCount.get();
+        for (i = 3; i <= count; i++) {
+            layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+            index = Number(layer.attr('data-layer-index'));
+            zIndex = count - i;
+            map.getLayers().item(index).setZIndex(zIndex);
+            if (modifyProjectInfo) {
+                projectInfo.map.layers[index].listOrder = i - 2;
+            }
+        }
+    };
+
+    drawPointSymbologyPreview = function (shape, size, color) {
+        var cssObj = {},
+            shapeStyleSheet = document.styleSheets[10],
+            cssRule;
+
+        $('#symbology-preview').text('');
+
+        if (shapeStyleSheet.rules.length === 5) {
+            shapeStyleSheet.deleteRule(4);
+        } else if (shapeStyleSheet.rules.length === 6) {
+            shapeStyleSheet.deleteRule(4);
+            shapeStyleSheet.deleteRule(4);
+        }
+
+        if (shape === 'X') {
+            cssObj = {
+                'height': size + 'px',
+                'width': size + 'px',
+                'color': color,
+                'font-size': size + 'px'
+            };
+            $('#symbology-preview').text('X');
+        } else if (shape === 'triangle') {
+            cssObj = {
+                'border-left': Math.ceil(size / 2) + 'px solid transparent',
+                'border-right': Math.ceil(size / 2) + 'px solid transparent',
+                'border-bottom': size + 'px solid ' + color
+            };
+        } else if (shape === 'cross') {
+            cssObj = {
+                'height': size + 'px',
+                'width': Math.ceil(size / 5) + 'px',
+                'background-color': color
+            };
+
+            cssRule = '.cross:after {' +
+                'background: ' + color + '; ' +
+                'content: ""; ' +
+                'height: ' + Math.ceil(size / 5) + 'px; ' +
+                'left: -' + Math.ceil(size * 2 / 5) + 'px; ' +
+                'position: absolute; ' +
+                'top: ' + Math.ceil(size * 2 / 5) + 'px; ' +
+                'width: ' + size + 'px;' +
+                '}';
+
+            shapeStyleSheet.insertRule(cssRule, 4);
+
+        } else if (shape === 'star') {
+            cssObj = {
+                'border-right':  size + 'px solid transparent',
+                'border-bottom': Math.ceil(size * 0.7) + 'px  solid ' + color,
+                'border-left':   size + 'px solid transparent'
+            };
+
+            cssRule = '.star:before {' +
+                'border-bottom: ' + Math.ceil(size * 0.8) + 'px solid ' + color + '; ' +
+                'border-left: ' + Math.ceil(size * 0.3) + 'px solid transparent; ' +
+                'border-right: ' + Math.ceil(size * 0.3) + 'px solid transparent;' +
+                'position: absolute;' +
+                'height: 0;' +
+                'width: 0;' +
+                'top: -' + Math.ceil(size * 0.45) + 'px;' +
+                'left: -' + Math.ceil(size * 0.65) + 'px;' +
+                'display: block;' +
+                'content: ""; ' +
+                '-webkit-transform: rotate(-35deg); ' +
+                '-moz-transform: rotate(-35deg); ' +
+                '-ms-transform: rotate(-35deg); ' +
+                '-o-transform: rotate(-35deg);' +
+                '}';
+
+            shapeStyleSheet.insertRule(cssRule, 4);
+
+            cssRule = '.star:after {' +
+                'position: absolute;' +
+                'display: block;' +
+                'color: ' + color + ';' +
+                'left: -' + Math.ceil(size * 1.05) + 'px;' +
+                'width: 0;' +
+                'height: 0;' +
+                'border-right: ' + size + 'px solid transparent;' +
+                'border-bottom: ' + Math.ceil(size * 0.7) + 'px  solid ' + color + ';' +
+                'border-left: ' + size + 'px solid transparent;' +
+                '-webkit-transform: rotate(-70deg);' +
+                '-moz-transform: rotate(-70deg);' +
+                '-ms-transform: rotate(-70deg);' +
+                '-o-transform: rotate(-70deg);' +
+                'content: "";' +
+                '}';
+
+            shapeStyleSheet.insertRule(cssRule, 5);
+
+        } else {
+            cssObj = {
+                'height': size + 'px',
+                'width': size + 'px',
+                'background-color': color
+            };
+        }
+        $('#symbology-preview')
+            .removeClass()
+            .addClass(shape)
+            .removeAttr('style')
+            .css(cssObj);
+    };
+
+    editLayerName = function (e, $layerNameInput, $layerNameSpan, layerIndex) {
+        var layerName;
         if (e.which === 13) {  // Enter key
-            $layerNameSpan.text($layerNameInput.val());
+            layerName = $layerNameInput.val();
+            $layerNameSpan.text(layerName);
+            projectInfo.map.layers[layerIndex].name = layerName;
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         } else if (e.which === 27) {  // Esc key
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         }
-    };
-
-    enableUploadBtn = function () {
-        $uploadBtn
-            .text('Upload')
-            .removeAttr('disabled');
     };
 
     generateAttributeTable = function (layerId, layerAttributes, layerName) {
@@ -346,33 +1082,29 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 var attributeTableHTML,
-                    currAttrVal,
                     featureProperties,
-                    i,
-                    j,
                     layerAttributesList = [],
-                    length,
-                    numAttributes,
                     dataTable,
                     tableHeadingHTML = '';
 
                 if (response.hasOwnProperty('success')) {
                     featureProperties = JSON.parse(response.feature_properties);
                     layerAttributesList = layerAttributes.split(',');
-                    numAttributes = layerAttributesList.length;
-                    for (i = 0; i < numAttributes; i++) {
-                        tableHeadingHTML += '<th>' + layerAttributesList[i] + '</th>';
-                    }
+
+                    layerAttributesList.forEach(function (attribute) {
+                        tableHeadingHTML += '<th>' + attribute + '</th>';
+                    });
+
                     attributeTableHTML = '<table id="tbl-attributes"><thead>' + tableHeadingHTML + '</thead><tbody>';
 
-                    for (i = 0, length = featureProperties.length; i < length; i++) {
+                    featureProperties.forEach(function (property) {
                         attributeTableHTML += '<tr>';
-                        for (j = 0; j < numAttributes; j++) {
-                            currAttrVal = featureProperties[i][layerAttributesList[j]];
-                            attributeTableHTML += '<td class="attribute" data-attribute="' + layerAttributesList[j] + '">' + currAttrVal + '</td>';
-                        }
+                        layerAttributesList.forEach(function (attribute) {
+                            attributeTableHTML += '<td class="attribute" data-attribute="' + attribute + '">' + property[attribute] + '</td>';
+                        });
                         attributeTableHTML += '</tr>';
-                    }
+                    });
+
                     $modalAttrTbl.find('.modal-body').html(attributeTableHTML);
                     dataTable = $('#tbl-attributes').DataTable({
                         'order': [[0, 'asc']],
@@ -395,7 +1127,7 @@ var HS_GIS = (function packageHydroShareGIS() {
     generateResourceList = function (numRequests) {
         $.ajax({
             type: 'GET',
-            url: 'get-hs-res-list',
+            url: '/apps/hydroshare-gis/get-hs-res-list',
             dataType: 'json',
             error: function () {
                 if (numRequests < 5) {
@@ -405,7 +1137,7 @@ var HS_GIS = (function packageHydroShareGIS() {
             },
             success: function (response) {
                 var resources,
-                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Type</th></thead><tbody>';
+                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
 
                 if (response.hasOwnProperty('success')) {
                     if (response.hasOwnProperty('resources')) {
@@ -414,7 +1146,9 @@ var HS_GIS = (function packageHydroShareGIS() {
                             resTableHtml += '<tr>' +
                                 '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
                                 '<td class="res_title">' + resource.title + '</td>' +
+                                '<td class="res_size">' + resource.size + '</td>' +
                                 '<td class="res_type">' + resource.type + '</td>' +
+                                '<td class="res_owner">' + resource.owner + '</td>' +
                                 '</tr>';
                         });
                         resTableHtml += '</tbody></table>';
@@ -433,6 +1167,7 @@ var HS_GIS = (function packageHydroShareGIS() {
                                 footer: true
                             }
                         });
+                        redrawDataTable(dataTableLoadRes, $modalLoadRes);
 
                         $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
                     }
@@ -461,16 +1196,129 @@ var HS_GIS = (function packageHydroShareGIS() {
         return cookieValue;
     };
 
-    getFilesSize = function (files) {
-        var file,
-            fileSize = 0;
+    getCssStyles = function (geomType) {
+        var color,
+            cssStyles = {};
 
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                fileSize += files[file].size;
+        if (geomType === 'None') {
+            cssStyles['color-map'] = {};
+            (function () {
+                var numColors,
+                    i,
+                    colorSelector,
+                    quantitySelector;
+
+                numColors = $('#color-map-placeholder').attr('data-num-colors');
+                for (i = 0; i < numColors; i++) {
+                    colorSelector = '#color' + i;
+                    quantitySelector = '#quantity' + i;
+                    cssStyles['color-map'][$(quantitySelector).val()] = {
+                        'color': $(colorSelector).spectrum('get').toHexString(),
+                        'opacity': $(colorSelector).spectrum('get').getAlpha().toString()
+                    };
+                }
+            }());
+        } else {
+            // Check conditions for the fill color
+            if (geomType === 'point' || geomType === 'polygon') {
+                color = $('#geom-fill').spectrum('get');
+                if (color !== null) {
+                    cssStyles.fill = color.toHexString();
+                    cssStyles['fill-opacity'] = color.getAlpha().toString();
+                } else {
+                    displaySymbologyModalError('You must select a fill color.');
+                    return;
+                }
+            }
+
+            // Check conditions for the stroke (line) color
+            if (geomType === 'line' || $('#chkbx-include-outline').is(':checked')) {
+                color = $('#stroke').spectrum('get');
+                if (color !== null) {
+                    cssStyles.stroke = color.toHexString();
+                    cssStyles['stroke-opacity'] = color.getAlpha().toString();
+                    cssStyles['stroke-width'] = $('#slct-stroke-width').val();
+                } else {
+                    displaySymbologyModalError('You must select a line color.');
+                }
+            } else {
+                cssStyles.stroke = '#FFFFFF';
+                cssStyles['stroke-opacity'] = "0";
+                cssStyles['stroke-width'] = "0";
+            }
+
+            // Check conditions for the labels
+            cssStyles.labels = $('#chkbx-include-labels').is(':checked');
+            if (cssStyles.labels) {
+                color = $('#font-fill').spectrum('get');
+                if (color !== null) {
+                    cssStyles['label-field'] = $('#slct-label-field').val();
+                    cssStyles['font-size'] = $('#slct-font-size').val();
+                    cssStyles['font-fill'] = color.toHexString();
+                    cssStyles['font-fill-opacity'] = color.getAlpha().toString();
+                } else {
+                    displaySymbologyModalError('You must select a font color.');
+                }
+            }
+
+            if (geomType === 'point') {
+                cssStyles['point-shape'] = $('#slct-point-shape').val();
+                cssStyles['point-size'] = $('#slct-point-size').val();
             }
         }
+
+        return cssStyles;
+    };
+
+    getFilesSize = function (files) {
+        var fileSize = 0;
+
+        Object.keys(files).forEach(function (file) {
+            fileSize += files[file].size;
+        });
         return fileSize;
+    };
+
+    getGeomType = function (rawGeomType) {
+        var geomType;
+
+        if (rawGeomType.toLowerCase().indexOf('polygon') !== -1) {
+            geomType = 'polygon';
+        } else if (rawGeomType.toLowerCase().indexOf('point') !== -1) {
+            geomType = 'point';
+        } else if (rawGeomType.toLowerCase().indexOf('line') !== -1) {
+            geomType = 'line';
+        }
+        return geomType;
+    };
+
+    getGeoserverUrl = function () {
+        $.ajax({
+            url: '/apps/hydroshare-gis/get-geoserver-url',
+            contentType: 'json',
+            success: function (response) {
+                if (response.hasOwnProperty('geoserver_url')) {
+                    projectInfo.map.geoserverUrl = response.geoserver_url;
+                } else {
+                    alert('Function "getGeoserverUrl" has failed. The geoserver being used could not be identified.');
+                }
+            },
+            error: function () {
+                alert('Ajax request to "/apps/hydroshare-gis/get-geoserver-url" failed.');
+            }
+        });
+    };
+
+    getRandomColor = function () {
+        var hexOptions = '0123456789ABCDEF',
+            lettersList = hexOptions.split(''),
+            color = '#',
+            i;
+
+        for (i = 0; i < 6; i++) {
+            color += lettersList[Math.floor(Math.random() * 16)];
+        }
+        return color;
     };
 
     hideMainLoadAnim = function () {
@@ -487,13 +1335,17 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     initializeJqueryVariables = function () {
+        $btnShowModalSaveProject = $('#btn-show-modal-save-project');
+        $btnApplySymbology = $('#btn-apply-symbology');
+        $btnSaveProject = $('#btn-save-project');
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
         $loadingAnimMain = $('#div-loading');
         $modalAttrTbl = $('#modalAttrTbl');
-        $modalInfo = $('.modal-info');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadRes = $('#modalLoadRes');
+        $modalSaveProject = $('#modalSaveProject');
+        $modalSymbology = $('#modalSymbology');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
         $uploadBtn = $('.btn-upload');
@@ -502,84 +1354,84 @@ var HS_GIS = (function packageHydroShareGIS() {
     initializeLayersContextMenu = function () {
         layersContextMenuGeneral = [
             {
+                name: 'Modify symbology',
+                title: 'Modify symbology',
+                fun: function (e) {
+                    onClickModifySymbology(e);
+                }
+            }, {
                 name: 'Rename',
                 title: 'Rename',
                 fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        $dataElement = $(clickedElement).parent().parent(),
-                        index = Number($dataElement.attr('data-layer-index')),
-                        $LayerNameSpan = $dataElement.find('span');
-                    $LayerNameSpan.addClass('hidden');
-                    $dataElement.find('input')
-                        .removeClass('hidden')
-                        .select()
-                        .on('keyup', function (e) {
-                            editLayerName(e, $(this), $LayerNameSpan, index);
-                        });
+                    onClickRenameLayer(e);
                 }
             }, {
                 name: 'Zoom to',
                 title: 'Zoom to',
                 fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        $dataElement = $(clickedElement).parent().parent(),
-                        index = Number($dataElement.attr('data-layer-index')),
-                        layerExtent = map.getLayers().item(index).getExtent();
-
-                    zoomToLayer(layerExtent, map.getSize());
+                    onClickZoomToLayer(e);
+                }
+            }, {
+                name: 'Open in HydroShare',
+                title: 'Open in HydroShare',
+                fun: function (e) {
+                    onClickOpenInHS(e);
                 }
             }, {
                 name: 'Delete',
                 title: 'Delete',
                 fun: function (e) {
-                    var clickedElement = e.trigger.context,
-                        count,
-                        $dataElement = $(clickedElement).parent().parent(),
-                        deleteIndex = Number($dataElement.attr('data-layer-index')),
-                        i,
-                        index,
-                        layer;
-
-                    map.getLayers().removeAt(deleteIndex);
-                    $dataElement.remove();
-
-                    count = layerCount.get();
-                    for (i = 3; i <= count; i++) {
-                        layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                        index = Number(layer.attr('data-layer-index'));
-                        if (index > deleteIndex) {
-                            layer.attr('data-layer-index', index - 1);
-                        }
-                    }
+                    onClickDeleteLayer(e);
                 }
             }
         ];
 
-        layersContextMenuVector = layersContextMenuGeneral.slice();
-        layersContextMenuVector.unshift({
+        layersContextMenuShpfile = layersContextMenuGeneral.slice();
+        layersContextMenuShpfile.unshift({
             name: 'View attribute table',
             title: 'View attribute table',
             fun: function (e) {
-                showMainLoadAnim();
-                var clickedElement = e.trigger.context,
-                    $dataElement = $(clickedElement).parent().parent(),
-                    layerName = $dataElement.text(),
-                    layerId = $dataElement.attr('data-layer-id'),
-                    layerAttributes = $dataElement.attr('data-layer-attributes');
-
-                generateAttributeTable(layerId, layerAttributes, layerName);
+                onClickShowAttrTable(e);
             }
         });
+
+        layersContextMenuTimeSeries = layersContextMenuGeneral.slice();
+        layersContextMenuTimeSeries.unshift({
+            name: 'View time series',
+            title: 'View time series',
+            fun: function (e) {
+                var clickedElement = e.trigger.context,
+                    $lyrListItem = $(clickedElement).parent().parent(),
+                    resId = $lyrListItem.attr('data-layer-id');
+
+                window.open('https://appsdev.hydroshare.org/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId);
+            }
+        });
+
+        layersContextMenuNonRes = layersContextMenuGeneral.slice();
+        layersContextMenuNonRes.slice(3, 1);
+
+        contextMenuDict = {
+            'GeographicFeatureResource': layersContextMenuShpfile,
+            'TimeSeriesResource': layersContextMenuTimeSeries,
+            'RefTimeSeriesResource': layersContextMenuTimeSeries,
+            'RasterResource': layersContextMenuGeneral,
+            'None': layersContextMenuNonRes
+        };
     };
 
     initializeMap = function () {
-        // Base Layer options
-        layers = [
-            new ol.layer.Tile({
-                style: 'Road',
-                visible: false,
-                source: new ol.source.MapQuest({layer: 'osm'})
+        var mousePositionControl = new ol.control.MousePosition({
+                coordinateFormat: ol.coordinate.createStringXY(4),
+                projection: 'EPSG:3857',
+                className: 'custom-mouse-position',
+                target: document.getElementById('mouse-position'),
+                undefinedHTML: ''
             }),
+            fullScreenControl = new ol.control.FullScreen();
+
+        // Base Layer options
+        basemapLayers = [
             new ol.layer.Tile({
                 style: 'Aerial',
                 visible: false,
@@ -596,59 +1448,132 @@ var HS_GIS = (function packageHydroShareGIS() {
                         source: new ol.source.MapQuest({layer: 'hyb'})
                     })
                 ]
+            }),
+            new ol.layer.Tile({
+                style: 'Road',
+                visible: false,
+                source: new ol.source.MapQuest({layer: 'osm'})
             })
         ];
 
         map = new ol.Map({
-            layers: layers,
+            layers: basemapLayers,
             target: 'map',
             view: new ol.View({
                 center: [0, 0],
                 zoom: 2
             })
         });
+
+        map.addControl(mousePositionControl);
+        map.addControl(fullScreenControl);
     };
 
-    layerCount = (function () {
-        // The count = 2 accounts for the 3 base maps added before this count is initialized
-        var count = 2;
-        return {
-            'get': function () {
-                return count;
-            },
-            'increase': function () {
-                count += 1;
-            },
-            'decrease': function () {
-                count -= 1;
-            }
-        };
-    }());
+    loadProjectFile = function (fileProjectInfo) {
+        var i,
+            layers = fileProjectInfo.map.layers,
+            numLayers = Object.keys(layers).length,
+            key,
+            $newLayerListItem;
 
-    loadResource = function (res_id, res_type, res_title) {
-        $modalInfo.removeClass('hidden');
+        $('.basemap-option[value="' + fileProjectInfo.map.baseMap + '"]').trigger('click');
+
+        for (i = 1; i <= numLayers; i++) {
+            for (key in layers) {
+                if (layers.hasOwnProperty(key)) {
+                    if (layers[key].listOrder === i) {
+                        addLayerToMap({
+                            lyrExtents: layers[key].extents,
+                            url: fileProjectInfo.map.geoserverUrl + '/wms',
+                            lyrId: layers[key].id,
+                            resType: layers[key].resType,
+                            geomType: layers[key].geomType,
+                            cssStyles: layers[key].cssStyles,
+                            visible: layers[key].visible
+                        });
+                        createLayerListItem('append', layers[key].index, layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
+                        $newLayerListItem = $currentLayersList.find(':last-child');
+                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                        addListenersToListItem($newLayerListItem, layers[key].index);
+                    }
+                }
+            }
+        }
+        drawLayersInListOrder(false);
+        map.getView().setCenter(fileProjectInfo.map.center);
+        map.getView().setZoom(fileProjectInfo.map.zoomLevel);
+
+        $('#chkbx-show-inset-map').prop('checked', fileProjectInfo.map.showInset);
+
+        projectInfo = fileProjectInfo;
+        $('#chkbx-show-inset-map').trigger('change');
+    };
+
+    loadResource = function (resId, resType, resTitle, lastResource, additionalResources) {
+        var $loadResModalInfo = $('#loadres-modal-info');
+        var data = {'res_id': resId};
+
+        if (resType) {
+            data.res_type = resType;
+        }
+        if (resTitle) {
+            data.res_title = resTitle;
+        }
+
+        $loadResModalInfo.removeClass('hidden');
 
         $.ajax({
             type: 'GET',
-            url: 'load-file',
+            url: '/apps/hydroshare-gis/load-file',
             dataType: 'json',
-            data: {
-                'res_id': res_id,
-                'res_type': res_type,
-                'res_title': res_title
-            },
+            data: data,
             error: function () {
-                $modalInfo.addClass('hidden');
-                enableUploadBtn();
+                $loadResModalInfo.addClass('hidden');
+                $('#btn-upload-res').prop('disabled', false);
                 console.error('Failure!');
             },
             success: function (response) {
-                $modalInfo.addClass('hidden');
-                enableUploadBtn();
-                hideMainLoadAnim();
-                addLayerToUI(response);
-                if ($('#chkbx-res-auto-close').is(':checked')) {
-                    $modalLoadRes.modal('hide');
+                $loadResModalInfo.addClass('hidden');
+                $('#btn-upload-res').prop('disabled', false);
+                if (response.hasOwnProperty('error')) {
+                    showResLoadingStatus(false, response.error);
+                    hideMainLoadAnim();
+                } else {
+                    if (response.hasOwnProperty('project_info')) {
+                        loadProjectFile(JSON.parse(response.project_info));
+                        if (additionalResources) {
+                            (function () {
+                                var i;
+                                var length = additionalResources.length;
+                                var resource;
+
+                                for (i = 0; i < length; i++) {
+                                    resource = additionalResources[i];
+                                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                                }
+                            }());
+                        }
+                        if (lastResource) {
+                            hideMainLoadAnim();
+                        }
+                        return;
+                    }
+                    if (additionalResources) {
+                        (function () {
+                            var i;
+                            var length = additionalResources.length;
+                            var resource;
+
+                            for (i = 0; i < length; i++) {
+                                resource = additionalResources[i];
+                                loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                            }
+                        }());
+                    }
+                    addLayerToUI(response, resId, lastResource);
+                    if ($('#chkbx-res-auto-close').is(':checked')) {
+                        $modalLoadRes.modal('hide');
+                    }
                 }
             }
         });
@@ -666,23 +1591,200 @@ var HS_GIS = (function packageHydroShareGIS() {
         redrawDataTable(dataTable, $modal);
     };
 
-    prepareFilesForAjax = function (files) {
-        var file,
-            data = new FormData();
+    onClickAddToExistingProject = function () {
+        var $rdoSelectedProj,
+            resId,
+            resTitle,
+            additionalResources;
 
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                data.append('files', files[file]);
+        showMainLoadAnim();
+        $('#modalAddToProject').modal('hide');
+
+        $rdoSelectedProj = $('.opt-existing-project:checked');
+        resId = $rdoSelectedProj.val();
+        resTitle = $rdoSelectedProj.parent().text();
+        additionalResources = [];
+        $('#ul-resources-to-add').find('li').each(function (ignore, li) {
+            var $li = $(li);
+            additionalResources.push({
+                'id': $li.attr('data-id'),
+                'type': $li.attr('data-type'),
+                'title': $li.attr('data-title')
+            });
+        });
+        loadResource(resId, 'GenericResource', resTitle, false, additionalResources);
+    };
+
+    onClickAddToNewProject = function () {
+        var additionalResources = [];
+        var firstResource;
+
+        showMainLoadAnim();
+        $('#modalAddToProject').modal('hide');
+
+        $('#ul-resources-to-add').find('li').each(function (ignore, li) {
+            var $li = $(li);
+            additionalResources.push({
+                'id': $li.attr('data-id'),
+                'type': $li.attr('data-type'),
+                'title': $li.attr('data-title')
+            });
+        });
+        firstResource = additionalResources.shift();
+        loadResource(firstResource.id, firstResource.type, firstResource.title, (additionalResources.length === 0), additionalResources);
+    };
+
+    onClickDeleteLayer = function (e) {
+        var clickedElement = e.trigger.context,
+            count,
+            $lyrListItem = $(clickedElement).parent().parent(),
+            deleteIndex = Number($lyrListItem.attr('data-layer-index')),
+            i,
+            index,
+            layer;
+
+        map.getLayers().removeAt(deleteIndex);
+        $lyrListItem.remove();
+        delete projectInfo.map.layers[deleteIndex];
+
+        count = layerCount.get();
+        for (i = 3; i <= count; i++) {
+            layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+            index = Number(layer.attr('data-layer-index'));
+            if (index > deleteIndex) {
+                layer.attr('data-layer-index', index - 1);
             }
         }
+    };
+
+    onClickModifySymbology = function (e) {
+        var clickedElement = e.trigger.context,
+            $lyrListItem = $(clickedElement).parent().parent();
+
+        setupSymbologyModalState($lyrListItem);
+        $modalSymbology.modal('show');
+    };
+
+    onClickOpenInHS = function (e) {
+        var clickedElement = e.trigger.context,
+            $lyrListItem = $(clickedElement).parent().parent(),
+            resId = $lyrListItem.attr('data-res-id');
+
+        window.open('https://www.hydroshare.org/resource/' + resId);
+    };
+
+    onClickRenameLayer = function (e) {
+        var clickedElement = e.trigger.context,
+            $lyrListItem = $(clickedElement).parent().parent(),
+            $layerNameInput = $lyrListItem.find('input[type=text]'),
+            $LayerNameSpan = $lyrListItem.find('span'),
+            layerIndex = $lyrListItem.attr('data-layer-index');
+
+        $LayerNameSpan.addClass('hidden');
+        $lyrListItem.find('input')
+            .removeClass('hidden')
+            .select()
+            .on('keyup', function (e) {
+                editLayerName(e, $(this), $LayerNameSpan, layerIndex);
+            })
+            .on('click', function (e) {
+                e.stopPropagation();
+            });
+
+        $(document).on('click.edtLyrNm', function () {
+            closeLyrEdtInpt($LayerNameSpan, $layerNameInput);
+        });
+    };
+
+    onClickSaveProject = function () {
+        $('#save-status')
+            .html('<img src="/static/hydroshare_gis/images/loading-animation.gif"')
+            .removeClass('hidden');
+
+        projectInfo.map.baseMap = $('.selected-basemap-option').attr('value');
+        projectInfo.map.center = map.getView().getCenter();
+        projectInfo.map.zoomLevel = map.getView().getZoom();
+
+        $.ajax({
+            type: 'GET',
+            url: '/apps/hydroshare-gis/save-project',
+            dataType: 'json',
+            contentType: 'json',
+            data: {
+                'projectInfo': JSON.stringify(projectInfo),
+                'resTitle': $('#res-title').val(),
+                'resAbstract': $('#res-abstract').val(),
+                'resKeywords': $('#res-keywords').val()
+            },
+            error: function () {
+                alert('An error occurred while attempting to save the project!');
+            },
+            success: processSaveProjectResponse
+        });
+    };
+
+    onClickShowAttrTable = function (e) {
+        showMainLoadAnim();
+        var clickedElement = e.trigger.context,
+            $lyrListItem = $(clickedElement).parent().parent(),
+            layerName = $lyrListItem.text(),
+            layerId = $lyrListItem.attr('data-layer-id'),
+            layerAttributes = $lyrListItem.attr('data-layer-attributes');
+
+        generateAttributeTable(layerId, layerAttributes, layerName);
+    };
+
+    onClickZoomToLayer = function (e) {
+        var clickedElement,
+            index,
+            layerExtent,
+            resType,
+            $lyrListItem;
+
+        clickedElement = e.trigger.context;
+        $lyrListItem = $(clickedElement).parent().parent();
+        index = Number($lyrListItem.attr('data-layer-index'));
+        resType = $lyrListItem.attr('data-res-type');
+        if (resType.indexOf('TimeSeriesResource') > -1) {
+            layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
+        } else {
+            layerExtent = map.getLayers().item(index).getExtent();
+        }
+
+        zoomToLayer(layerExtent, map.getSize(), resType);
+    };
+
+    prepareFilesForAjax = function (files) {
+        var data = new FormData();
+
+        Object.keys(files).forEach(function (file) {
+            data.append('files', files[file]);
+        });
+
         return data;
+    };
+
+    processSaveProjectResponse = function (response) {
+        if (response.hasOwnProperty('success')) {
+            var resId = response.res_id;
+            $('#save-status')
+                .addClass('success')
+                .html('Save successful. Access resource <a href="https://www.hydroshare.org/resource/' + resId + '">here</a>.');
+        } else if (response.hasOwnProperty('error')) {
+            $('#save-status')
+                .addClass('error')
+                .html(response.error);
+            setTimeout(function () {
+                $('#save-status').addClass('hidden');
+            }, 5000);
+        }
     };
 
     redrawDataTable = function (dataTable, $modal) {
         var interval;
         interval = window.setInterval(function () {
-            if ($modal.css('display') !== 'none') {
-                console.log('good to go');
+            if ($modal.css('display') !== 'none' && $modal.find('table').length > 0) {
+                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 125 + 'px');
                 dataTable.columns.adjust().draw();
                 window.clearInterval(interval);
             }
@@ -718,6 +1820,200 @@ var HS_GIS = (function packageHydroShareGIS() {
         return extents;
     };
 
+    setupSymbologyLabelsState = function (layerCssStyles) {
+        var color;
+
+        $('#chkbx-include-labels').prop('checked', true);
+        $('#label-field').val(layerCssStyles['label-field']);
+        $('#slct-font-size').val(layerCssStyles['font-size']);
+        color = tinycolor(layerCssStyles['font-fill']);
+        color.setAlpha(layerCssStyles['font-fill-opacity']);
+        $('#font-fill').spectrum('set', color);
+    };
+
+    setupSymbologyModalState = function ($lyrListItem) {
+        var geomType = $lyrListItem.attr('data-geom-type'),
+            layerId = $lyrListItem.attr('data-layer-id'),
+            layerIndex = $lyrListItem.attr('data-layer-index'),
+            labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
+            bandInfo = {
+                'min': $lyrListItem.attr('data-band-min'),
+                'max': $lyrListItem.attr('data-band-max'),
+                'nd': $lyrListItem.attr('data-band-nd')
+            },
+            optionsHtmlString = '',
+            layerCssStyles;
+
+        $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $lyrListItem.find('.layer-name').text());
+        $modalSymbology.find('#btn-apply-symbology').attr({
+            'data-geom-type': geomType,
+            'data-layer-id': layerId,
+            'data-layer-index': layerIndex
+        });
+
+        labelFieldOptions.forEach(function (option) {
+            optionsHtmlString += '<option value="' + option + '">' + option + '</option>';
+        });
+        $('#slct-label-field').html(optionsHtmlString);
+
+        $modalSymbology.find('fieldset').addClass('hidden');
+        $('#chkbx-include-outline')
+            .prop('checked', false)
+            .trigger('change');
+        $('#chkbx-include-labels')
+            .prop('checked', false)
+            .trigger('change');
+
+        layerCssStyles = projectInfo.map.layers[layerIndex].cssStyles;
+        if (geomType === 'polygon') {
+            setupSymbologyPolygonState(layerCssStyles);
+        } else if (geomType === 'point') {
+            setupSymbologyPointState(layerCssStyles);
+        } else if (geomType === 'line') {
+            setupSymbologyPolylineState(layerCssStyles);
+        } else if (geomType === 'None') {
+            setupSymbologyRasterState(layerCssStyles, bandInfo);
+        }
+    };
+
+    setupSymbologyPointState = function (layerCssStyles) {
+        var color;
+
+        if (layerCssStyles === "Default") {
+            $('#slct-point-shape').val('square');
+            $('#slct-point-size').val(6);
+            $('#geom-fill').spectrum('set', '#FF0000');
+            $('#symbology-preview')
+                .removeClass()
+                .css({
+                    'height': '6px',
+                    'width': '6px',
+                    'background-color': '#FF0000'
+                });
+        } else {
+            $('#slct-point-shape').val(layerCssStyles['point-shape']);
+            $('#slct-point-size').val(layerCssStyles['point-size']);
+            color = tinycolor(layerCssStyles.fill);
+            color.setAlpha(layerCssStyles['fill-opacity']);
+            $('#geom-fill').spectrum('set', color);
+            $('#symbology-preview')
+                .removeClass()
+                .addClass(layerCssStyles['point-shape'])
+                .css({
+                    'height': layerCssStyles['point-size'] + 'px',
+                    'width': layerCssStyles['point-size'] + '6px',
+                    'background-color': color.toHexString()
+                });
+
+            if (Number(layerCssStyles['stroke-opacity'] > 0)) {
+                setupSymbologyStrokeState(layerCssStyles);
+            }
+
+            if (layerCssStyles.labels) {
+                setupSymbologyLabelsState(layerCssStyles);
+            }
+        }
+        $('.point').removeClass('hidden');
+    };
+
+    setupSymbologyPolygonState = function (layerCssStyles) {
+        var color;
+
+        $('#symbology-preview')
+            .removeClass()
+            .css({
+                'height': '40px',
+                'width': '40px'
+            });
+
+        if (layerCssStyles === "Default") {
+            $('#geom-fill').spectrum('set', '#AAAAAA');
+            $('#symbology-preview').css('background-color', '#AAAAAA');
+            $('#stroke').spectrum('set', '#000000');
+            $('#slct-stroke-width').val(1);
+            $('#chkbx-include-outline')
+                .prop('checked', true)
+                .trigger('change');
+        } else {
+            color = tinycolor(layerCssStyles.fill);
+            color.setAlpha(layerCssStyles['fill-opacity']);
+            $('#geom-fill').spectrum('set', color);
+            $('#symbology-preview').css('background-color', color.toRgbString());
+
+            if (Number(layerCssStyles['stroke-opacity'] > 0)) {
+                setupSymbologyStrokeState(layerCssStyles);
+            }
+
+            if (layerCssStyles.labels) {
+                $('#chkbx-include-labels').prop('checked', true);
+                $('#label-field').val(layerCssStyles['label-field']);
+                $('#slct-font-size').val(layerCssStyles['font-size']);
+                color = tinycolor(layerCssStyles['font-fill']);
+                color.setAlpha(layerCssStyles['font-fill-opacity']);
+                $('#font-fill').spectrum('set', color);
+            }
+        }
+
+        $('.polygon').removeClass('hidden');
+    };
+
+    setupSymbologyPolylineState = function (layerCssStyles) {
+        if (layerCssStyles === "Default") {
+            $('#stroke').spectrum('set', '#0000FF');
+            $('#slct-stroke-width').val(1);
+        } else {
+            setupSymbologyStrokeState(layerCssStyles);
+        }
+        $('.line').removeClass('hidden');
+    };
+
+    setupSymbologyRasterState = function (layerCssStyles, bandInfo) {
+        var colorKeys,
+            color,
+            numKeys,
+            colorMapObj,
+            i,
+            quantitySelector,
+            colorSelector;
+
+        if (layerCssStyles === "Default") {
+            $('#slct-num-colors-in-gradient').trigger('change');
+        } else {
+            colorMapObj = layerCssStyles['color-map'];
+            colorKeys = Object.keys(colorMapObj).sort(function (a, b) {return Number(a) - Number(b); });
+            numKeys = colorKeys.length;
+            $('#slct-num-colors-in-gradient')
+                .val(numKeys)
+                .trigger('change');
+
+            i = 0;
+            colorKeys.forEach(function (quantity) {
+                quantitySelector = '#quantity' + i;
+                colorSelector = '#color' + i;
+                $(quantitySelector).val(quantity);
+                color = tinycolor(colorMapObj[quantity].color);
+                color.setAlpha(colorMapObj[quantity].opacity);
+                $(colorSelector).spectrum('set', color);
+                i += 1;
+            });
+        }
+
+        $('#rast-min-val').text(bandInfo.min);
+        $('#rast-max-val').text(bandInfo.max);
+        $('#rast-nd-val').text(bandInfo.nd);
+        $('.raster').removeClass('hidden');
+    };
+
+    setupSymbologyStrokeState = function (layerCssStyles) {
+        var color;
+
+        $('#chkbx-include-outline').prop('checked', true);
+        color = tinycolor(layerCssStyles.stroke);
+        color.setAlpha(layerCssStyles['stroke-opacity']);
+        $('#stroke').spectrum('set', color);
+        $('#slct-stroke-width').val(layerCssStyles['stroke-width']);
+    };
+
     showMainLoadAnim = function () {
         $('#app-content-wrapper').css({
             '-webkit-filter': 'blur(1px)',
@@ -731,17 +2027,48 @@ var HS_GIS = (function packageHydroShareGIS() {
 
     };
 
+    showResLoadingStatus = function (success, message) {
+        var successClass = success ? 'success' : 'error';
+        var $resLoadingStatus = $('#res-load-status');
+        var $statusText = $('#status-text');
+        var showTime = success ? 2000 : 4000
+        $statusText.text(message)
+            .removeClass('success error')
+            .addClass(successClass);
+        $resLoadingStatus.removeClass('hidden');
+        setTimeout(function () {
+            $resLoadingStatus.addClass('hidden');
+        }, showTime);
+    };
+
     updateProgressBar = function (value) {
         $progressBar.css('width', value);
         $progressText.text(value);
     };
 
+    updateSymbology = function ($this) {
+        var geomType = $this.attr('data-geom-type'),
+            layerId = $this.attr('data-layer-id'),
+            layerIndex = $this.attr('data-layer-index'),
+            sldString,
+            cssStyles;
+
+        cssStyles = getCssStyles(geomType);
+        if (cssStyles === null) {
+            return;
+        }
+        projectInfo.map.layers[layerIndex].cssStyles = cssStyles;
+        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId);
+
+        map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
+    };
+
     updateUploadProgress = function (fileSize, currProg) {
         var progress;
 
-        currProg = currProg === undefined ? 0 : currProg;
+        currProg = currProg || 0;
         if (!fileLoaded) {
-            currProg += 1000000;
+            currProg += 100000;
             progress = Math.round(currProg / fileSize * 100);
             progress = progress > 100 ? 100 : progress;
             updateProgressBar(parseInt(progress, 10) + '%');
@@ -754,63 +2081,63 @@ var HS_GIS = (function packageHydroShareGIS() {
     };
 
     uploadFileButtonHandler = function () {
-        var fileInputNode = $('#input-files')[0],
-            files = fileInputNode.files,
+        var files = $('#input-files')[0].files,
             data,
             fileSize;
 
-        if (!areValidFiles(files)) {
-            console.error("Invalid files. Include only one of the following three cases: 1) 4 files (.shp, .shx, .prj, and .dbf); 2) 1 file (.tif); 3) 1 file (.zip).");
-        } else {
-            $uploadBtn.text('...').attr('disabled', 'true');
-            data = prepareFilesForAjax(files);
-            fileSize = getFilesSize(files);
-            fileLoaded = false;
-            $.ajax({
-                url: 'load-file/',
-                type: 'POST',
-                data: data,
-                dataType: 'json',
-                processData: false,
-                contentType: false,
-                error: function () {
-                    $progressBar.addClass('hidden');
-                    enableUploadBtn();
-                    console.error("Error!");
-                },
-                success: function (response) {
-                    fileLoaded = true;
-                    updateProgressBar('100%');
-                    enableUploadBtn();
-                    addLayerToUI(response);
-                    if ($('#chkbx-file-auto-close').is(':checked')) {
-                        $modalLoadFile.modal('hide');
-                    }
+        $uploadBtn.prop('disabled', true);
+        data = prepareFilesForAjax(files);
+        fileSize = getFilesSize(files);
+        fileLoaded = false;
+        $.ajax({
+            url: '/apps/hydroshare-gis/load-file/',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            processData: false,
+            contentType: false,
+            error: function () {
+                $progressBar.addClass('hidden');
+                $('#btn-upload-file').prop('disabled', false);
+                console.error("Error!");
+            },
+            success: function (response) {
+                fileLoaded = true;
+                updateProgressBar('100%');
+                $('#btn-upload-file').prop('disabled', false);
+                addLayerToUI(response, 'None');
+                if ($('#chkbx-file-auto-close').is(':checked')) {
+                    $modalLoadFile.modal('hide');
                 }
-            });
+            }
+        });
 
-            $emptyBar.removeClass('hidden');
-            $progressBar.removeClass('hidden');
-            $progressText.removeClass('hidden');
-            updateUploadProgress(fileSize);
-        }
+        $emptyBar.removeClass('hidden');
+        $progressBar.removeClass('hidden');
+        $progressText.removeClass('hidden');
+        updateUploadProgress(fileSize);
     };
 
     uploadResourceButtonHandler = function () {
 
-        $uploadBtn.text('...').attr('disabled', 'true');
+        $uploadBtn.prop('disabled', true);
         var $rdoRes = $('.rdo-res:checked'),
             resId = $rdoRes.val(),
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
-        loadResource(resId, resType, resTitle);
+        loadResource(resId, resType, resTitle, true, null);
     };
 
-    zoomToLayer = function (layerExtent, mapSize) {
-        map.getView().fit(layerExtent, mapSize);
-        if (map.getView().getZoom() > 16) {
+    zoomToLayer = function (layerExtent, mapSize, resType) {
+        if (resType.indexOf('TimeSeriesResource') > -1) {
+            map.getView().setCenter(layerExtent);
             map.getView().setZoom(16);
+        } else {
+            map.getView().fit(layerExtent, mapSize);
+            if (map.getView().getZoom() > 16) {
+                map.getView().setZoom(16);
+            }
         }
     };
 
@@ -819,7 +2146,11 @@ var HS_GIS = (function packageHydroShareGIS() {
      ----------------------------------------------*/
 
     $(function () {
-        $('#map').css('height', $('#app-content').height());
+        $('#app-content, #inner-app-content').css('max-height', $(window).height() - 100);
+        $('#map').css({
+            'height': $('#app-content').height(),
+            'max-height': $('#app-content').height()
+        });
         initializeJqueryVariables();
         checkURLForParameters();
         addDefaultBehaviorToAjax();
@@ -829,29 +2160,48 @@ var HS_GIS = (function packageHydroShareGIS() {
 
         $currentLayersList.sortable({
             placeholder: "ui-state-highlight",
-            stop: function () {
-                var i,
-                    index,
-                    layer,
-                    count,
-                    zIndex;
-
-                count = layerCount.get();
-                for (i = 3; i <= count; i++) {
-                    layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                    index = Number(layer.attr('data-layer-index'));
-                    zIndex = count - i;
-                    map.getLayers().item(index).setZIndex(zIndex);
-                }
-            }
+            stop: drawLayersInListOrder
         });
         $currentLayersList.disableSelection();
     });
 
-    $('#modalWelcome').modal('show');
+    if (window.location.pathname.indexOf('add-to-project') > -1) {
+        $('#modalAddToProject').modal('show');
+    } else {
+        $('#modalWelcome').modal('show');
+    }
 
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
+    projectInfo = {
+        'map': {
+            'baseMap': 'None',
+            'showInset': false,
+            'layers': {},
+            'zoomLevel': 2,
+            'center': [0, 0],
+            'geoserverUrl': null
+        }
+    };
+
+    getGeoserverUrl();
+
     generateResourceList();
+
+    layerCount = (function () {
+        // The count = 2 (0-based) accounts for the 3 base maps added before this count is initialized
+        var count = 2;
+        return {
+            'get': function () {
+                return count;
+            },
+            'increase': function () {
+                count += 1;
+            },
+            'decrease': function () {
+                count -= 1;
+            }
+        };
+    }());
 }());

@@ -109,7 +109,8 @@
         zoomToLayer,
     //  **********Query Selectors************
         $btnApplySymbology,
-        $btnShowModalSaveProject,
+        $btnShowModalSaveNewProject,
+        $btnSaveNewProject,
         $btnSaveProject,
         $currentLayersList,
         $emptyBar,
@@ -117,7 +118,7 @@
         $modalAttrTbl,
         $modalLoadFile,
         $modalLoadRes,
-        $modalSaveProject,
+        $modalSaveNewProject,
         $modalSymbology,
         $progressBar,
         $progressText,
@@ -282,6 +283,7 @@
                 resType: resType,
                 visible: true
             };
+            $btnSaveProject.prop('disabled', false);
         } else {
             if (lastResource) {
                 hideMainLoadAnim();
@@ -341,6 +343,37 @@
     };
 
     addInitialEventListeners = function () {
+        $btnSaveProject.on('click', function () {
+            var resId = projectInfo.res_id;
+            if (resId === null) {
+                $modalSaveNewProject.modal('show');
+            } else {
+                showMainLoadAnim();
+
+                projectInfo.map.center = map.getView().getCenter();
+                projectInfo.map.zoomLevel = map.getView().getZoom();
+
+                $.ajax({
+                    type: 'GET',
+                    url: '/apps/hydroshare-gis/save-project',
+                    dataType: 'json',
+                    contentType: 'json',
+                    data: {
+                        res_id: resId,
+                        project_info: JSON.stringify(projectInfo)
+                    },
+                    error: function () {
+                        hideMainLoadAnim();
+                        showResLoadingStatus(false, 'A problem occured while saving. Project not saved.');
+                    },
+                    success: function () {
+                        hideMainLoadAnim();
+                        showResLoadingStatus(true, 'Project saved successfully!');
+                        $btnSaveProject.prop('disabled', true);
+                    }
+                });
+            }
+        });
 
         $('#btn-add-wms').on('click', function () {
             //http://geoserver.byu.edu/arcgis/rest/services/NWC/NWM_Geofabric/MapServer/export?bbox=-101589.77955203337,-1083684.5494424414,-51689.263084333936,-1043361.9687972802&layers=show:0,1,2
@@ -393,14 +426,14 @@
             $('#opts-add-to-existing').toggleClass('hidden');
         });
 
-        $btnSaveProject.on('click', onClickSaveProject);
+        $btnSaveNewProject.on('click', onClickSaveProject);
 
-        $btnShowModalSaveProject.on('click', function () {
-            $modalSaveProject.modal('show');
+        $btnShowModalSaveNewProject.on('click', function () {
+            $modalSaveNewProject.modal('show');
         });
 
         $('#res-title').on('keyup', function () {
-            $btnSaveProject.prop('disabled', $(this).val() === '');
+            $btnSaveNewProject.prop('disabled', $(this).val() === '');
         });
 
         $('.basemap-option').on('click', changeBaseMap);
@@ -410,8 +443,9 @@
             hideProgressBar();
         });
 
-        $modalSaveProject.on('shown.bs.modal', function () {
-            $('#save-status').addClass('hidden');
+        $modalSaveNewProject.on('hidden.bs.modal', function () {
+            $('#footer-info-saveProj').addClass('hidden');
+            $('#res-title').val('');
         });
 
         $('#btn-upload-res').on('click', uploadResourceButtonHandler);
@@ -830,16 +864,18 @@
     };
 
     changeBaseMap = function () {
+        var selectedBaseMap = $(this).attr('value');
+
         $('.current-basemap-label').text('');
         $('.basemap-option').removeClass('selected-basemap-option');
         $(this).addClass('selected-basemap-option');
         $($(this).children()[0]).text(' (Current)');
 
-        var style = $(this).attr('value');
-
         basemapLayers.forEach(function (layer) {
-            layer.set('visible', (layer.get('style') === style));
+            layer.set('visible', (layer.get('style') === selectedBaseMap));
         });
+
+        projectInfo.map.baseMap = selectedBaseMap;
     };
 
 // Find if method is CSRF safe
@@ -947,6 +983,7 @@
             map.getLayers().item(index).setZIndex(zIndex);
             if (modifyProjectInfo) {
                 projectInfo.map.layers[index].listOrder = i - 2;
+                $btnSaveProject.prop('disabled', false);
             }
         }
     };
@@ -1063,6 +1100,7 @@
             layerName = $layerNameInput.val();
             $layerNameSpan.text(layerName);
             projectInfo.map.layers[layerIndex].name = layerName;
+            $btnSaveProject.prop('disabled', false);
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         } else if (e.which === 27) {  // Esc key
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
@@ -1133,6 +1171,8 @@
                 if (numRequests < 5) {
                     numRequests += 1;
                     setTimeout(generateResourceList, 3000, numRequests);
+                } else {
+                    $modalLoadRes.find('.modal-body').html('<div class="error">An unexpected error was encountered while attempting to load resorces.</div>');
                 }
             },
             success: function (response) {
@@ -1335,8 +1375,9 @@
     };
 
     initializeJqueryVariables = function () {
-        $btnShowModalSaveProject = $('#btn-show-modal-save-project');
+        $btnShowModalSaveNewProject = $('#btn-show-modal-save-new-project');
         $btnApplySymbology = $('#btn-apply-symbology');
+        $btnSaveNewProject = $('#btn-save-new-project');
         $btnSaveProject = $('#btn-save-project');
         $currentLayersList = $('#current-layers-list');
         $emptyBar = $('#empty-bar');
@@ -1344,7 +1385,7 @@
         $modalAttrTbl = $('#modalAttrTbl');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadRes = $('#modalLoadRes');
-        $modalSaveProject = $('#modalSaveProject');
+        $modalSaveNewProject = $('#modalSaveNewProject');
         $modalSymbology = $('#modalSymbology');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
@@ -1510,7 +1551,7 @@
     };
 
     loadResource = function (resId, resType, resTitle, lastResource, additionalResources) {
-        var $loadResModalInfo = $('#loadres-modal-info');
+        var $footerInfoAddRes = $('#footer-info-addRes');
         var data = {'res_id': resId};
 
         if (resType) {
@@ -1520,7 +1561,7 @@
             data.res_title = resTitle;
         }
 
-        $loadResModalInfo.removeClass('hidden');
+        $footerInfoAddRes.removeClass('hidden');
 
         $.ajax({
             type: 'GET',
@@ -1528,12 +1569,12 @@
             dataType: 'json',
             data: data,
             error: function () {
-                $loadResModalInfo.addClass('hidden');
+                $footerInfoAddRes.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
                 console.error('Failure!');
             },
             success: function (response) {
-                $loadResModalInfo.addClass('hidden');
+                $footerInfoAddRes.addClass('hidden');
                 $('#btn-upload-res').prop('disabled', false);
                 if (response.hasOwnProperty('error')) {
                     showResLoadingStatus(false, response.error);
@@ -1697,27 +1738,33 @@
     };
 
     onClickSaveProject = function () {
-        $('#save-status')
-            .html('<img src="/static/hydroshare_gis/images/loading-animation.gif"')
-            .removeClass('hidden');
+        var $footerInfoSaveProj = $('#footer-info-saveProj');
 
-        projectInfo.map.baseMap = $('.selected-basemap-option').attr('value');
+        $('#btn-save-project').prop('disabled', true);
+        $footerInfoSaveProj
+            .html('Saving...<img src="/static/hydroshare_gis/images/loading-animation.gif" />')
+            .removeClass('hidden error success');
+
         projectInfo.map.center = map.getView().getCenter();
         projectInfo.map.zoomLevel = map.getView().getZoom();
 
         $.ajax({
             type: 'GET',
-            url: '/apps/hydroshare-gis/save-project',
+            url: '/apps/hydroshare-gis/save-new-project',
             dataType: 'json',
             contentType: 'json',
             data: {
+                'newResource': true,
                 'projectInfo': JSON.stringify(projectInfo),
                 'resTitle': $('#res-title').val(),
                 'resAbstract': $('#res-abstract').val(),
                 'resKeywords': $('#res-keywords').val()
             },
             error: function () {
-                alert('An error occurred while attempting to save the project!');
+                $footerInfoSaveProj
+                    .addClass('error')
+                    .html('An unexpected/unknown error occurred while attempting to save the project!');
+                $('#btn-save-project').prop('disabled', false);
             },
             success: processSaveProjectResponse
         });
@@ -1765,19 +1812,19 @@
     };
 
     processSaveProjectResponse = function (response) {
+        var $footerInfoSaveProj = $('#footer-info-saveProj');
         if (response.hasOwnProperty('success')) {
             var resId = response.res_id;
-            $('#save-status')
+            $footerInfoSaveProj
                 .addClass('success')
-                .html('Save successful. Access resource <a href="https://www.hydroshare.org/resource/' + resId + '">here</a>.');
+                .html('Save successful. Access resource <a target="_blank" href="https://www.hydroshare.org/resource/' + resId + '">here</a>.');
+            projectInfo.res_id = resId;
         } else if (response.hasOwnProperty('error')) {
-            $('#save-status')
+            $footerInfoSaveProj
                 .addClass('error')
                 .html(response.error);
-            setTimeout(function () {
-                $('#save-status').addClass('hidden');
-            }, 5000);
         }
+        $('#btn-save-project').prop('disabled', false);
     };
 
     redrawDataTable = function (dataTable, $modal) {
@@ -2031,7 +2078,7 @@
         var successClass = success ? 'success' : 'error';
         var $resLoadingStatus = $('#res-load-status');
         var $statusText = $('#status-text');
-        var showTime = success ? 2000 : 4000
+        var showTime = success ? 2000 : 4000;
         $statusText.text(message)
             .removeClass('success error')
             .addClass(successClass);
@@ -2175,6 +2222,7 @@
      ***************INVOKE IMMEDIATELY***************
      ----------------------------------------------*/
     projectInfo = {
+        'resId': null,
         'map': {
             'baseMap': 'None',
             'showInset': false,

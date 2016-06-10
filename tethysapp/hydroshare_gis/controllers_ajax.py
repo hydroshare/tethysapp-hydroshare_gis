@@ -277,7 +277,7 @@ def generate_attribute_table(request):
             'feature_properties': dumps(feature_properties)
         })
 
-def save_project(request):
+def save_new_project(request):
     return_json = {}
 
     if request.is_ajax() and request.method == 'GET':
@@ -297,12 +297,12 @@ def save_project(request):
                 res_id = hs.createResource(res_type,
                                            res_title,
                                            resource_file=f,
-                                           resource_filename='mapProj.json',
+                                           resource_filename=fname,
                                            keywords=res_keywords,
                                            abstract=res_abstract
                                            )
 
-            return_json['success'] = 'Resources created successfully.'
+            return_json['success'] = 'Resource created successfully.'
             return_json['res_id'] = res_id
 
         except (ObjectDoesNotExist, TokenExpiredError) as e:
@@ -310,9 +310,38 @@ def save_project(request):
             return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
         except Exception as e:
             print str(e)
-            return_json['error'] = 'HydroShare rejected the upload for some reason.'
+            return_json['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
 
-            return JsonResponse(return_json)
+        return JsonResponse(return_json)
+
+
+def save_project(request):
+    return_json = {}
+    fname = 'mapProject.json'
+
+    if request.is_ajax() and request.method == 'GET':
+        try:
+            get_data = request.GET
+            res_id = get_data['res_id']
+            project_info = loads(get_data['project_info'])
+
+            hs = get_oauth_hs(request)
+            res_id = hs.deleteResourceFile(res_id, fname)
+
+            with TemporaryFile() as f:
+                f.write(dumps(project_info))
+                f.seek(0)
+                hs.addResourceFile(res_id, f, fname)
+            return_json['success'] = 'Resource saved successfully.'
+
+        except (ObjectDoesNotExist, TokenExpiredError) as e:
+            print str(e)
+            return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+        except Exception as e:
+            print str(e)
+            return_json['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
+
+        return JsonResponse(return_json)
 
 
 def ajax_get_geoserver_url(request):

@@ -372,6 +372,28 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
+/*                    LEGEND MODAL                   */
+#modalLegend {
+    right: initial;
+    top: 100px;
+}
+#modalLegend .modal-dialog {
+    position: fixed;
+    top: 70px;
+    bottom: -30px;
+    right: initial;
+    width: 300px;
+}
+#modalLegend .modal-content {
+    border: none;
+    border-radius: 0;
+}
+#img-legend {
+    max-width: 100%;
+}
+/*****************************************************/
+
+/*****************************************************/
 /*                ADD TO PROJECT MODAL               */
 .list-no-bullets {
     list-style: none;
@@ -417,6 +439,10 @@ input[type="radio"] {
 }
 #res-load-status {
     z-index: 2000;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
 }
 #status-text {
     font-size: 16pt;

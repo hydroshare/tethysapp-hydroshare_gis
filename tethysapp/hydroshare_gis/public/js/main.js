@@ -37,9 +37,9 @@
         contextMenuDict,
         dataTableLoadRes,
         insetMap,
-        layersContextMenuGeneral,
-        layersContextMenuNonRes,
-        layersContextMenuShpfile,
+        layersContextMenuBase,
+        layersContextMenuRaster,
+        layersContextMenuVector,
         layersContextMenuTimeSeries,
         layerCount,
         map,
@@ -74,7 +74,7 @@
         hideMainLoadAnim,
         hideProgressBar,
         initializeJqueryVariables,
-        initializeLayersContextMenu,
+        initializeLayersContextMenus,
         initializeMap,
         loadProjectFile,
         loadResource,
@@ -87,6 +87,7 @@
         onClickRenameLayer,
         onClickSaveProject,
         onClickShowAttrTable,
+        onClickViewLegend,
         onClickZoomToLayer,
         prepareFilesForAjax,
         processSaveProjectResponse,
@@ -116,6 +117,7 @@
         $emptyBar,
         $loadingAnimMain,
         $modalAttrTbl,
+        $modalLegend,
         $modalLoadFile,
         $modalLoadRes,
         $modalSaveNewProject,
@@ -213,6 +215,9 @@
                 hideMainLoadAnim();
                 showResLoadingStatus(true, 'Resource(s) added successfully!');
             }
+            if (resId === 'None') {
+                resId = response.res_id;
+            }
             resType = response.res_type;
             if (resType === 'GeographicFeatureResource') {
                 geomType = getGeomType(response.geom_type);
@@ -272,6 +277,7 @@
 
             // Add layer data to project info
             projectInfo.map.layers[layerIndex] = {
+                hsResId: resId,
                 attributes: layerAttributes,
                 cssStyles: cssStyles,
                 extents: layerExtents,
@@ -343,6 +349,10 @@
     };
 
     addInitialEventListeners = function () {
+        $modalLegend.on('shown.bs.modal', function () {
+            $('#img-legend').css('height', $('#img-legend')[0].naturalHeight);
+        });
+
         $btnSaveProject.on('click', function () {
             var resId = projectInfo.res_id;
             if (resId === null) {
@@ -608,11 +618,13 @@
         });
 
         $(window).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function () {
-            $('#map').css({
-                'max-height': 'none',
-                'height': $(window).height(),
-                'width': $(window).width()
-            });
+            if (window.innerHeight === screen.height) {
+                $('#map').css({
+                    'max-height': 'none',
+                    'height': $(window).height(),
+                    'width': $(window).width()
+                });
+            }
         });
 
         $btnApplySymbology.on('click', function () {
@@ -1383,6 +1395,7 @@
         $emptyBar = $('#empty-bar');
         $loadingAnimMain = $('#div-loading');
         $modalAttrTbl = $('#modalAttrTbl');
+        $modalLegend = $('#modalLegend');
         $modalLoadFile = $('#modalLoadFile');
         $modalLoadRes = $('#modalLoadRes');
         $modalSaveNewProject = $('#modalSaveNewProject');
@@ -1392,13 +1405,13 @@
         $uploadBtn = $('.btn-upload');
     };
 
-    initializeLayersContextMenu = function () {
-        layersContextMenuGeneral = [
+    initializeLayersContextMenus = function () {
+        layersContextMenuBase = [
             {
-                name: 'Modify symbology',
-                title: 'Modify symbology',
+                name: 'Open in HydroShare',
+                title: 'Open in HydroShare',
                 fun: function (e) {
-                    onClickModifySymbology(e);
+                    onClickOpenInHS(e);
                 }
             }, {
                 name: 'Rename',
@@ -1413,12 +1426,6 @@
                     onClickZoomToLayer(e);
                 }
             }, {
-                name: 'Open in HydroShare',
-                title: 'Open in HydroShare',
-                fun: function (e) {
-                    onClickOpenInHS(e);
-                }
-            }, {
                 name: 'Delete',
                 title: 'Delete',
                 fun: function (e) {
@@ -1427,8 +1434,23 @@
             }
         ];
 
-        layersContextMenuShpfile = layersContextMenuGeneral.slice();
-        layersContextMenuShpfile.unshift({
+        layersContextMenuRaster = layersContextMenuBase.slice();
+        layersContextMenuRaster.unshift({
+            name: 'Modify symbology',
+            title: 'Modify symbology',
+            fun: function (e) {
+                onClickModifySymbology(e);
+            }
+        }, {
+            name: 'View legend',
+            title: 'View legend',
+            fun: function (e) {
+                onClickViewLegend(e);
+            }
+        });
+
+        layersContextMenuVector = layersContextMenuRaster.slice();
+        layersContextMenuVector.unshift({
             name: 'View attribute table',
             title: 'View attribute table',
             fun: function (e) {
@@ -1436,7 +1458,7 @@
             }
         });
 
-        layersContextMenuTimeSeries = layersContextMenuGeneral.slice();
+        layersContextMenuTimeSeries = layersContextMenuBase.slice();
         layersContextMenuTimeSeries.unshift({
             name: 'View time series',
             title: 'View time series',
@@ -1449,15 +1471,11 @@
             }
         });
 
-        layersContextMenuNonRes = layersContextMenuGeneral.slice();
-        layersContextMenuNonRes.slice(3, 1);
-
         contextMenuDict = {
-            'GeographicFeatureResource': layersContextMenuShpfile,
+            'GeographicFeatureResource': layersContextMenuVector,
             'TimeSeriesResource': layersContextMenuTimeSeries,
             'RefTimeSeriesResource': layersContextMenuTimeSeries,
-            'RasterResource': layersContextMenuGeneral,
-            'None': layersContextMenuNonRes
+            'RasterResource': layersContextMenuBase
         };
     };
 
@@ -1707,11 +1725,17 @@
     };
 
     onClickOpenInHS = function (e) {
-        var clickedElement = e.trigger.context,
-            $lyrListItem = $(clickedElement).parent().parent(),
-            resId = $lyrListItem.attr('data-res-id');
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var resId = $lyrListItem.attr('data-res-id');
+        var urlBase;
 
-        window.open('https://www.hydroshare.org/resource/' + resId);
+        if (window.location.hostname === 'apps.hydroshare.org') {
+            urlBase = 'https://www.hydroshare.org/resource/';
+        } else {
+            urlBase = 'https://playground.hydroshare.org/resource/';
+        }
+        window.open(urlBase + resId);
     };
 
     onClickRenameLayer = function (e) {
@@ -1779,6 +1803,29 @@
             layerAttributes = $lyrListItem.attr('data-layer-attributes');
 
         generateAttributeTable(layerId, layerAttributes, layerName);
+    };
+
+    onClickViewLegend = function (e) {
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var layerId = $lyrListItem.attr('data-layer-id');
+        var layerIndex = $lyrListItem.attr('data-layer-index');
+        var layerName = $lyrListItem.text();
+        var cssStyles = projectInfo.map.layers[layerIndex].cssStyles;
+        var geoserverUrl = projectInfo.map.geoserverUrl;
+        var imageUrl =  geoserverUrl + '/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=75&HEIGHT=75&LAYER=' + layerId;
+
+        imageUrl += '&LEGEND_OPTIONS=forceRule:True;fontStyle:bold;fontSize:14';
+        if (cssStyles !== 'Default') {
+            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, 'None', layerId, true));
+        }
+        $('#img-legend').attr('src', imageUrl);
+
+        if (layerName.length >= 11) {
+            layerName = layerName.slice(0, 11) + '...';
+        }
+        $modalLegend.find('.modal-title').text(layerName);
+        $modalLegend.modal('show');
     };
 
     onClickZoomToLayer = function (e) {
@@ -2152,7 +2199,7 @@
                 fileLoaded = true;
                 updateProgressBar('100%');
                 $('#btn-upload-file').prop('disabled', false);
-                addLayerToUI(response, 'None');
+                addLayerToUI(response, 'None', true);
                 if ($('#chkbx-file-auto-close').is(':checked')) {
                     $modalLoadFile.modal('hide');
                 }
@@ -2202,7 +2249,7 @@
         checkURLForParameters();
         addDefaultBehaviorToAjax();
         initializeMap();
-        initializeLayersContextMenu();
+        initializeLayersContextMenus();
         addInitialEventListeners();
 
         $currentLayersList.sortable({

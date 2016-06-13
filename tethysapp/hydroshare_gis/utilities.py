@@ -1,4 +1,4 @@
-from hs_restclient import HydroShare, HydroShareAuthOAuth2, HydroShareAuthBasic
+from hs_restclient import HydroShare, HydroShareAuthOAuth2
 from django.http import JsonResponse
 from django.conf import settings
 from tethys_sdk.services import get_spatial_dataset_engine
@@ -16,16 +16,18 @@ workspace_id = 'hydroshare_gis'
 
 
 def get_oauth_hs(request):
-    hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+    try:
+        hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
 
-    client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
-    client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
+        client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
+        client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
 
-    # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
-    token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
-    auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
-
-    return HydroShare(auth=auth, hostname=hs_hostname)
+        # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
+        token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
+        auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
+        return HydroShare(auth=auth, hostname=hs_hostname)
+    except ObjectDoesNotExist:
+        return None
 
 
 def get_json_response(response_type, message):
@@ -229,15 +231,14 @@ def request_wfs_info(params):
 
     return r
 
-def get_hs_object(request):
-    try:
-        hs = get_oauth_hs(request)
-    except ObjectDoesNotExist as e:
-        print str(e)
-        auth = HydroShareAuthBasic(username='scrawley', password='rebound1')
-        hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
-        hs = HydroShare(hostname=hs_hostname, auth=auth)
-    return hs
+# def get_hs_object(request):
+#     try:
+#         hs = get_oauth_hs(request)
+#     except ObjectDoesNotExist as e:
+#         print str(e)
+#         hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+#         hs = HydroShare(hostname=hs_hostname)
+#     return hs
 
 
 def get_band_info(hs, res_id):

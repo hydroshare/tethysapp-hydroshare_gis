@@ -73,7 +73,9 @@ def load_file(request):
                 res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name)
 
         if res_type is not None:
-            hs = get_hs_object(request)
+            hs = get_oauth_hs(request)
+            if hs is None:
+                return get_json_response('error', 'Please sign in with your HydroShare account to access this feature.')
             abstract = 'This resource was created while using the HydroShare GIS App.'
             res_id = hs.createResource(
                 'GenericResource',
@@ -90,7 +92,10 @@ def load_file(request):
         try:
             res_id = request.GET['res_id']
 
-            hs = get_hs_object(request)
+            hs = get_oauth_hs(request)
+            if hs is None:
+                raise ObjectDoesNotExist
+
             md = hs.getSystemMetadata(res_id)
 
             res_type = request.GET['res_type'] if request.GET.get('res_type') else md['resource_type']
@@ -242,33 +247,37 @@ def get_hs_res_list(request):
         #     print "Store %s deleted" % store
 
         resources_list = []
+        try:
+            hs = get_oauth_hs(request)
+            if hs is None:
+                raise ObjectDoesNotExist
 
-        hs = get_hs_object(request)
+            types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
 
-        types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
+            for resource in hs.getResourceList(types=types):
 
-        for resource in hs.getResourceList(types=types):
+                res_id = resource['resource_id']
+                res_size = 0
 
-            res_id = resource['resource_id']
-            res_size = 0
+                try:
+                    for res_file in hs.getResourceFileList(res_id):
+                        res_size += res_file['size']
 
-            try:
-                for res_file in hs.getResourceFileList(res_id):
-                    res_size += res_file['size']
+                except Exception as e:
+                    print str(e)
+                    continue
 
-            except Exception as e:
-                print str(e)
-                continue
+                resources_list.append({
+                    'title': resource['resource_title'],
+                    'type': resource['resource_type'],
+                    'id': res_id,
+                    'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
+                    'owner': resource['creator']
+                })
 
-            resources_list.append({
-                'title': resource['resource_title'],
-                'type': resource['resource_type'],
-                'id': res_id,
-                'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
-                'owner': resource['creator']
-            })
-
-        resources_json = dumps(resources_list)
+            resources_json = dumps(resources_list)
+        except ObjectDoesNotExist:
+            return get_json_response('error', 'Please sign in using your HydroShare account to access this feature.')
 
         return JsonResponse({
             'success': 'Resources obtained successfully.',

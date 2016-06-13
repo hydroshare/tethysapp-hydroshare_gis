@@ -1191,7 +1191,9 @@
                 var resources,
                     resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
 
-                if (response.hasOwnProperty('success')) {
+                if (!response.hasOwnProperty('success')) {
+                    $modalLoadRes.find('.modal-body').html('<div class="error">' + response.error + '</div>');
+                } else {
                     if (response.hasOwnProperty('resources')) {
                         resources = JSON.parse(response.resources);
                         resources.forEach(function (resource) {

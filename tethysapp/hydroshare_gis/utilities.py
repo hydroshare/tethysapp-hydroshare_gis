@@ -16,8 +16,9 @@ workspace_id = 'hydroshare_gis'
 
 
 def get_oauth_hs(request):
+    hs = None
+    hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
     try:
-        hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
 
         client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
         client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
@@ -25,9 +26,12 @@ def get_oauth_hs(request):
         # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
         token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
         auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
-        return HydroShare(auth=auth, hostname=hs_hostname)
+        hs = HydroShare(auth=auth, hostname=hs_hostname)
     except ObjectDoesNotExist:
-        return None
+        if '127.0.0.1' in request.get_host():
+            hs = HydroShare(hostname=hs_hostname)
+
+    return hs
 
 
 def get_json_response(response_type, message):

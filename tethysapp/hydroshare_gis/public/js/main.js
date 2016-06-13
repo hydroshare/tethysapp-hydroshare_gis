@@ -1477,7 +1477,7 @@
             'GeographicFeatureResource': layersContextMenuVector,
             'TimeSeriesResource': layersContextMenuTimeSeries,
             'RefTimeSeriesResource': layersContextMenuTimeSeries,
-            'RasterResource': layersContextMenuBase
+            'RasterResource': layersContextMenuRaster
         };
     };
 
@@ -1810,6 +1810,7 @@
     onClickViewLegend = function (e) {
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
+        var geomType = $lyrListItem.attr('data-geom-type');
         var layerId = $lyrListItem.attr('data-layer-id');
         var layerIndex = $lyrListItem.attr('data-layer-index');
         var layerName = $lyrListItem.text();
@@ -1819,7 +1820,7 @@
 
         imageUrl += '&LEGEND_OPTIONS=forceRule:True;fontStyle:bold;fontSize:14';
         if (cssStyles !== 'Default') {
-            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, 'None', layerId, true));
+            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, true));
         }
         $('#img-legend').attr('src', imageUrl);
 

@@ -951,9 +951,9 @@
                 'data-res-type="' + resType + '" ' +
                 'data-geom-type="' + geomType + '" ' +
                 'data-layer-attributes="' + layerAttributes + '" ' +
-                'data-band-min="' + bandInfo.min + '" ' +
-                'data-band-max="' + bandInfo.max + '" ' +
-                'data-band-nd="' + bandInfo.nd + '">' +
+                'data-band-min="' + (bandInfo ? bandInfo.min : undefined) + '" ' +
+                'data-band-max="' + (bandInfo ? bandInfo.max : undefined) + '" ' +
+                'data-band-nd="' + (bandInfo ? bandInfo.nd : undefined) + '">' +
                 '<input class="chkbx-layer" type="checkbox">' +
                 '<span class="layer-name">' + layerName + '</span>' +
                 '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +

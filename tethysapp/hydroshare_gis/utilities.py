@@ -16,23 +16,29 @@ workspace_id = 'hydroshare_gis'
 
 
 def get_oauth_hs(request):
+    hs = None
     hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+    try:
 
-    client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
-    client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
+        client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
+        client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
 
-    # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
-    token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
-    auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
+        # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
+        token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
+        auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
+        hs = HydroShare(auth=auth, hostname=hs_hostname)
+    except ObjectDoesNotExist:
+        if '127.0.0.1' in request.get_host():
+            hs = HydroShare(hostname=hs_hostname)
 
-    return HydroShare(auth=auth, hostname=hs_hostname)
+    return hs
 
 
 def get_json_response(response_type, message):
     return JsonResponse({response_type: message})
 
 
-def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
+def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic, try_again=True):
     global workspace_id
     result = None
 
@@ -42,6 +48,11 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
     full_store_id = '%s:%s' % (workspace_id, store_id)
 
     if res_type == 'RasterResource':
+        print 'res_id: %s' % res_id
+        print 'res_type: %s' % res_type
+        print 'res_file: %s' % res_file
+        print 'is_zip: %s' % is_zip
+        print 'is_mosaic: %s' % is_mosaic
         coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
         result = engine.create_coverage_resource(store_id=full_store_id,
                                                  coverage_file=res_file,
@@ -65,11 +76,33 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
     # Check if it was successful
     if result:
         if not result['success']:
-            raise Exception()
+            if 'already exists in namespace' in result['error'] and try_again and type(res_file) is unicode:
+                if os.path.exists(res_file):
+                    dir_name = os.path.dirname(res_file)
+                    file_name = os.path.basename(res_file)
+                    file_parts = os.path.splitext(file_name)
+                    new_file_name = file_parts[0] + '(1)' + file_parts[1]
+                    new_file_path = os.path.join(dir_name, new_file_name)
+                    os.rename(res_file, new_file_path)
+                    return upload_file_to_geoserver(res_id, res_type, new_file_path, is_zip, is_mosaic, False)
+            else:
+                return {
+                    'success': False,
+                    'message': result['error']
+                }
         else:
             layer_name = engine.list_resources(store=store_id)['result'][0]
             layer_id = '%s:%s' % (workspace_id, layer_name)
-            return layer_name, layer_id
+            return {
+                'success': True,
+                'layer_name': layer_name,
+                'layer_id': layer_id
+            }
+    else:
+        return {
+            'success': False,
+            'message': 'Upload to geoserver failed for some reason.'
+        }
 
 
 def make_file_zipfile(res_files, filename, zip_path):
@@ -115,9 +148,7 @@ def get_layer_extents_and_attributes(res_id, layer_name, res_type):
         url = geoserver_url + '/rest/workspaces/hydroshare_gis/coveragestores/res_' + res_id + \
               '/coverages/' + layer_name + '.json'
 
-    username = 'admin'
-    password = 'geoserver' if 'appsdev' in geoserver_url else 'hydroshare'
-    r = requests.get(url, auth=(username, password))
+    r = requests.get(url, auth=get_credentials(geoserver_url))
     json = r.json()
 
     if res_type == 'GeographicFeatureResource':
@@ -197,23 +228,21 @@ def sizeof_fmt(num, suffix='B'):
 
 
 def request_wfs_info(params):
-    url = get_geoserver_url()
-    url += '/wfs'
+    geoserver_url = get_geoserver_url()
+    geoserver_url += '/wfs'
 
-    username = 'admin'
-    password = 'geoserver'
-    r = requests.get(url, params=params, auth=(username, password))
+    r = requests.get(geoserver_url, params=params, auth=get_credentials(geoserver_url))
 
     return r
 
-def get_hs_object(request):
-    try:
-        hs = get_oauth_hs(request)
-    except ObjectDoesNotExist as e:
-        print str(e)
-        hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
-        hs = HydroShare(hostname=hs_hostname)
-    return hs
+# def get_hs_object(request):
+#     try:
+#         hs = get_oauth_hs(request)
+#     except ObjectDoesNotExist as e:
+#         print str(e)
+#         hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+#         hs = HydroShare(hostname=hs_hostname)
+#     return hs
 
 
 def get_band_info(hs, res_id):
@@ -230,3 +259,8 @@ def get_band_info(hs, res_id):
         band_info = None
     return band_info
 
+
+def get_credentials(geoserver_url):
+    username = 'admin'
+    password = 'geoserver' if 'appsdev' in geoserver_url else 'hydroshare'
+    return (username, password)

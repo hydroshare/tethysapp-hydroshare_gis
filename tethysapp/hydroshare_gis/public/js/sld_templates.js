@@ -97,7 +97,7 @@ var SLD_TEMPLATES = (function () {
         return geometry.slice(0, insertionIndex) + labels + geometry.slice(insertionIndex);
     };
 
-    populateValues = function (rawSldString, cssStyles) {
+    populateValues = function (rawSldString, cssStyles, forLegend) {
         var colorMap,
             colorMapXml = '',
             sldString = rawSldString;
@@ -113,7 +113,9 @@ var SLD_TEMPLATES = (function () {
                 };
                 // END TEMPFIX
                 Object.keys(colorMap).sort(function (a, b) {return Number(a) - Number(b); }).forEach(function (quantity) {
-                    colorMapXml += '<ColorMapEntry color="' + colorMap[quantity].color + '" quantity="' + quantity + '" opacity="' + colorMap[quantity]['opacity'] + '"/>';
+                    if (!(forLegend && quantity === '255')) {
+                        colorMapXml += '<ColorMapEntry color="' + colorMap[quantity].color + '" quantity="' + quantity + '" opacity="' + colorMap[quantity].opacity + '"/>';
+                    }
                 });
                 sldString = sldString.replace('{{' + style + '}}', colorMapXml);
             }
@@ -130,8 +132,9 @@ var SLD_TEMPLATES = (function () {
     };
 
     return {
-        getSldString: function (cssStyles, geomType, layerId) {
+        getSldString: function (cssStyles, geomType, layerId, forLegend) {
             var rawSldString;
+            var sldString;
 
             cssStyles['layer-id'] = layerId;
 
@@ -140,7 +143,11 @@ var SLD_TEMPLATES = (function () {
             } else {
                 rawSldString = geomTypeDict[geomType];
             }
-            return populateValues(rawSldString, cssStyles);
+            sldString = populateValues(rawSldString, cssStyles, forLegend);
+
+            delete cssStyles['layer-id'];
+
+            return sldString;
         }
     };
 }());

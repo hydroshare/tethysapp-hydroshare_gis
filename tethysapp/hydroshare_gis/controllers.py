@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
-from utilities import get_hs_object
+from utilities import get_oauth_hs
 
 
 @login_required()
@@ -48,7 +48,7 @@ def add_to_project(request):
 
     if request.GET.get('res_ids'):
         res_ids = request.GET['res_ids'].split(',')
-        hs = get_hs_object(request)
+        hs = get_oauth_hs(request)
 
         for res_id in res_ids:
             try:

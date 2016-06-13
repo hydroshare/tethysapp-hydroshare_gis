@@ -19,7 +19,6 @@ def load_file(request):
     :returns JsonResponse: a JSON formatted response containing success value and GeoJSON object if successful
     """
     global hs_tempdir
-    res_id = None
     res_type = None
     res_title = None
     res_filepath_or_obj = None
@@ -38,16 +37,17 @@ def load_file(request):
 
     if request.is_ajax() and request.method == 'POST':
         file_list = request.FILES.getlist('files')
-
+        file_name = None
         for f in file_list:
             file_name = f.name
             if file_name.endswith('.shp'):
-                res_id = str(file_name[:-4].__hash__())
+                # res_id = str(file_name[:-4].__hash__())
                 res_type = 'GeographicFeatureResource'
                 res_filepath_or_obj = file_list
                 break
             elif file_name.endswith('.tif'):
-                res_id = str(file_name[:-4].__hash__())
+                # res_id = str(file_name[:-4].__hash__())
+                res_id = 'temp_id'
                 res_type = 'RasterResource'
                 res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
                 make_file_zipfile(f, file_name, res_filepath_or_obj)
@@ -72,11 +72,30 @@ def load_file(request):
                 os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
                 res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name)
 
+        if res_type is not None:
+            hs = get_oauth_hs(request)
+            if hs is None:
+                return get_json_response('error', 'Please sign in with your HydroShare account to access this feature.')
+            abstract = 'This resource was created while using the HydroShare GIS App.'
+            res_id = hs.createResource(
+                'GenericResource',
+                os.path.splitext(file_name)[0],
+                resource_file=res_filepath_or_obj if res_type == 'RasterResource' else file_list,
+                resource_filename=file_name,
+                abstract=abstract)
+        else:
+            return JsonResponse({
+                'error': 'Zipfile did not contain valid files.'
+            })
+
     elif request.is_ajax() and request.method == 'GET':
         try:
             res_id = request.GET['res_id']
 
-            hs = get_hs_object(request)
+            hs = get_oauth_hs(request)
+            if hs is None:
+                raise ObjectDoesNotExist
+
             md = hs.getSystemMetadata(res_id)
 
             res_type = request.GET['res_type'] if request.GET.get('res_type') else md['resource_type']
@@ -128,18 +147,22 @@ def load_file(request):
                     for file_name in os.listdir(res_contents_dir):
                         if file_name.endswith('.shp'):
                             res_filepath_or_obj = os.path.join(res_contents_dir, file_name[:-4])
+                            if res_type == 'GenericResource':
+                                res_type = 'GeographicFeatureResource'
                             break
                         if file_name.endswith('.sqlite'):
                             site_info = extract_site_info_from_time_series(os.path.join(res_contents_dir, file_name))
                             layer_name = res_title
                             break
-                        if file_name.endswith('.json'):
+                        if file_name == 'mapProject.json':
                             res_filepath_or_obj = os.path.join(res_contents_dir, file_name)
                             break
                         if file_name.endswith('.vrt') or file_name.endswith('.tif'):
                             if file_name.endswith('.vrt'):
                                 is_mosaic = True
                             coverage_files.append(os.path.join(res_contents_dir, file_name))
+                            if res_type == 'GenericResource':
+                                res_type = 'RasterResource'
 
                     if coverage_files:
                         res_filepath_or_obj = os.path.join(res_contents_dir, store_id + '.zip')
@@ -170,17 +193,26 @@ def load_file(request):
     else:
         return get_json_response('error', 'Invalid request made.')
 
-    if res_type == 'GenericResource' and res_filepath_or_obj and res_filepath_or_obj.endswith('.json'):
-        with open(res_filepath_or_obj) as project_file:
-            project_info = project_file.read()
+    if res_type == 'GenericResource':
+        if res_filepath_or_obj and res_filepath_or_obj.endswith('mapProject.json'):
+            with open(res_filepath_or_obj) as project_file:
+                project_info = project_file.read()
 
-        return JsonResponse({
-            'success': 'Files uploaded successfully.',
-            'project_info': project_info
-        })
+            return JsonResponse({
+                'success': 'Files uploaded successfully.',
+                'project_info': project_info
+            })
+        else:
+            return get_json_response('error', 'This resource does not contain content that HydroShare GIS can display.')
 
     if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
-        layer_name, layer_id = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip, is_mosaic)
+
+        response = upload_file_to_geoserver(res_id, res_type, res_filepath_or_obj, is_zip, is_mosaic)
+        if response['success']:
+            layer_name = response['layer_name']
+            layer_id = response['layer_id']
+        else:
+            return get_json_response('error', response['message'])
         layer_extents, layer_attributes, geom_type = get_layer_extents_and_attributes(res_id, layer_name, res_type)
 
         if layer_name and 'res_' in layer_name:
@@ -215,33 +247,37 @@ def get_hs_res_list(request):
         #     print "Store %s deleted" % store
 
         resources_list = []
+        try:
+            hs = get_oauth_hs(request)
+            if hs is None:
+                raise ObjectDoesNotExist
 
-        hs = get_hs_object(request)
+            types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
 
-        types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
+            for resource in hs.getResourceList(types=types):
 
-        for resource in hs.getResourceList(types=types):
+                res_id = resource['resource_id']
+                res_size = 0
 
-            res_id = resource['resource_id']
-            res_size = 0
+                try:
+                    for res_file in hs.getResourceFileList(res_id):
+                        res_size += res_file['size']
 
-            try:
-                for res_file in hs.getResourceFileList(res_id):
-                    res_size += res_file['size']
+                except Exception as e:
+                    print str(e)
+                    continue
 
-            except Exception as e:
-                print str(e)
-                continue
+                resources_list.append({
+                    'title': resource['resource_title'],
+                    'type': resource['resource_type'],
+                    'id': res_id,
+                    'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
+                    'owner': resource['creator']
+                })
 
-            resources_list.append({
-                'title': resource['resource_title'],
-                'type': resource['resource_type'],
-                'id': res_id,
-                'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
-                'owner': resource['creator']
-            })
-
-        resources_json = dumps(resources_list)
+            resources_json = dumps(resources_list)
+        except ObjectDoesNotExist:
+            return get_json_response('error', 'Please sign in using your HydroShare account to access this feature.')
 
         return JsonResponse({
             'success': 'Resources obtained successfully.',
@@ -279,6 +315,7 @@ def generate_attribute_table(request):
 
 def save_new_project(request):
     return_json = {}
+    fname = 'mapProject.json'
 
     if request.is_ajax() and request.method == 'GET':
         try:

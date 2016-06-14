@@ -1701,7 +1701,7 @@
             deleteIndex = Number($lyrListItem.attr('data-layer-index')),
             i,
             index,
-            maxIndexBefore,
+            maxLyrIndxBfrDel,
             layer;
 
         var updateLayerIndex = function (startIndex, endIndex) {
@@ -1712,11 +1712,11 @@
             delete projectInfo.map.layers[endIndex];
         };
 
+        maxLyrIndxBfrDel = layerCount.get();
         map.getLayers().removeAt(deleteIndex);
         $lyrListItem.remove();
-        maxIndexBefore = layerCount.get();
         delete projectInfo.map.layers[deleteIndex];
-        updateLayerIndex(deleteIndex, maxIndexBefore);
+        updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
 
         count = layerCount.get();
         for (i = 3; i <= count; i++) {

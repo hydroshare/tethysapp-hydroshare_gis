@@ -1701,11 +1701,22 @@
             deleteIndex = Number($lyrListItem.attr('data-layer-index')),
             i,
             index,
+            maxIndexBefore,
             layer;
+
+        var updateLayerIndex = function (startIndex, endIndex) {
+            for (i = startIndex; i < endIndex; i++) {
+                projectInfo.map.layers[i] = projectInfo.map.layers[i + 1];
+                projectInfo.map.layers[startIndex].index = i;
+            }
+            delete projectInfo.map.layers[endIndex];
+        };
 
         map.getLayers().removeAt(deleteIndex);
         $lyrListItem.remove();
+        maxIndexBefore = layerCount.get();
         delete projectInfo.map.layers[deleteIndex];
+        updateLayerIndex(deleteIndex, maxIndexBefore);
 
         count = layerCount.get();
         for (i = 3; i <= count; i++) {

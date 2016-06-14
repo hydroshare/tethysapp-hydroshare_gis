@@ -1707,7 +1707,7 @@
         var updateLayerIndex = function (startIndex, endIndex) {
             for (i = startIndex; i < endIndex; i++) {
                 projectInfo.map.layers[i] = projectInfo.map.layers[i + 1];
-                projectInfo.map.layers[startIndex].index = i;
+                projectInfo.map.layers[i].index = i;
             }
             delete projectInfo.map.layers[endIndex];
         };

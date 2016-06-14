@@ -267,14 +267,6 @@
 
             layerIndex = layerCount.get();
 
-            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
-            $newLayerListItem = $currentLayersList.find(':first-child');
-            addContextMenuToListItem($newLayerListItem, resType);
-            addListenersToListItem($newLayerListItem, layerIndex);
-
-            drawLayersInListOrder(false); // Must be called after creating the new layer list item
-            zoomToLayer(layerExtents, map.getSize(), resType);
-
             // Add layer data to project info
             projectInfo.map.layers[layerIndex] = {
                 hsResId: resId,
@@ -289,6 +281,15 @@
                 resType: resType,
                 visible: true
             };
+
+            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
+            $newLayerListItem = $currentLayersList.find(':first-child');
+            addContextMenuToListItem($newLayerListItem, resType);
+            addListenersToListItem($newLayerListItem, layerIndex);
+
+            drawLayersInListOrder(); // Must be called after creating the new layer list item
+            zoomToLayer(layerExtents, map.getSize(), resType);
+
             $btnSaveProject.prop('disabled', false);
         } else {
             if (lastResource) {
@@ -418,7 +419,7 @@
             addContextMenuToListItem($newLayerListItem, 'RasterResource');
             addListenersToListItem($newLayerListItem, layerIndex);
 
-            drawLayersInListOrder(false); // Must be called after creating the new layer list item
+            drawLayersInListOrder(); // Must be called after creating the new layer list item
             $('#modalAddWMS').modal('hide');
             $('#wms-url').val('');
         });
@@ -980,7 +981,7 @@
         }, 7000);
     };
 
-    drawLayersInListOrder = function (modifyProjectInfo) {
+    drawLayersInListOrder = function () {
         var i,
             index,
             layer,
@@ -993,10 +994,8 @@
             index = Number(layer.attr('data-layer-index'));
             zIndex = count - i;
             map.getLayers().item(index).setZIndex(zIndex);
-            if (modifyProjectInfo) {
-                projectInfo.map.layers[index].listOrder = i - 2;
-                $btnSaveProject.prop('disabled', false);
-            }
+            projectInfo.map.layers[index].listOrder = i - 2;
+            $btnSaveProject.prop('disabled', false);
         }
     };
 
@@ -1537,9 +1536,11 @@
             key,
             $newLayerListItem;
 
+        projectInfo = fileProjectInfo;
+
         $('.basemap-option[value="' + fileProjectInfo.map.baseMap + '"]').trigger('click');
 
-        for (i = 1; i <= numLayers; i++) {
+        for (i = 3; i <= numLayers; i++) {
             for (key in layers) {
                 if (layers.hasOwnProperty(key)) {
                     if (layers[key].listOrder === i) {
@@ -1552,7 +1553,7 @@
                             cssStyles: layers[key].cssStyles,
                             visible: layers[key].visible
                         });
-                        createLayerListItem('append', layers[key].index, layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
+                        createLayerListItem('append', layerCount.get(), layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
                         $newLayerListItem = $currentLayersList.find(':last-child');
                         addContextMenuToListItem($newLayerListItem, layers[key].resType);
                         addListenersToListItem($newLayerListItem, layers[key].index);
@@ -1560,13 +1561,11 @@
                 }
             }
         }
-        drawLayersInListOrder(false);
+        drawLayersInListOrder();
         map.getView().setCenter(fileProjectInfo.map.center);
         map.getView().setZoom(fileProjectInfo.map.zoomLevel);
 
         $('#chkbx-show-inset-map').prop('checked', fileProjectInfo.map.showInset);
-
-        projectInfo = fileProjectInfo;
         $('#chkbx-show-inset-map').trigger('change');
     };
 

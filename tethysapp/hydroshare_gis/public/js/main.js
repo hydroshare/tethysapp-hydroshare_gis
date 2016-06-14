@@ -1540,7 +1540,7 @@
 
         $('.basemap-option[value="' + fileProjectInfo.map.baseMap + '"]').trigger('click');
 
-        for (i = 3; i <= numLayers; i++) {
+        for (i = 1; i <= numLayers; i++) {
             for (key in layers) {
                 if (layers.hasOwnProperty(key)) {
                     if (layers[key].listOrder === i) {

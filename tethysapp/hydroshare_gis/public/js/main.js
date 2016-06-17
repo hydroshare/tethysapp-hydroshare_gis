@@ -914,7 +914,7 @@
 
         params = getSearchParameters();
 
-        if (params.res_id !== undefined || params.res_id !== null) {
+        if (!(params.res_id === undefined || params.res_id === null)) {
             showMainLoadAnim();
             loadResource(params.res_id, null, null, true, null);
         }

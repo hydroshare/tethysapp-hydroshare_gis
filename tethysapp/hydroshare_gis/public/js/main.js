@@ -532,7 +532,7 @@
 
         $('#geom-fill').spectrum({
             showInput: true,
-            allowEmpty: true,
+            allowEmpty: false,
             showAlpha: true,
             showPalette: true,
             chooseText: "Choose",
@@ -542,29 +542,25 @@
                     size,
                     geomType;
 
-                if (color === null) {
-                    $btnApplySymbology.prop('disabled', true);
-                    return;
+                if (color) {
+                    color = color.toRgbString();
+                    geomType = $btnApplySymbology.attr('data-geom-type');
+
+                    if (geomType === 'point') {
+                        shape = $('#slct-point-shape').val();
+                        size = $('#slct-point-size').val();
+
+                        drawPointSymbologyPreview(shape, size, color);
+                    } else if (geomType === 'polygon') {
+                        drawPointSymbologyPreview('square', 40, color);
+                    }
                 }
-
-                color = color.toRgbString();
-                geomType = $('#btn-apply-symbology').attr('data-geom-type');
-
-                if (geomType === 'point') {
-                    shape = $('#slct-point-shape').val();
-                    size = $('#slct-point-size').val();
-
-                    drawPointSymbologyPreview(shape, size, color);
-                } else if (geomType === 'polygon') {
-                    drawPointSymbologyPreview('square', 40, color);
-                }
-                $btnApplySymbology.prop('disabled', false);
             }
         });
 
         $('#stroke').spectrum({
             showInput: true,
-            allowEmpty: true,
+            allowEmpty: false,
             showAlpha: true,
             showPalette: true,
             chooseText: "Choose",
@@ -575,7 +571,6 @@
                 outlineString += 'px solid ';
                 outlineString += color.toRgbString();
                 $('#symbology-preview').css('outline', outlineString);
-                $btnApplySymbology.prop('disabled', false);
             }
         });
 
@@ -590,17 +585,15 @@
 
         $('#font-fill').spectrum({
             showInput: true,
-            allowEmpty: true,
+            allowEmpty: false,
             showAlpha: true,
             showPalette: true,
+            color: 'black',
             chooseText: "Choose",
             cancelText: "Cancel",
             change: function (color) {
                 if (color) {
                     $('#label-preview').css('color', color.toRgbString());
-                    $btnApplySymbology.prop('disabled', false);
-                } else {
-                    $btnApplySymbology.prop('disabled', true);
                 }
             }
         });
@@ -630,7 +623,6 @@
 
         $btnApplySymbology.on('click', function () {
             updateSymbology($(this));
-            $(this).prop('disabled', true);
         });
 
         $('#slct-num-colors-in-gradient').on('change', function () {
@@ -682,14 +674,11 @@
                 inputSelector = '#color' + i;
                 $(inputSelector).spectrum({
                     showInput: true,
-                    allowEmpty: true,
+                    allowEmpty: false,
                     showAlpha: true,
                     showPalette: true,
                     chooseText: "Choose",
-                    cancelText: "Cancel",
-                    change: function () {
-                        $btnApplySymbology.prop('disabled', false);
-                    }
+                    cancelText: "Cancel"
                 });
             }
             $('.color-val-pair').removeClass('hidden');
@@ -926,10 +915,8 @@
         params = getSearchParameters();
 
         if (params.res_id !== undefined || params.res_id !== null) {
-            if (params.src === 'hs') {
-                showMainLoadAnim();
-                loadResource(params.res_id, null, null, true, null);
-            }
+            showMainLoadAnim();
+            loadResource(params.res_id, null, null, true, null);
         }
     };
 
@@ -1742,11 +1729,7 @@
         var resId = $lyrListItem.attr('data-res-id');
         var urlBase;
 
-        if (window.location.hostname === 'apps.hydroshare.org') {
-            urlBase = 'https://www.hydroshare.org/resource/';
-        } else {
-            urlBase = 'https://playground.hydroshare.org/resource/';
-        }
+        urlBase = 'https://www.hydroshare.org/resource/';
         window.open(urlBase + resId);
     };
 
@@ -1891,7 +1874,7 @@
         var interval;
         interval = window.setInterval(function () {
             if ($modal.css('display') !== 'none' && $modal.find('table').length > 0) {
-                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 125 + 'px');
+                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 145 + 'px');
                 dataTable.columns.adjust().draw();
                 window.clearInterval(interval);
             }
@@ -1930,7 +1913,9 @@
     setupSymbologyLabelsState = function (layerCssStyles) {
         var color;
 
-        $('#chkbx-include-labels').prop('checked', true);
+        $('#chkbx-include-labels')
+            .prop('checked', true)
+            .trigger('change');
         $('#label-field').val(layerCssStyles['label-field']);
         $('#slct-font-size').val(layerCssStyles['font-size']);
         color = tinycolor(layerCssStyles['font-fill']);
@@ -1964,6 +1949,7 @@
         $('#slct-label-field').html(optionsHtmlString);
 
         $modalSymbology.find('fieldset').addClass('hidden');
+        $('#symbology-preview-container').addClass('hidden');
         $('#chkbx-include-outline')
             .prop('checked', false)
             .trigger('change');
@@ -1985,6 +1971,8 @@
 
     setupSymbologyPointState = function (layerCssStyles) {
         var color;
+        var shape;
+        var size;
 
         if (layerCssStyles === "Default") {
             $('#slct-point-shape').val('square');
@@ -1998,19 +1986,15 @@
                     'background-color': '#FF0000'
                 });
         } else {
-            $('#slct-point-shape').val(layerCssStyles['point-shape']);
-            $('#slct-point-size').val(layerCssStyles['point-size']);
+            shape = layerCssStyles['point-shape'];
+            size = layerCssStyles['point-size'];
             color = tinycolor(layerCssStyles.fill);
             color.setAlpha(layerCssStyles['fill-opacity']);
+
+            $('#slct-point-shape').val(shape);
+            $('#slct-point-size').val(size);
             $('#geom-fill').spectrum('set', color);
-            $('#symbology-preview')
-                .removeClass()
-                .addClass(layerCssStyles['point-shape'])
-                .css({
-                    'height': layerCssStyles['point-size'] + 'px',
-                    'width': layerCssStyles['point-size'] + '6px',
-                    'background-color': color.toHexString()
-                });
+            drawPointSymbologyPreview(shape, size, color.toRgbString());
 
             if (Number(layerCssStyles['stroke-opacity'] > 0)) {
                 setupSymbologyStrokeState(layerCssStyles);
@@ -2021,6 +2005,7 @@
             }
         }
         $('.point').removeClass('hidden');
+        $('#symbology-preview-container').removeClass('hidden');
     };
 
     setupSymbologyPolygonState = function (layerCssStyles) {
@@ -2052,16 +2037,12 @@
             }
 
             if (layerCssStyles.labels) {
-                $('#chkbx-include-labels').prop('checked', true);
-                $('#label-field').val(layerCssStyles['label-field']);
-                $('#slct-font-size').val(layerCssStyles['font-size']);
-                color = tinycolor(layerCssStyles['font-fill']);
-                color.setAlpha(layerCssStyles['font-fill-opacity']);
-                $('#font-fill').spectrum('set', color);
+                setupSymbologyLabelsState(layerCssStyles);
             }
         }
 
         $('.polygon').removeClass('hidden');
+        $('#symbology-preview-container').removeClass('hidden');
     };
 
     setupSymbologyPolylineState = function (layerCssStyles) {
@@ -2072,6 +2053,7 @@
             setupSymbologyStrokeState(layerCssStyles);
         }
         $('.line').removeClass('hidden');
+        $('#symbology-preview-container').removeClass('hidden');
     };
 
     setupSymbologyRasterState = function (layerCssStyles, bandInfo) {
@@ -2114,7 +2096,9 @@
     setupSymbologyStrokeState = function (layerCssStyles) {
         var color;
 
-        $('#chkbx-include-outline').prop('checked', true);
+        $('#chkbx-include-outline')
+            .prop('checked', true)
+            .trigger('change');
         color = tinycolor(layerCssStyles.stroke);
         color.setAlpha(layerCssStyles['stroke-opacity']);
         $('#stroke').spectrum('set', color);

@@ -17,9 +17,8 @@ workspace_id = 'hydroshare_gis'
 
 def get_oauth_hs(request):
     hs = None
-    hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
+    hs_hostname = 'www.hydroshare.org'
     try:
-
         client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
         client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
 
@@ -28,7 +27,7 @@ def get_oauth_hs(request):
         auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
         hs = HydroShare(auth=auth, hostname=hs_hostname)
     except ObjectDoesNotExist:
-        if '127.0.0.1' in request.get_host():
+        if '127.0.0.1' in request.get_host() or 'localhost' in request.get_host():
             hs = HydroShare(hostname=hs_hostname)
 
     return hs
@@ -234,15 +233,6 @@ def request_wfs_info(params):
     r = requests.get(geoserver_url, params=params, auth=get_credentials(geoserver_url))
 
     return r
-
-# def get_hs_object(request):
-#     try:
-#         hs = get_oauth_hs(request)
-#     except ObjectDoesNotExist as e:
-#         print str(e)
-#         hs_hostname = 'www.hydroshare.org' if 'apps.hydroshare' in request.get_host() else 'playground.hydroshare.org'
-#         hs = HydroShare(hostname=hs_hostname)
-#     return hs
 
 
 def get_band_info(hs, res_id):

@@ -54,6 +54,7 @@
         addLoadResSelEvnt,
         addInitialEventListeners,
         areValidFiles,
+        buildHSResTable,
         changeBaseMap,
         checkCsrfSafe,
         checkURLForParameters,
@@ -90,6 +91,7 @@
         onClickViewLegend,
         onClickZoomToLayer,
         prepareFilesForAjax,
+        processAddHSResResults,
         processSaveProjectResponse,
         redrawDataTable,
         reprojectExtents,
@@ -196,7 +198,7 @@
         }
     };
 
-    addLayerToUI = function (response, resId, lastResource) {
+    addLayerToUI = function (results, isLastResource) {
         var geomType,
             cssStyles,
             layerAttributes,
@@ -207,95 +209,88 @@
             resType,
             bandInfo,
             rawLayerExtents,
+            resId,
             tsSiteInfo,
             $newLayerListItem;
 
-        if (response.hasOwnProperty('success')) {
-            if (lastResource) {
-                hideMainLoadAnim();
-                showResLoadingStatus(true, 'Resource(s) added successfully!');
-            }
-            if (resId === 'None') {
-                resId = response.res_id;
-            }
-            resType = response.res_type;
-            if (resType === 'GeographicFeatureResource') {
-                geomType = getGeomType(response.geom_type);
-                layerAttributes = response.layer_attributes;
-            } else {
-                geomType = "None";
-                layerAttributes = "None";
-            }
-            bandInfo = (resType === 'RasterResource' && response.band_info) ? response.band_info : 'None';
-            layerName = response.layer_name;
-            layerId = response.layer_id || response.res_id;
-            rawLayerExtents = response.layer_extents;
-
-            if (resType.indexOf('TimeSeriesResource') > -1) {
-                tsSiteInfo = response.site_info;
-                layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
-            } else {
-                layerExtents = reprojectExtents(rawLayerExtents);
-            }
-
-            if (bandInfo === 'None') {
-                cssStyles = 'Default';
-            } else {
-                cssStyles = {'color-map': {}};
-                cssStyles['color-map'][bandInfo.nd] = {
-                    color: '#000000',
-                    opacity: 0
-                };
-                cssStyles['color-map'][bandInfo.min] = {
-                    color: '#000000',
-                    opacity: 1
-                };
-                cssStyles['color-map'][bandInfo.max] = {
-                    color: '#ffffff',
-                    opacity: 1
-                };
-            }
-
-            addLayerToMap({
-                cssStyles: cssStyles,
-                geomType: geomType,
-                resType: resType,
-                lyrExtents: layerExtents,
-                url: projectInfo.map.geoserverUrl + '/wms',
-                lyrId: layerId
-            });
-
-            layerIndex = layerCount.get();
-
-            // Add layer data to project info
-            projectInfo.map.layers[layerIndex] = {
-                hsResId: resId,
-                attributes: layerAttributes,
-                cssStyles: cssStyles,
-                extents: layerExtents,
-                geomType: geomType,
-                id: layerId,
-                index: layerIndex,
-                listOrder: 1,
-                name: layerName,
-                resType: resType,
-                visible: true
-            };
-
-            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
-            $newLayerListItem = $currentLayersList.find(':first-child');
-            addContextMenuToListItem($newLayerListItem, resType);
-            addListenersToListItem($newLayerListItem, layerIndex);
-
-            drawLayersInListOrder(); // Must be called after creating the new layer list item
-            zoomToLayer(layerExtents, map.getSize(), resType);
-
-            $btnSaveProject.prop('disabled', false);
+        resId = results.res_id;
+        resType = results.res_type;
+        if (resType === 'GeographicFeatureResource') {
+            geomType = getGeomType(results.geom_type);
+            layerAttributes = results.layer_attributes;
         } else {
-            if (lastResource) {
-                hideMainLoadAnim();
-                showResLoadingStatus(false, response.error);
-            }
+            geomType = "None";
+            layerAttributes = "None";
+        }
+        bandInfo = (resType === 'RasterResource' && results.band_info) ? results.band_info : 'None';
+        layerName = results.layer_name;
+        layerId = results.layer_id || results.res_id;
+        rawLayerExtents = results.layer_extents;
+
+        if (resType.indexOf('TimeSeriesResource') > -1) {
+            tsSiteInfo = results.site_info;
+            layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
+        } else {
+            layerExtents = reprojectExtents(rawLayerExtents);
+        }
+
+        if (bandInfo === 'None') {
+            cssStyles = 'Default';
+        } else {
+            cssStyles = {'color-map': {}};
+            cssStyles['color-map'][bandInfo.nd] = {
+                color: '#000000',
+                opacity: 0
+            };
+            cssStyles['color-map'][bandInfo.min] = {
+                color: '#000000',
+                opacity: 1
+            };
+            cssStyles['color-map'][bandInfo.max] = {
+                color: '#ffffff',
+                opacity: 1
+            };
+        }
+
+        addLayerToMap({
+            cssStyles: cssStyles,
+            geomType: geomType,
+            resType: resType,
+            lyrExtents: layerExtents,
+            url: projectInfo.map.geoserverUrl + '/wms',
+            lyrId: layerId
+        });
+
+        layerIndex = layerCount.get();
+
+        // Add layer data to project info
+        projectInfo.map.layers[layerIndex] = {
+            hsResId: resId,
+            attributes: layerAttributes,
+            cssStyles: cssStyles,
+            extents: layerExtents,
+            geomType: geomType,
+            id: layerId,
+            index: layerIndex,
+            listOrder: 1,
+            name: layerName,
+            resType: resType,
+            visible: true
+        };
+
+        createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
+        $newLayerListItem = $currentLayersList.find(':first-child');
+        addContextMenuToListItem($newLayerListItem, resType);
+        addListenersToListItem($newLayerListItem, layerIndex);
+
+        drawLayersInListOrder(); // Must be called after creating the new layer list item
+        zoomToLayer(layerExtents, map.getSize(), resType);
+
+        $btnSaveProject.prop('disabled', false);
+
+        if (isLastResource) {
+            hideMainLoadAnim();
+            showResLoadingStatus(true, 'Resource(s) added successfully!');
         }
     };
 
@@ -865,6 +860,40 @@
         return (((hasTif || hasZip) && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
     };
 
+    buildHSResTable = function (resList) {
+        var resTableHtml;
+
+        resList = typeof resList === 'string' ? JSON.parse(resList) : resList;
+        resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
+
+        resList.forEach(function (resource) {
+            resTableHtml += '<tr>' +
+                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
+                '<td class="res_title">' + resource.title + '</td>' +
+                '<td class="res_size">' + resource.size + '</td>' +
+                '<td class="res_type">' + resource.type + '</td>' +
+                '<td class="res_owner">' + resource.owner + '</td>' +
+                '</tr>';
+        });
+        resTableHtml += '</tbody></table>';
+        $modalLoadRes.find('.modal-body').html(resTableHtml);
+        addLoadResSelEvnt();
+        dataTableLoadRes = $('#tbl-resources').DataTable({
+            'order': [[1, 'asc']],
+            'columnDefs': [{
+                'orderable': false,
+                'targets': 0
+            }],
+            "scrollY": '500px',
+            "scrollCollapse": true,
+            fixedHeader: {
+                header: true,
+                footer: true
+            }
+        });
+        redrawDataTable(dataTableLoadRes, $modalLoadRes);
+    };
+
     changeBaseMap = function () {
         var selectedBaseMap = $(this).attr('value');
 
@@ -1174,42 +1203,18 @@
                 }
             },
             success: function (response) {
-                var resources,
-                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
-
-                if (!response.hasOwnProperty('success')) {
-                    $modalLoadRes.find('.modal-body').html('<div class="error">' + response.error + '</div>');
-                } else {
-                    if (response.hasOwnProperty('resources')) {
-                        resources = JSON.parse(response.resources);
-                        resources.forEach(function (resource) {
-                            resTableHtml += '<tr>' +
-                                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
-                                '<td class="res_title">' + resource.title + '</td>' +
-                                '<td class="res_size">' + resource.size + '</td>' +
-                                '<td class="res_type">' + resource.type + '</td>' +
-                                '<td class="res_owner">' + resource.owner + '</td>' +
-                                '</tr>';
-                        });
-                        resTableHtml += '</tbody></table>';
-                        $modalLoadRes.find('.modal-body').html(resTableHtml);
-                        addLoadResSelEvnt();
-                        dataTableLoadRes = $('#tbl-resources').DataTable({
-                            'order': [[1, 'asc']],
-                            'columnDefs': [{
-                                'orderable': false,
-                                'targets': 0
-                            }],
-                            "scrollY": '500px',
-                            "scrollCollapse": true,
-                            fixedHeader: {
-                                header: true,
-                                footer: true
+                var results;
+                if (response.hasOwnProperty('success')) {
+                    if (!response.success) {
+                        $modalLoadRes.find('.modal-body').html('<div class="error">' + response.message + '</div>');
+                    } else {
+                        if (response.hasOwnProperty('results')) {
+                            results = response.results;
+                            if (results.hasOwnProperty('res_list')) {
+                                buildHSResTable(results.res_list);
                             }
-                        });
-                        redrawDataTable(dataTableLoadRes, $modalLoadRes);
-
-                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
+                            $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
+                        }
                     }
                 }
             }
@@ -1556,7 +1561,7 @@
         $('#chkbx-show-inset-map').trigger('change');
     };
 
-    loadResource = function (resId, resType, resTitle, lastResource, additionalResources) {
+    loadResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
         var $footerInfoAddRes = $('#footer-info-addRes');
         var data = {'res_id': resId};
 
@@ -1571,7 +1576,7 @@
 
         $.ajax({
             type: 'GET',
-            url: '/apps/hydroshare-gis/load-file',
+            url: '/apps/hydroshare-gis/add-hs-res',
             dataType: 'json',
             data: data,
             error: function () {
@@ -1580,48 +1585,21 @@
                 console.error('Failure!');
             },
             success: function (response) {
-                $footerInfoAddRes.addClass('hidden');
-                $('#btn-upload-res').prop('disabled', false);
-                if (response.hasOwnProperty('error')) {
-                    showResLoadingStatus(false, response.error);
-                    hideMainLoadAnim();
-                } else {
-                    if (response.hasOwnProperty('project_info')) {
-                        loadProjectFile(JSON.parse(response.project_info));
-                        if (additionalResources) {
-                            (function () {
-                                var i;
-                                var length = additionalResources.length;
-                                var resource;
-
-                                for (i = 0; i < length; i++) {
-                                    resource = additionalResources[i];
-                                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                                }
-                            }());
+                if (response.hasOwnProperty('success')) {
+                    if (!response.success) {
+                        showResLoadingStatus(false, response.message);
+                        hideMainLoadAnim();
+                    } else {
+                        if (response.hasOwnProperty('results')) {
+                            processAddHSResResults(response.results, isLastResource, additionalResources);
                         }
-                        if (lastResource) {
-                            hideMainLoadAnim();
+                        if ($('#chkbx-res-auto-close').is(':checked')) {
+                            $modalLoadRes.modal('hide');
                         }
-                        return;
-                    }
-                    if (additionalResources) {
-                        (function () {
-                            var i;
-                            var length = additionalResources.length;
-                            var resource;
-
-                            for (i = 0; i < length; i++) {
-                                resource = additionalResources[i];
-                                loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                            }
-                        }());
-                    }
-                    addLayerToUI(response, resId, lastResource);
-                    if ($('#chkbx-res-auto-close').is(':checked')) {
-                        $modalLoadRes.modal('hide');
                     }
                 }
+                $footerInfoAddRes.addClass('hidden');
+                $('#btn-upload-res').prop('disabled', false);
             }
         });
     };
@@ -1854,6 +1832,41 @@
         return data;
     };
 
+    processAddHSResResults = function (results, isLastResource, additionalResources) {
+        if (results.res_type === 'GenericResource') {
+            loadProjectFile(JSON.parse(results.project_info));
+            if (additionalResources) {
+                (function () {
+                    var i;
+                    var length = additionalResources.length;
+                    var resource;
+
+                    for (i = 0; i < length; i++) {
+                        resource = additionalResources[i];
+                        loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                    }
+                }());
+            }
+            if (isLastResource) {
+                hideMainLoadAnim();
+            }
+            return;
+        }
+        if (additionalResources) {
+            (function () {
+                var i;
+                var length = additionalResources.length;
+                var resource;
+
+                for (i = 0; i < length; i++) {
+                    resource = additionalResources[i];
+                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                }
+            }());
+        }
+        addLayerToUI(results, isLastResource);
+    };
+
     processSaveProjectResponse = function (response) {
         var $footerInfoSaveProj = $('#footer-info-saveProj');
         if (response.hasOwnProperty('success')) {
@@ -1874,7 +1887,7 @@
         var interval;
         interval = window.setInterval(function () {
             if ($modal.css('display') !== 'none' && $modal.find('table').length > 0) {
-                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 145 + 'px');
+                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 160 + 'px');
                 dataTable.columns.adjust().draw();
                 window.clearInterval(interval);
             }
@@ -2051,6 +2064,10 @@
             $('#slct-stroke-width').val(1);
         } else {
             setupSymbologyStrokeState(layerCssStyles);
+
+            if (layerCssStyles.labels) {
+                setupSymbologyLabelsState(layerCssStyles);
+            }
         }
         $('.line').removeClass('hidden');
         $('#symbology-preview-container').removeClass('hidden');
@@ -2196,7 +2213,7 @@
                 fileLoaded = true;
                 updateProgressBar('100%');
                 $('#btn-upload-file').prop('disabled', false);
-                addLayerToUI(response, 'None', true);
+                addLayerToUI(response, true);
                 if ($('#chkbx-file-auto-close').is(':checked')) {
                     $modalLoadFile.modal('hide');
                 }
@@ -2216,7 +2233,8 @@
             resId = $rdoRes.val(),
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
-
+        
+        showMainLoadAnim();
         loadResource(resId, resType, resTitle, true, null);
     };
 

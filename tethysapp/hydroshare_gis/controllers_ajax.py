@@ -117,11 +117,6 @@ def save_new_project(request):
             res_keywords = res_keywords_raw.split(',')
             res_type = 'GenericResource'
 
-            print 'res_title: %s' % res_title
-            print 'res_abstract: %s' % res_abstract
-            print 'res_keywords_raw: %s' % res_keywords_raw
-            print 'res_type: %s' % res_type
-
             hs = get_oauth_hs(request)
             with TemporaryFile() as f:
                 f.write(dumps(project_info))

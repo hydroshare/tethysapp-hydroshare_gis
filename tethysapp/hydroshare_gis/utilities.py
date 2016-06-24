@@ -1,10 +1,11 @@
-import hs_restclient as hs_r
 from django.http import JsonResponse
 from django.conf import settings
 from tethys_sdk.services import get_spatial_dataset_engine
 from django.core.exceptions import ObjectDoesNotExist
 
+import hs_restclient as hs_r
 from geoserver.catalog import FailedRequestError
+
 import requests
 import zipfile
 import os
@@ -17,9 +18,9 @@ from smtplib import SMTP
 from email.mime.text import MIMEText
 from socket import gethostname
 
-geoserver_name = 'default'
 hs_tempdir = '/tmp/hs_gis_files/'
 workspace_id = None
+spatial_dataset_engine = None
 
 
 def get_oauth_hs(request):
@@ -51,60 +52,55 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
             'layer_id': None
         }
     }
-    global workspace_id
     response = None
     results = return_obj['results']
     engine = return_spatial_dataset_engine()
+    store_id = 'res_%s' % res_id
+    full_store_id = '%s:%s' % (get_workspace_id(), store_id)
 
-    if engine is None:
-        return_obj['message'] = 'No spatial dataset engine was returned'
-    else:
-        store_id = 'res_%s' % res_id
-        full_store_id = '%s:%s' % (workspace_id, store_id)
+    try:
+        if res_type == 'RasterResource':
+            coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
+            response = engine.create_coverage_resource(store_id=full_store_id,
+                                                       coverage_file=res_file,
+                                                       coverage_type=coverage_type,
+                                                       overwrite=True)
 
-        try:
-            if res_type == 'RasterResource':
-                coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
-                response = engine.create_coverage_resource(store_id=full_store_id,
-                                                           coverage_file=res_file,
-                                                           coverage_type=coverage_type,
-                                                           overwrite=True)
-
-            elif res_type == 'GeographicFeatureResource':
-                if is_zip is True:
-                    response = engine.create_shapefile_resource(store_id=full_store_id,
-                                                                shapefile_zip=res_file,
-                                                                overwrite=True)
-                elif type(res_file) is not unicode:
-                    response = engine.create_shapefile_resource(store_id=full_store_id,
-                                                                shapefile_upload=res_file,
-                                                                overwrite=True)
-                else:
-                    response = engine.create_shapefile_resource(store_id=full_store_id,
-                                                                shapefile_base=str(res_file),
-                                                                overwrite=True)
-            if response:
-                if not response['success']:
-                    try:
-                        raise Exception
-                    except Exception as e:
-                        e.message = response['error']
-                        raise e
-                else:
-                    try:
-                        layer_name = response['result']['name']
-                    except KeyError:
-                        layer_name = engine.list_resources(store=store_id)['result'][0]
-
-                    results['layer_name'] = layer_name
-                    results['layer_id'] = '%s:%s' % (workspace_id, layer_name)
-                    return_obj['success'] = True
+        elif res_type == 'GeographicFeatureResource':
+            if is_zip is True:
+                response = engine.create_shapefile_resource(store_id=full_store_id,
+                                                            shapefile_zip=res_file,
+                                                            overwrite=True)
+            elif type(res_file) is not unicode:
+                response = engine.create_shapefile_resource(store_id=full_store_id,
+                                                            shapefile_upload=res_file,
+                                                            overwrite=True)
             else:
-                return_obj['message'] = 'Failed while uploading resource to Geoserver: Unkown error'
-        except AttributeError:
-            engine.delete_store(store_id=store_id, purge=True, recurse=True)
-            engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-%s' % workspace_id)
-            return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
+                response = engine.create_shapefile_resource(store_id=full_store_id,
+                                                            shapefile_base=str(res_file),
+                                                            overwrite=True)
+        if response:
+            if not response['success']:
+                try:
+                    raise Exception
+                except Exception as e:
+                    e.message = response['error']
+                    raise e
+            else:
+                try:
+                    layer_name = response['result']['name']
+                except KeyError:
+                    layer_name = engine.list_resources(store=store_id)['result'][0]
+
+                results['layer_name'] = layer_name
+                results['layer_id'] = '%s:%s' % (get_workspace_id(), layer_name)
+                return_obj['success'] = True
+        else:
+            raise Exception
+    except AttributeError:
+        engine.delete_store(store_id=store_id, purge=True, recurse=True)
+        engine.create_workspace(workspace_id=get_workspace_id(), uri='tethys_app-%s' % get_workspace_id())
+        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
 
     return return_obj
 
@@ -133,14 +129,11 @@ def make_zipfile(res_files, zip_path):
 
 
 def return_spatial_dataset_engine():
-    global geoserver_name, workspace_id
-    try:
-        engine = get_spatial_dataset_engine(name=geoserver_name)
-    except Exception as e:
-        print str(e)
-        engine = None
+    global spatial_dataset_engine
+    if spatial_dataset_engine is None:
+        spatial_dataset_engine = get_spatial_dataset_engine(name='default')
 
-    return engine
+    return spatial_dataset_engine
 
 
 def get_layer_md_from_geoserver(res_id, layer_name, res_type):
@@ -152,18 +145,17 @@ def get_layer_md_from_geoserver(res_id, layer_name, res_type):
         'geom_type': None
     }
 
-    global workspace_id
     geom_type = None
     geoserver_url = get_geoserver_url()
 
     if res_type == 'GeographicFeatureResource':
         url = '{0}/rest/workspaces/{1}/datastores/res_{2}/featuretypes/{3}.json'.format(geoserver_url,
-                                                                                        workspace_id,
+                                                                                        get_workspace_id(),
                                                                                         res_id,
                                                                                         layer_name)
     else:
         url = '{0}/rest/workspaces/{1}/coveragestores/res_{2}/coverages/{3}.json'.format(geoserver_url,
-                                                                                         workspace_id,
+                                                                                         get_workspace_id(),
                                                                                          res_id,
                                                                                          layer_name)
 
@@ -197,7 +189,7 @@ def get_layer_md_from_geoserver(res_id, layer_name, res_type):
 
 
 def get_geoserver_url(request=None):
-    engine = get_spatial_dataset_engine(name=geoserver_name)
+    engine = return_spatial_dataset_engine()
     geoserver_url = engine.endpoint.split('/rest')[0]
 
     if request:
@@ -365,7 +357,6 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             'project_info': None
         }
     }
-    global workspace_id
     results = return_obj['results']
 
     try:
@@ -379,7 +370,7 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
         check_res = check_geoserver_for_res(res_id)
         if check_res['isOnGeoserver']:
             layer_name = check_res['layer_name']
-            results['layer_id'] = '%s:%s' % (workspace_id, layer_name)
+            results['layer_id'] = '%s:%s' % (get_workspace_id(), layer_name)
             response = get_layer_md_from_geoserver(res_id=res_id, layer_name=layer_name,
                                                    res_type=res_type)
             if not response['success']:
@@ -443,10 +434,6 @@ def check_geoserver_for_res(res_id):
             engine.delete_store(store_id=store_id, purge=True, recurse=True)
     except FailedRequestError:
         pass
-    except Exception as e:
-        print e
-        if gethostname() != 'ubuntu':
-            email_traceback(exc_info())
 
     return return_obj
 
@@ -593,7 +580,7 @@ def get_info_from_res_files(res_id, res_contents_path):
 def get_hs_res_list(hs):
     # Deletes all stores from geoserver
     # engine = return_spatial_dataset_engine()
-    # stores = engine.list_stores(workspace_id)
+    # stores = engine.list_stores(get_workspace_id())
     # for store in stores['result']:
     #     engine.delete_store(store_id=store_id, purge=True, recurse=True)
     #     print "Store %s deleted" % store
@@ -640,12 +627,15 @@ def get_hs_res_list(hs):
     return return_obj
 
 
-def set_workspace_id(request):
+def get_workspace_id():
     global workspace_id
-    if 'apps.hydroshare' in request.get_host():
-        workspace_id = 'hydroshare_gis'
-    else:
-        workspace_id = 'hydroshare_gis_testing'
+    if workspace_id is None:
+        if 'apps.hydroshare' in gethostname():
+            workspace_id = 'hydroshare_gis'
+        else:
+            workspace_id = 'hydroshare_gis_testing'
+
+    return workspace_id
 
 
 def email_traceback(traceback, custom_msg=None):

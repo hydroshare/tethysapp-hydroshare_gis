@@ -46,7 +46,7 @@ class HydroshareGis(TethysAppBase):
                             controller='hydroshare_gis.controllers_ajax.save_project'),
                     url_map(name='add_to_project',
                             url='hydroshare-gis/add-to-project',
-                            controller='hydroshare_gis.controllers.add_to_project'),
+                            controller='hydroshare_gis.controllers.home'),
                     url_map(name='ajax_get_geoserver_url',
                             url='hydroshare-gis/get-geoserver-url',
                             controller='hydroshare_gis.controllers_ajax.ajax_get_geoserver_url')

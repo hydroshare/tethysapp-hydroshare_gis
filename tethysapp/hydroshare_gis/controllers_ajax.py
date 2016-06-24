@@ -55,9 +55,7 @@ def ajax_get_hs_res_list(request):
     return_obj = {
         'success': False,
         'message': None,
-        'results': {
-            'res_list': None
-        }
+        'res_list': None
     }
 
     if request.is_ajax() and request.method == 'GET':
@@ -65,9 +63,12 @@ def ajax_get_hs_res_list(request):
         if hs is None:
             return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
         else:
-            return_obj['results']['res_list'] = get_hs_res_list(hs)
-            return_obj['success'] = True
-
+            response = get_hs_res_list(hs)
+            if not response['success']:
+                return_obj['message'] = response['message']
+            else:
+                return_obj['res_list'] = response['res_list']
+                return_obj['success'] = True
     else:
         return_obj['error'] = 'This request can only be made through a "GET" AJAX call.'
 

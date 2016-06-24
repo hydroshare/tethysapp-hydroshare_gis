@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
-from utilities import get_oauth_hs
+from utilities import get_oauth_hs, set_workspace_id
 
 
 @login_required()
@@ -11,6 +11,8 @@ def home(request):
 
     :param request: the request object sent by the browser
     """
+
+    set_workspace_id(request)
     point_size_options = range(1, 31)
     stroke_width_options = range(1,16)
     point_shape_options = ['circle', 'square', 'triangle', 'star', 'cross', 'X']
@@ -29,6 +31,7 @@ def home(request):
 
 
 def add_to_project(request):
+    set_workspace_id(request)
     point_size_options = range(1, 31)
     stroke_width_options = range(1, 16)
     point_shape_options = ['circle', 'square', 'triangle', 'star', 'cross', 'X']

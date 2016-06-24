@@ -1203,18 +1203,14 @@
                 }
             },
             success: function (response) {
-                var results;
                 if (response.hasOwnProperty('success')) {
                     if (!response.success) {
                         $modalLoadRes.find('.modal-body').html('<div class="error">' + response.message + '</div>');
                     } else {
-                        if (response.hasOwnProperty('results')) {
-                            results = response.results;
-                            if (results.hasOwnProperty('res_list')) {
-                                buildHSResTable(results.res_list);
-                            }
-                            $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
+                        if (response.hasOwnProperty('res_list')) {
+                            buildHSResTable(response.res_list);
                         }
+                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
                     }
                 }
             }
@@ -2233,7 +2229,7 @@
             resId = $rdoRes.val(),
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
-        
+
         showMainLoadAnim();
         loadResource(resId, resType, resTitle, true, null);
     };

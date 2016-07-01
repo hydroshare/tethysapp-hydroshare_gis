@@ -17,6 +17,7 @@ from traceback import format_exception
 from smtplib import SMTP
 from email.mime.text import MIMEText
 from socket import gethostname
+from subprocess import check_output
 
 hs_tempdir = '/tmp/hs_gis_files/'
 workspace_id = None
@@ -64,33 +65,43 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
                                                        coverage_type=coverage_type,
-                                                       overwrite=True)
+                                                       overwrite=True,
+                                                       debug=get_debug_val())
 
         elif res_type == 'GeographicFeatureResource':
             if is_zip is True:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_zip=res_file,
-                                                            overwrite=True)
+                                                            overwrite=True,
+                                                            debug=get_debug_val())
             elif type(res_file) is not unicode:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_upload=res_file,
-                                                            overwrite=True)
+                                                            overwrite=True,
+                                                            debug=get_debug_val())
             else:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_base=str(res_file),
-                                                            overwrite=True)
+                                                            overwrite=True,
+                                                            debug=get_debug_val())
         if response:
             if not response['success']:
                 try:
-                    raise Exception
+                    result = engine.create_workspace(workspace_id=get_workspace_id(),
+                                                     uri='tethys_app-%s' % get_workspace_id(),
+                                                     debug=get_debug_val())
+                    if not result['success']:
+                        raise Exception
+                    else:
+                        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
                 except Exception as e:
                     e.message = response['error']
-                    raise e
+                    raise
             else:
                 try:
                     layer_name = response['result']['name']
                 except KeyError:
-                    layer_name = engine.list_resources(store=store_id)['result'][0]
+                    layer_name = engine.list_resources(store=store_id, debug=get_debug_val())['result'][0]
 
                 results['layer_name'] = layer_name
                 results['layer_id'] = '%s:%s' % (get_workspace_id(), layer_name)
@@ -98,8 +109,10 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
         else:
             raise Exception
     except AttributeError:
-        engine.delete_store(store_id=store_id, purge=True, recurse=True)
-        engine.create_workspace(workspace_id=get_workspace_id(), uri='tethys_app-%s' % get_workspace_id())
+        engine.delete_store(store_id=store_id, purge=True, recurse=True, debug=get_debug_val())
+        engine.create_workspace(workspace_id=get_workspace_id(),
+                                uri='tethys_app-%s' % get_workspace_id(),
+                                debug=get_debug_val())
         return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
 
     return return_obj
@@ -198,9 +211,17 @@ def get_geoserver_url(request=None):
         return geoserver_url
 
 
-def extract_site_info_from_time_series(sqlite_file_path):
+def get_debug_val():
+    val = False
+    if gethostname() == 'ubuntu':
+        val = True
+
+    return val
+
+
+def extract_site_info_from_time_series(sqlite_fpath):
     site_info = None
-    with sqlite3.connect(sqlite_file_path) as con:
+    with sqlite3.connect(sqlite_fpath) as con:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute('SELECT * FROM Sites')
@@ -403,8 +424,14 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
     except hs_r.HydroShareNotAuthorized:
         return_obj['message'] = 'You are not authorized to access this resource.'
     except Exception as e:
-        return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
-        if gethostname() != 'ubuntu':
+        if gethostname() == 'ubuntu':
+            exc_type, exc_value, exc_traceback = exc_info()
+            msg = e.message if e.message else str(e)
+            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
+            print msg
+            return_obj['message'] = 'An unexpected error ocurred: %s' % msg
+        else:
+            return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             custom_msg = e.message if e.message else None
             email_traceback(exc_info(), custom_msg)
 
@@ -543,24 +570,41 @@ def get_info_from_res_files(res_id, res_contents_path):
             os.rename(src, dst)
         coverage_files = []
         tif_count = 0
+        modify_crs = False
+        tif_path_orig = None
+        tif_path_mod = None
+        code = None
         for file_name in os.listdir(res_contents_path):
+            fpath = os.path.join(res_contents_path, file_name)
             if file_name.endswith('.shp'):
-                res_filepath = os.path.join(res_contents_path, file_name[:-4])
+                res_filepath = fpath[:-4]
                 res_type = 'GeographicFeatureResource'
                 break
 
             if file_name == 'mapProject.json':
-                res_filepath = os.path.join(res_contents_path, file_name)
+                res_filepath = fpath
                 res_type = 'GenericResource'
                 break
 
             if file_name.endswith('.vrt') or file_name.endswith('.tif'):
                 if file_name.endswith('.tif'):
                     tif_count += 1
+                    if tif_count == 1:
+                        r = check_crs(fpath)
+                        if r['success'] and r['crsWasChanged']:
+                            modify_crs = True
+                            tif_path_orig = fpath
+                            tif_path_mod = fpath[:-4] + '_reprojected' + fpath[-4:]
+                            code = r['code']
                 if tif_count > 1:
                     return_obj['is_mosaic'] = True
-                coverage_files.append(os.path.join(res_contents_path, file_name))
+                coverage_files.append(fpath)
                 res_type = 'RasterResource'
+
+        if modify_crs:
+            os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tif_path_orig, tif_path_mod))
+            os.remove(tif_path_orig)
+            os.rename(tif_path_mod, tif_path_orig)
 
         if coverage_files:
             res_filepath = os.path.join(res_contents_path, res_id + '.zip')
@@ -656,3 +700,73 @@ def email_traceback(traceback, custom_msg=None):
         print str(e)
     if s:
         s.quit()
+
+
+def check_crs(fpath):
+    return_obj = {
+        'success': False,
+        'code': None,
+        'crsWasChanged': False
+    }
+
+    gdal_info = check_output(['gdalinfo', fpath])
+    start = 'Coordinate System is:'
+    length = len(start)
+    end = 'Origin ='
+    start_index = gdal_info.find(start) + length
+    end_index = gdal_info.find(end)
+    crs_raw = gdal_info[start_index:end_index]
+    crs = ''.join(crs_raw.split())
+
+    endpoint = 'http://prj2epsg.org/search.json'
+    params = {
+        'mode': 'wkt',
+        'terms': crs
+    }
+    crs_is_unknown = True
+    try:
+        while crs_is_unknown:
+            r = requests.get(endpoint, params=params)
+            response = r.json()
+            print response
+            if 'errors' in response:
+                errs = response['errors']
+                if 'Invalid WKT syntax' in errs:
+                    err = errs.split(':')[2]
+                    if err and 'Parameter' in err:
+                        crs_param = err.split('"')[1]
+                        rm_indx_start = crs.find(crs_param)
+                        rm_indx_end = None
+                        sub_str = crs[rm_indx_start:]
+                        counter = 0
+                        check = False
+                        for i, c in enumerate(sub_str):
+                            if c == '[':
+                                counter += 1
+                                check = True
+                            elif c == ']':
+                                counter -= 1
+                                check = True
+                            if check:
+                                if counter == 0:
+                                    rm_indx_end = i + rm_indx_start + 1
+                                    break
+                        crs = crs[:rm_indx_start] + crs[rm_indx_end:]
+                        if ',' in crs[:-4]:
+                            i = crs.rfind(',')
+                            crs = crs[:i] + crs[i+1:]
+                        params['terms'] = crs
+                        return_obj['crsWasChanged'] = True
+                    else:
+                        break
+                else:
+                    break
+            else:
+                crs_is_unknown = False
+                return_obj['code'] = 'EPSG:' + response['codes'][0]['code']
+                return_obj['success'] = True
+    except Exception as e:
+        print str(e)
+
+    return return_obj
+

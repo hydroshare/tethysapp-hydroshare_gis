@@ -97,7 +97,7 @@ var SLD_TEMPLATES = (function () {
         return geometry.slice(0, insertionIndex) + labels + geometry.slice(insertionIndex);
     };
 
-    populateValues = function (rawSldString, cssStyles, forLegend) {
+    populateValues = function (rawSldString, cssStyles, hide255, forLegend) {
         var colorMap,
             colorMapXml = '',
             sldString = rawSldString;
@@ -107,10 +107,12 @@ var SLD_TEMPLATES = (function () {
                 colorMap = JSON.parse(JSON.stringify(cssStyles[style]));
                 // TEMPFIX: Hide edge artifacts
                 // See http://osgeo-org.1560.x6.nabble.com/Artifacts-in-reprojected-rasters-has-this-been-fixed-td5213036.html
-                colorMap[255] = {
-                    color: '#000000',
-                    opacity: 0
-                };
+                if (hide255) {
+                    colorMap[255] = {
+                        color: '#000000',
+                        opacity: 0
+                    };
+                }
                 // END TEMPFIX
                 Object.keys(colorMap).sort(function (a, b) {return Number(a) - Number(b); }).forEach(function (quantity) {
                     if (!(forLegend && quantity === '255')) {
@@ -132,7 +134,7 @@ var SLD_TEMPLATES = (function () {
     };
 
     return {
-        getSldString: function (cssStyles, geomType, layerId, forLegend) {
+        getSldString: function (cssStyles, geomType, layerId, hide255, forLegend) {
             var rawSldString;
             var sldString;
 
@@ -143,7 +145,7 @@ var SLD_TEMPLATES = (function () {
             } else {
                 rawSldString = geomTypeDict[geomType];
             }
-            sldString = populateValues(rawSldString, cssStyles, forLegend);
+            sldString = populateValues(rawSldString, cssStyles, hide255, forLegend);
 
             delete cssStyles['layer-id'];
 

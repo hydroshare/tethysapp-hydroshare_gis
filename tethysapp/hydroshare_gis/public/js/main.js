@@ -157,7 +157,8 @@
             resType = data.resType,
             geomType = data.geomType,
             cssStyles = data.cssStyles,
-            visible = data.visible;
+            visible = data.visible,
+            hide255 = data.hide255;
 
         if (resType.indexOf('TimeSeriesResource') > -1) {
             newLayer = new ol.layer.Vector({
@@ -180,7 +181,7 @@
                 'TILED': true
             };
             if (cssStyles && cssStyles !== 'Default') {
-                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId);
+                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId, hide255);
                 lyrParams.SLD_BODY = sldString;
             }
             newLayer = new ol.layer.Tile({
@@ -200,6 +201,7 @@
 
     addLayerToUI = function (results, isLastResource) {
         var geomType,
+            hide255 = false,
             cssStyles,
             layerAttributes,
             layerExtents,
@@ -250,6 +252,9 @@
                 color: '#ffffff',
                 opacity: 1
             };
+            if (bandInfo.min > 255 || bandInfo.max < 255) {
+                hide255 = true;
+            }
         }
 
         addLayerToMap({
@@ -258,7 +263,8 @@
             resType: resType,
             lyrExtents: layerExtents,
             url: projectInfo.map.geoserverUrl + '/wms',
-            lyrId: layerId
+            lyrId: layerId,
+            hide255: hide255
         });
 
         layerIndex = layerCount.get();
@@ -275,7 +281,8 @@
             listOrder: 1,
             name: layerName,
             resType: resType,
-            visible: true
+            visible: true,
+            hide255: hide255
         };
 
         createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
@@ -1784,10 +1791,11 @@
         var cssStyles = projectInfo.map.layers[layerIndex].cssStyles;
         var geoserverUrl = projectInfo.map.geoserverUrl;
         var imageUrl =  geoserverUrl + '/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=75&HEIGHT=75&LAYER=' + layerId;
+        var hide255 = projectInfo.map.layers[layerIndex].hide255;
 
         imageUrl += '&LEGEND_OPTIONS=forceRule:True;fontStyle:bold;fontSize:14';
         if (cssStyles !== 'Default') {
-            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, true));
+            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255, true));
         }
         $('#img-legend').attr('src', imageUrl);
 
@@ -2155,14 +2163,15 @@
             layerId = $this.attr('data-layer-id'),
             layerIndex = $this.attr('data-layer-index'),
             sldString,
-            cssStyles;
+            cssStyles,
+            hide255 = projectInfo.map.layers[layerIndex].hide255;
 
         cssStyles = getCssStyles(geomType);
         if (cssStyles === null) {
             return;
         }
         projectInfo.map.layers[layerIndex].cssStyles = cssStyles;
-        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId);
+        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
     };

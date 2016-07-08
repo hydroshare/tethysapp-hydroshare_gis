@@ -12,6 +12,7 @@ import os
 import sqlite3
 import xmltodict
 import shutil
+from inspect import getfile, currentframe
 from sys import exc_info
 from traceback import format_exception
 from smtplib import SMTP
@@ -20,6 +21,7 @@ from socket import gethostname
 from subprocess import check_output
 
 hs_tempdir = '/tmp/hs_gis_files/'
+public_tempdir = getfile(currentframe()).replace('utilities.py', 'public/temp/')
 workspace_id = None
 spatial_dataset_engine = None
 
@@ -61,7 +63,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
 
     try:
         if res_type == 'RasterResource':
-            coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
+            coverage_type = 'imagemosaic' # if is_mosaic else 'geotiff'
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
                                                        coverage_type=coverage_type,
@@ -375,7 +377,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             'site_info': None,
             'geom_type': None,
             'band_info': None,
-            'project_info': None
+            'project_info': None,
+            'public_fname': None
         }
     }
     results = return_obj['results']
@@ -415,6 +418,7 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
                 results['layer_attributes'] = response['layer_attributes']
                 results['layer_extents'] = response['layer_extents']
                 results['geom_type'] = response['geom_type']
+                results['public_fname'] = response['public_fname']
                 return_obj['success'] = True
 
     except hs_r.HydroShareHTTPException:
@@ -493,6 +497,7 @@ def process_res_by_type(hs, res_id, res_type):
         'layer_attributes': None,
         'layer_extents': None,
         'geom_type': None,
+        'public_fname': None
     }
 
     if res_type == 'RefTimeSeriesResource':
@@ -508,7 +513,7 @@ def process_res_by_type(hs, res_id, res_type):
             return_obj['message'] = response['message']
         else:
             res_contents_path = response['res_contents_path']
-            response = get_info_from_res_files(res_id, res_contents_path)
+            response = get_info_from_res_files(res_id, res_type, res_contents_path)
             if not response['success']:
                 return_obj['message'] = response['message']
             else:
@@ -524,6 +529,9 @@ def process_res_by_type(hs, res_id, res_type):
                             project_info = project_file.read()
 
                         return_obj['project_info'] = project_info
+                        return_obj['success'] = True
+                    elif res_filepath:
+                        return_obj['public_fname'] = os.path.basename(res_filepath)
                         return_obj['success'] = True
                     else:
                         return_obj['message'] = 'This resource does not contain any content ' \
@@ -552,42 +560,35 @@ def process_res_by_type(hs, res_id, res_type):
 
     return return_obj
 
-def get_info_from_res_files(res_id, res_contents_path):
+def get_info_from_res_files(res_id, res_type, res_contents_path):
     return_obj = {
         'success': False,
         'res_filepath': None,
-        'res_type': None,
+        'res_type': res_type,
         'is_mosaic': False,
         'is_zip': False
     }
-    res_filepath = None
-    res_type = None
+    res_fpath = None
 
     if os.path.exists(res_contents_path):
-        for f in os.listdir(res_contents_path):
-            src = os.path.join(res_contents_path, f)
-            dst = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
-            os.rename(src, dst)
+        if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
+            for f in os.listdir(res_contents_path):
+                src = os.path.join(res_contents_path, f)
+                dst = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
+                os.rename(src, dst)
         coverage_files = []
         tif_count = 0
         modify_crs = False
         tif_path_orig = None
         tif_path_mod = None
         code = None
-        for file_name in os.listdir(res_contents_path):
-            fpath = os.path.join(res_contents_path, file_name)
-            if file_name.endswith('.shp'):
-                res_filepath = fpath[:-4]
-                res_type = 'GeographicFeatureResource'
-                break
 
-            if file_name == 'mapProject.json':
-                res_filepath = fpath
-                res_type = 'GenericResource'
-                break
-
-            if file_name.endswith('.vrt') or file_name.endswith('.tif'):
-                if file_name.endswith('.tif'):
+        if res_type == 'GeographicFeatureResource':
+            res_fpath = os.path.join(res_contents_path, 'res_' + res_id)
+        elif res_type == 'RasterResource':
+            for fname in os.listdir(res_contents_path):
+                fpath = os.path.join(res_contents_path, fname)
+                if fname.endswith('.tif'):
                     tif_count += 1
                     if tif_count == 1:
                         r = check_crs(fpath)
@@ -599,7 +600,48 @@ def get_info_from_res_files(res_id, res_contents_path):
                 if tif_count > 1:
                     return_obj['is_mosaic'] = True
                 coverage_files.append(fpath)
-                res_type = 'RasterResource'
+        else:
+            for fname in os.listdir(res_contents_path):
+                fpath = os.path.join(res_contents_path, fname)
+
+                if fname == 'mapProject.json':
+                    res_fpath = fpath
+                    res_type = 'GenericResource'
+                    break
+
+                elif fname == 'basin.kml':
+                    raw_input("Paused")
+                    new_fpath = os.path.join(res_contents_path, res_id + '.shp')
+                    print 'new_fpath = %s' % new_fpath
+                    os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(new_fpath, fpath))
+                    res_fpath = os.path.join(res_contents_path, res_id)
+                    print 'res_fpath = %s' % res_fpath
+                    res_type = 'GeographicFeatureResource'
+                    raw_input("Paused")
+                    break
+
+                elif fname.endswith('.vrt') or fname.endswith('.tif'):
+                    if fname.endswith('.tif'):
+                        tif_count += 1
+                        if tif_count == 1:
+                            r = check_crs(fpath)
+                            if r['success'] and r['crsWasChanged']:
+                                modify_crs = True
+                                tif_path_orig = fpath
+                                tif_path_mod = fpath[:-4] + '_reprojected' + fpath[-4:]
+                                code = r['code']
+                    if tif_count > 1:
+                        return_obj['is_mosaic'] = True
+                    coverage_files.append(fpath)
+                    res_type = 'RasterResource'
+
+                else:
+                    if not os.path.exists(public_tempdir):
+                        os.mkdir(public_tempdir)
+                    dst = os.path.join(public_tempdir, fname)
+                    os.rename(fpath, dst)
+                    res_fpath = dst
+                    break
 
         if modify_crs:
             os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tif_path_orig, tif_path_mod))
@@ -607,14 +649,14 @@ def get_info_from_res_files(res_id, res_contents_path):
             os.rename(tif_path_mod, tif_path_orig)
 
         if coverage_files:
-            res_filepath = os.path.join(res_contents_path, res_id + '.zip')
-            response = make_zipfile(coverage_files, res_filepath)
+            res_fpath = os.path.join(res_contents_path, res_id + '.zip')
+            response = make_zipfile(coverage_files, res_fpath)
             if not response['success']:
                 return_obj['message'] = response['message']
             else:
                 return_obj['is_zip'] = True
 
-        return_obj['res_filepath'] = res_filepath
+        return_obj['res_filepath'] = res_fpath
         return_obj['res_type'] = res_type
         return_obj['success'] = True
 
@@ -770,3 +812,7 @@ def check_crs(fpath):
 
     return return_obj
 
+
+def delete_public_tempfiles():
+    if os.path.exists(public_tempdir):
+        shutil.rmtree(public_tempdir)

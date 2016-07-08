@@ -49,6 +49,9 @@ class HydroshareGis(TethysAppBase):
                             controller='hydroshare_gis.controllers.home'),
                     url_map(name='ajax_get_geoserver_url',
                             url='hydroshare-gis/get-geoserver-url',
-                            controller='hydroshare_gis.controllers_ajax.ajax_get_geoserver_url')
+                            controller='hydroshare_gis.controllers_ajax.ajax_get_geoserver_url'),
+                    url_map(name='ajax_delete_public_tempfiles',
+                            url='hydroshare-gis/delete-public-tempfiles',
+                            controller='hydroshare_gis.controllers_ajax.ajax_delete_public_tempfiles')
                     )
         return url_maps

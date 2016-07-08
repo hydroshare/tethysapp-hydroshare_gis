@@ -2,7 +2,7 @@ from oauthlib.oauth2 import TokenExpiredError
 from django.http import JsonResponse
 from django.core.exceptions import ObjectDoesNotExist
 
-from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, request_wfs_info, get_geoserver_url
+from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, request_wfs_info, get_geoserver_url, delete_public_tempfiles
 
 from json import dumps, loads
 from tempfile import TemporaryFile
@@ -170,3 +170,10 @@ def save_project(request):
 
 def ajax_get_geoserver_url(request):
     return get_geoserver_url(request)
+
+
+def ajax_delete_public_tempfiles(request):
+    if request.is_ajax and request.method == 'GET':
+        delete_public_tempfiles()
+
+    return JsonResponse({'success', True})

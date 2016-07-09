@@ -1,18 +1,29 @@
-from hs_restclient import HydroShare, HydroShareAuthOAuth2
 from django.http import JsonResponse
 from django.conf import settings
 from tethys_sdk.services import get_spatial_dataset_engine
 from django.core.exceptions import ObjectDoesNotExist
+
+import hs_restclient as hs_r
+from geoserver.catalog import FailedRequestError
 
 import requests
 import zipfile
 import os
 import sqlite3
 import xmltodict
+import shutil
+from inspect import getfile, currentframe
+from sys import exc_info
+from traceback import format_exception
+from smtplib import SMTP
+from email.mime.text import MIMEText
+from socket import gethostname
+from subprocess import check_output
 
-
-geoserver_name = 'default'
-workspace_id = 'hydroshare_gis'
+hs_tempdir = '/tmp/hs_gis_files/'
+public_tempdir = getfile(currentframe()).replace('utilities.py', 'public/temp/')
+workspace_id = None
+spatial_dataset_engine = None
 
 
 def get_oauth_hs(request):
@@ -21,15 +32,13 @@ def get_oauth_hs(request):
     try:
         client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
         client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
-
-        # Throws django.core.exceptions.ObjectDoesNotExist if current user is not signed in via HydroShare OAuth
         token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
-        auth = HydroShareAuthOAuth2(client_id, client_secret, token=token)
-        hs = HydroShare(auth=auth, hostname=hs_hostname)
+        auth = hs_r.HydroShareAuthOAuth2(client_id, client_secret, token=token)
+        hs = hs_r.HydroShare(auth=auth, hostname=hs_hostname)
     except ObjectDoesNotExist:
         if '127.0.0.1' in request.get_host() or 'localhost' in request.get_host():
-            hs = HydroShare(hostname=hs_hostname)
-
+            auth = hs_r.HydroShareAuthBasic(username='test', password='test')
+            hs = hs_r.HydroShare(auth=auth, hostname=hs_hostname)
     return hs
 
 
@@ -37,138 +46,165 @@ def get_json_response(response_type, message):
     return JsonResponse({response_type: message})
 
 
-def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic, try_again=True):
-    global workspace_id
-    result = None
-
-    engine = return_spatial_dataset_engine()
-
-    store_id = 'res_%s' % res_id
-    full_store_id = '%s:%s' % (workspace_id, store_id)
-
-    if res_type == 'RasterResource':
-        print 'res_id: %s' % res_id
-        print 'res_type: %s' % res_type
-        print 'res_file: %s' % res_file
-        print 'is_zip: %s' % is_zip
-        print 'is_mosaic: %s' % is_mosaic
-        coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
-        result = engine.create_coverage_resource(store_id=full_store_id,
-                                                 coverage_file=res_file,
-                                                 coverage_type=coverage_type,
-                                                 overwrite=True)
-
-    elif res_type == 'GeographicFeatureResource':
-        if is_zip is True:
-            result = engine.create_shapefile_resource(store_id=full_store_id,
-                                                      shapefile_zip=res_file,
-                                                      overwrite=True)
-        elif type(res_file) is not unicode:
-            result = engine.create_shapefile_resource(store_id=full_store_id,
-                                                      shapefile_upload=res_file,
-                                                      overwrite=True)
-        else:
-            result = engine.create_shapefile_resource(store_id=full_store_id,
-                                                      shapefile_base=str(res_file),
-                                                      overwrite=True)
-
-    # Check if it was successful
-    if result:
-        if not result['success']:
-            if 'already exists in namespace' in result['error'] and try_again and type(res_file) is unicode:
-                if os.path.exists(res_file):
-                    dir_name = os.path.dirname(res_file)
-                    file_name = os.path.basename(res_file)
-                    file_parts = os.path.splitext(file_name)
-                    new_file_name = file_parts[0] + '(1)' + file_parts[1]
-                    new_file_path = os.path.join(dir_name, new_file_name)
-                    os.rename(res_file, new_file_path)
-                    return upload_file_to_geoserver(res_id, res_type, new_file_path, is_zip, is_mosaic, False)
-            else:
-                return {
-                    'success': False,
-                    'message': result['error']
-                }
-        else:
-            layer_name = engine.list_resources(store=store_id)['result'][0]
-            layer_id = '%s:%s' % (workspace_id, layer_name)
-            return {
-                'success': True,
-                'layer_name': layer_name,
-                'layer_id': layer_id
-            }
-    else:
-        return {
-            'success': False,
-            'message': 'Upload to geoserver failed for some reason.'
+def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {
+            'layer_name': None,
+            'layer_id': None
         }
+    }
+    response = None
+    results = return_obj['results']
+    engine = return_spatial_dataset_engine()
+    store_id = 'res_%s' % res_id
+    full_store_id = '%s:%s' % (get_workspace_id(), store_id)
+
+    try:
+        if res_type == 'RasterResource':
+            coverage_type = 'imagemosaic' # if is_mosaic else 'geotiff'
+            response = engine.create_coverage_resource(store_id=full_store_id,
+                                                       coverage_file=res_file,
+                                                       coverage_type=coverage_type,
+                                                       overwrite=True,
+                                                       debug=get_debug_val())
+
+        elif res_type == 'GeographicFeatureResource':
+            if is_zip is True:
+                response = engine.create_shapefile_resource(store_id=full_store_id,
+                                                            shapefile_zip=res_file,
+                                                            overwrite=True,
+                                                            debug=get_debug_val())
+            elif type(res_file) is not unicode:
+                response = engine.create_shapefile_resource(store_id=full_store_id,
+                                                            shapefile_upload=res_file,
+                                                            overwrite=True,
+                                                            debug=get_debug_val())
+            else:
+                response = engine.create_shapefile_resource(store_id=full_store_id,
+                                                            shapefile_base=str(res_file),
+                                                            overwrite=True,
+                                                            debug=get_debug_val())
+        if response:
+            if not response['success']:
+                try:
+                    result = engine.create_workspace(workspace_id=get_workspace_id(),
+                                                     uri='tethys_app-%s' % get_workspace_id(),
+                                                     debug=get_debug_val())
+                    if not result['success']:
+                        raise Exception
+                    else:
+                        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
+                except Exception as e:
+                    e.message = response['error']
+                    raise
+            else:
+                try:
+                    layer_name = response['result']['name']
+                except KeyError:
+                    layer_name = engine.list_resources(store=store_id, debug=get_debug_val())['result'][0]
+
+                results['layer_name'] = layer_name
+                results['layer_id'] = '%s:%s' % (get_workspace_id(), layer_name)
+                return_obj['success'] = True
+        else:
+            raise Exception
+    except AttributeError:
+        engine.delete_store(store_id=store_id, purge=True, recurse=True, debug=get_debug_val())
+        engine.create_workspace(workspace_id=get_workspace_id(),
+                                uri='tethys_app-%s' % get_workspace_id(),
+                                debug=get_debug_val())
+        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
+
+    return return_obj
 
 
-def make_file_zipfile(res_files, filename, zip_path):
+def make_zipfile(res_files, zip_path):
+    return_obj = {
+        'success': False,
+        'message': None
+    }
+
     if not os.path.exists(zip_path):
         if not os.path.exists(os.path.dirname(zip_path)):
             os.mkdir(os.path.dirname(zip_path))
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
         if type(res_files) is list:
-            for each_file in res_files:
-                if len(res_files) > 1 and not each_file.endswith('.tif'):
-                    zip_object.write(each_file, filename + os.path.splitext(each_file)[1])
-                else:
-                    zip_object.write(each_file, os.path.basename(each_file))
+            for f in res_files:
+                zip_object.write(f, os.path.basename(f))
         else:
-            zip_object.writestr(filename, res_files.read())
+            zip_object.writestr(os.path.basename(res_files), res_files.read())
         zip_object.close()
+
+    return_obj['success'] = True
+
+    return return_obj
 
 
 def return_spatial_dataset_engine():
-    global geoserver_name, workspace_id
-    try:
-        engine = get_spatial_dataset_engine(name=geoserver_name)
-        workspace = engine.get_workspace(workspace_id)
-        if not workspace['success']:
-            print "WORKSPACE DOES NOT EXIST AND MUST BE CREATED"
-            engine.create_workspace(workspace_id=workspace_id, uri='tethys_app-hydroshare_gis')
-    except Exception as e:
-        print str(e)
-        engine = None
+    global spatial_dataset_engine
+    if spatial_dataset_engine is None:
+        spatial_dataset_engine = get_spatial_dataset_engine(name='default')
 
-    return engine
+    return spatial_dataset_engine
 
 
-def get_layer_extents_and_attributes(res_id, layer_name, res_type):
+def get_layer_md_from_geoserver(res_id, layer_name, res_type):
+    response_obj = {
+        'success': False,
+        'message': None,
+        'attributes': None,
+        'extents': None,
+        'geom_type': None
+    }
+
     geom_type = None
     geoserver_url = get_geoserver_url()
 
     if res_type == 'GeographicFeatureResource':
-        url = geoserver_url + '/rest/workspaces/hydroshare_gis/datastores/res_' + res_id + \
-              '/featuretypes/' + layer_name + '.json'
+        url = '{0}/rest/workspaces/{1}/datastores/res_{2}/featuretypes/{3}.json'.format(geoserver_url,
+                                                                                        get_workspace_id(),
+                                                                                        res_id,
+                                                                                        layer_name)
     else:
-        url = geoserver_url + '/rest/workspaces/hydroshare_gis/coveragestores/res_' + res_id + \
-              '/coverages/' + layer_name + '.json'
+        url = '{0}/rest/workspaces/{1}/coveragestores/res_{2}/coverages/{3}.json'.format(geoserver_url,
+                                                                                         get_workspace_id(),
+                                                                                         res_id,
+                                                                                         layer_name)
 
-    r = requests.get(url, auth=get_credentials(geoserver_url))
-    json = r.json()
-
-    if res_type == 'GeographicFeatureResource':
-        extents = json['featureType']['latLonBoundingBox']
-
-        attributes = json['featureType']['attributes']['attribute']
-        attributes_string = ''
-        for attribute in attributes:
-            if attribute['name'] == 'the_geom':
-                geom_type = attribute['binding'].split('.')[-1]
-            else:
-                attributes_string += attribute['name'] + ','
+    r = requests.get(url, auth=get_geoserver_credentials())
+    if r.status_code != 200:
+        response_obj['message'] = 'The Geoserver appears to be down.'
     else:
-        extents = json['coverage']['latLonBoundingBox']
-        attributes_string = ','
+        json = r.json()
 
-    return extents, attributes_string[:-1], geom_type
+        if res_type == 'GeographicFeatureResource':
+            extents = json['featureType']['latLonBoundingBox']
+
+            attributes = json['featureType']['attributes']['attribute']
+            attributes_string = ''
+            for attribute in attributes:
+                if attribute['name'] == 'the_geom':
+                    geom_type = attribute['binding'].split('.')[-1]
+                else:
+                    attributes_string += attribute['name'] + ','
+        else:
+            extents = json['coverage']['latLonBoundingBox']
+            attributes_string = ','
+        response_obj = {
+            'success': True,
+            'attributes': attributes_string[:-1],
+            'extents': extents,
+            'geom_type': geom_type
+        }
+
+    return response_obj
 
 
 def get_geoserver_url(request=None):
-    engine = get_spatial_dataset_engine(name=geoserver_name)
+    engine = return_spatial_dataset_engine()
     geoserver_url = engine.endpoint.split('/rest')[0]
 
     if request:
@@ -177,9 +213,17 @@ def get_geoserver_url(request=None):
         return geoserver_url
 
 
-def extract_site_info_from_time_series(sqlite_file_path):
+def get_debug_val():
+    val = False
+    if gethostname() == 'ubuntu':
+        val = True
+
+    return val
+
+
+def extract_site_info_from_time_series(sqlite_fpath):
     site_info = None
-    with sqlite3.connect(sqlite_file_path) as con:
+    with sqlite3.connect(sqlite_fpath) as con:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute('SELECT * FROM Sites')
@@ -199,6 +243,7 @@ def extract_site_info_from_time_series(sqlite_file_path):
 
 
 def extract_site_info_from_ref_time_series(hs, res_id):
+    site_info = None
     try:
         md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
         site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
@@ -210,9 +255,9 @@ def extract_site_info_from_ref_time_series(hs, res_id):
             'lat': lat,
             'projection': projection
         }
-    except Exception as e:
-        print str(e)
-        site_info = None
+    except KeyError:
+        pass
+
     return site_info
 
 
@@ -230,27 +275,544 @@ def request_wfs_info(params):
     geoserver_url = get_geoserver_url()
     geoserver_url += '/wfs'
 
-    r = requests.get(geoserver_url, params=params, auth=get_credentials(geoserver_url))
+    r = requests.get(geoserver_url, params=params, auth=get_geoserver_credentials())
 
     return r
 
 
-def get_band_info(hs, res_id):
-    try:
-        md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
-        band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
-        band_info = {
-            'min': float(band_info_raw['hsterms:minimumValue']),
-            'max': float(band_info_raw['hsterms:maximumValue']),
-            'nd': float(band_info_raw['hsterms:noDataValue'])
-        }
-    except Exception as e:
-        print str(e)
-        band_info = None
+def get_band_info(hs, res_id, res_type):
+    band_info = None
+    if res_type == 'RasterResource':
+        try:
+            md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
+            band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
+            band_info = {
+                'min': float(band_info_raw['hsterms:minimumValue']),
+                'max': float(band_info_raw['hsterms:maximumValue']),
+                'nd': float(band_info_raw['hsterms:noDataValue'])
+            }
+        except KeyError:
+            pass
+        except Exception as e:
+            print str(e)
+
     return band_info
 
 
-def get_credentials(geoserver_url):
-    username = 'admin'
-    password = 'geoserver' if 'appsdev' in geoserver_url else 'hydroshare'
-    return (username, password)
+def get_geoserver_credentials():
+    engine = return_spatial_dataset_engine()
+    return (engine.username, engine.password)
+
+
+# def process_local_file(request):
+#     res_type = None
+#     res_id = None
+#
+#     if not os.path.exists(hs_tempdir):
+#         os.mkdir(hs_tempdir)
+#
+#     file_list = request.FILES.getlist('files')
+#     file_name = None
+#     for f in file_list:
+#         file_name = f.name
+#         if file_name.endswith('.shp'):
+#             # res_id = str(file_name[:-4].__hash__())
+#             res_type = 'GeographicFeatureResource'
+#             res_filepath_or_obj = file_list
+#             break
+#         elif file_name.endswith('.tif'):
+#             # res_id = str(file_name[:-4].__hash__())
+#             res_id = 'temp_id'
+#             res_type = 'RasterResource'
+#             res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
+#             make_zipfile(f, file_name, res_filepath_or_obj)
+#             break
+#         elif file_name.endswith('.zip'):
+#             is_zip = True
+#             res_id = 'temp_id'
+#             res_zip = os.path.join(hs_tempdir, res_id, file_name)
+#             if not os.path.exists(res_zip):
+#                 if not os.path.exists(os.path.dirname(res_zip)):
+#                     os.mkdir(os.path.dirname(res_zip))
+#             with zipfile.ZipFile(res_zip, 'w', zipfile.ZIP_DEFLATED, False) as zip_object:
+#                 with zipfile.ZipFile(StringIO(f.read())) as z:
+#                     for file_name in z.namelist():
+#                         zip_object.writestr(file_name, z.read(file_name))
+#                         if file_name.endswith('.shp'):
+#                             res_id = str(file_name[:-4].__hash__())
+#                             res_type = 'GeographicFeatureResource'
+#                         elif file_name.endswith('.tif'):
+#                             res_id = str(file_name[:-4].__hash__())
+#                             res_type = 'RasterResource'
+#             os.rename(os.path.join(hs_tempdir, 'temp_id'), os.path.join(hs_tempdir, res_id))
+#             res_filepath_or_obj = os.path.join(hs_tempdir, res_id, file_name)
+#
+#     if res_type is not None:
+#         hs = get_oauth_hs(request)
+#         if hs is None:
+#             return get_json_response('error', 'Please sign in with your HydroShare account to access this feature.')
+#         abstract = 'This resource was created while using the HydroShare GIS App.'
+#         res_id = hs.createResource(
+#             'GenericResource',
+#             os.path.splitext(file_name)[0],
+#             resource_file=res_filepath_or_obj if res_type == 'RasterResource' else file_list,
+#             resource_filename=file_name,
+#             abstract=abstract)
+#     else:
+#         return JsonResponse({
+#             'error': 'Zipfile did not contain valid files.'
+#         })
+
+def process_hs_res(hs, res_id, res_type=None, res_title=None):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {
+            'res_id': res_id,
+            'res_type': res_type,
+            'layer_name': res_title,
+            'layer_id': None,
+            'layer_extents': None,
+            'layer_attributes': None,
+            'site_info': None,
+            'geom_type': None,
+            'band_info': None,
+            'project_info': None,
+            'public_fname': None
+        }
+    }
+    results = return_obj['results']
+
+    try:
+        if res_type is None or res_title is None:
+            md = hs.getSystemMetadata(res_id)
+            res_type = md['resource_type']
+            res_title = md['resource_title']
+            results['layer_name'] = res_title
+            results['res_type'] = res_type
+
+        check_res = check_geoserver_for_res(res_id)
+        if check_res['isOnGeoserver']:
+            layer_name = check_res['layer_name']
+            results['layer_id'] = '%s:%s' % (get_workspace_id(), layer_name)
+            response = get_layer_md_from_geoserver(res_id=res_id, layer_name=layer_name,
+                                                   res_type=res_type)
+            if not response['success']:
+                return_obj['message'] = response['message']
+            else:
+                results['layer_attributes'] = response['attributes']
+                results['layer_extents'] = response['extents']
+                results['geom_type'] = response['geom_type']
+                results['band_info'] = get_band_info(hs, res_id, res_type)
+                return_obj['success'] = True
+        else:
+            response = process_res_by_type(hs, res_id, res_type)
+            if not response['success']:
+                return_obj['message'] = response['message']
+            else:
+                results['res_type'] = response['res_type']
+                results['project_info'] = response['project_info']
+                results['layer_id'] = response['layer_id']
+                results['band_info'] = response['band_info']
+                results['site_info'] = response['site_info']
+                results['layer_attributes'] = response['layer_attributes']
+                results['layer_extents'] = response['layer_extents']
+                results['geom_type'] = response['geom_type']
+                results['public_fname'] = response['public_fname']
+                return_obj['success'] = True
+
+    except hs_r.HydroShareHTTPException:
+        return_obj['message'] = 'The HydroShare server appears to be down.'
+    except hs_r.HydroShareNotFound:
+        return_obj['message'] = 'This resource was not found on www.hydroshare.org'
+    except hs_r.HydroShareNotAuthorized:
+        return_obj['message'] = 'You are not authorized to access this resource.'
+    except Exception as e:
+        if gethostname() == 'ubuntu':
+            exc_type, exc_value, exc_traceback = exc_info()
+            msg = e.message if e.message else str(e)
+            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
+            print msg
+            return_obj['message'] = 'An unexpected error ocurred: %s' % msg
+        else:
+            return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
+            custom_msg = e.message if e.message else None
+            email_traceback(exc_info(), custom_msg)
+
+    if os.path.exists(os.path.join(hs_tempdir, res_id)):
+        shutil.rmtree(os.path.join(hs_tempdir, res_id))
+
+    return return_obj
+
+
+def check_geoserver_for_res(res_id):
+    return_obj = {'isOnGeoserver': False}
+    engine = None
+    store_id = 'res_%s' % res_id
+    try:
+        engine = return_spatial_dataset_engine()
+        response = engine.list_resources(store=store_id)
+        if response['success']:
+            results = response['result']
+            assert len(results) == 1
+            layer_name = response['result'][0]
+            return_obj = {
+                'isOnGeoserver': True,
+                'layer_name': layer_name,
+            }
+    except AssertionError:
+        if engine is not None:
+            engine.delete_store(store_id=store_id, purge=True, recurse=True)
+    except FailedRequestError:
+        pass
+
+    return return_obj
+
+
+def download_res_from_hs(hs, res_id):
+    return_obj = {
+        'success': False,
+        'res_contents_path': None
+    }
+    if not os.path.exists(hs_tempdir):
+        os.mkdir(hs_tempdir)
+    hs.getResource(res_id, destination=hs_tempdir, unzip=True)
+    res_contents_path = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
+
+    return_obj['res_contents_path'] = res_contents_path
+    return_obj['success'] = True
+
+    return return_obj
+
+
+def process_res_by_type(hs, res_id, res_type):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'res_type': None,
+        'project_info': None,
+        'layer_id': None,
+        'band_info': None,
+        'site_info': None,
+        'layer_attributes': None,
+        'layer_extents': None,
+        'geom_type': None,
+        'public_fname': None
+    }
+
+    if res_type == 'RefTimeSeriesResource':
+        site_info = extract_site_info_from_ref_time_series(hs, res_id)
+        if not site_info:
+            return_obj['message'] = 'Required site info data not available.'
+        else:
+            return_obj['site_info'] = site_info
+            return_obj['success'] = True
+    else:
+        response = download_res_from_hs(hs, res_id)
+        if not response['success']:
+            return_obj['message'] = response['message']
+        else:
+            res_contents_path = response['res_contents_path']
+            response = get_info_from_res_files(res_id, res_type, res_contents_path)
+            if not response['success']:
+                return_obj['message'] = response['message']
+            else:
+                res_filepath = response['res_filepath']
+                is_mosaic = response['is_mosaic']
+                is_zip = response['is_zip']
+                res_type = response['res_type']
+                return_obj['res_type'] = res_type
+
+                if res_type == 'GenericResource':
+                    if res_filepath and res_filepath.endswith('mapProject.json'):
+                        with open(res_filepath) as project_file:
+                            project_info = project_file.read()
+
+                        return_obj['project_info'] = project_info
+                        return_obj['success'] = True
+                    elif res_filepath:
+                        return_obj['public_fname'] = os.path.basename(res_filepath)
+                        return_obj['success'] = True
+                    else:
+                        return_obj['message'] = 'This resource does not contain any content ' \
+                                                'that HydroShare GIS can display.'
+                elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
+                    check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, is_zip, is_mosaic)
+                    if not check_res['success']:
+                        return_obj['message'] = check_res['message']
+                    else:
+                        results = check_res['results']
+                        layer_name = results['layer_name']
+                        return_obj['layer_id'] = results['layer_id']
+
+                        response = get_layer_md_from_geoserver(res_id=res_id, layer_name=layer_name,
+                                                               res_type=res_type)
+                        if not response['success']:
+                            return_obj['message'] = response['message']
+                        else:
+                            return_obj['layer_attributes'] = response['attributes']
+                            return_obj['layer_extents'] = response['extents']
+                            return_obj['geom_type'] = response['geom_type']
+                            return_obj['band_info'] = get_band_info(hs, res_id, res_type)
+                            return_obj['success'] = True
+                else:
+                    return_obj['message'] = 'Resource cannot be opened with HydroShare GIS: Invalid resource type.'
+
+    return return_obj
+
+def get_info_from_res_files(res_id, res_type, res_contents_path):
+    return_obj = {
+        'success': False,
+        'res_filepath': None,
+        'res_type': res_type,
+        'is_mosaic': False,
+        'is_zip': False
+    }
+    res_fpath = None
+
+    if os.path.exists(res_contents_path):
+        if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
+            for f in os.listdir(res_contents_path):
+                src = os.path.join(res_contents_path, f)
+                dst = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
+                os.rename(src, dst)
+        coverage_files = []
+        tif_count = 0
+        modify_crs = False
+        tif_path_orig = None
+        tif_path_mod = None
+        code = None
+
+        if res_type == 'GeographicFeatureResource':
+            res_fpath = os.path.join(res_contents_path, 'res_' + res_id)
+        elif res_type == 'RasterResource':
+            for fname in os.listdir(res_contents_path):
+                fpath = os.path.join(res_contents_path, fname)
+                if fname.endswith('.tif'):
+                    tif_count += 1
+                    if tif_count == 1:
+                        r = check_crs(fpath)
+                        if r['success'] and r['crsWasChanged']:
+                            modify_crs = True
+                            tif_path_orig = fpath
+                            tif_path_mod = fpath[:-4] + '_reprojected' + fpath[-4:]
+                            code = r['code']
+                if tif_count > 1:
+                    return_obj['is_mosaic'] = True
+                coverage_files.append(fpath)
+        else:
+            for fname in os.listdir(res_contents_path):
+                fpath = os.path.join(res_contents_path, fname)
+
+                if fname == 'mapProject.json':
+                    res_fpath = fpath
+                    res_type = 'GenericResource'
+                    break
+
+                elif fname == 'basin.kml':
+                    raw_input("Paused")
+                    new_fpath = os.path.join(res_contents_path, res_id + '.shp')
+                    print 'new_fpath = %s' % new_fpath
+                    os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(new_fpath, fpath))
+                    res_fpath = os.path.join(res_contents_path, res_id)
+                    print 'res_fpath = %s' % res_fpath
+                    res_type = 'GeographicFeatureResource'
+                    raw_input("Paused")
+                    break
+
+                elif fname.endswith('.vrt') or fname.endswith('.tif'):
+                    if fname.endswith('.tif'):
+                        tif_count += 1
+                        if tif_count == 1:
+                            r = check_crs(fpath)
+                            if r['success'] and r['crsWasChanged']:
+                                modify_crs = True
+                                tif_path_orig = fpath
+                                tif_path_mod = fpath[:-4] + '_reprojected' + fpath[-4:]
+                                code = r['code']
+                    if tif_count > 1:
+                        return_obj['is_mosaic'] = True
+                    coverage_files.append(fpath)
+                    res_type = 'RasterResource'
+
+                else:
+                    if not os.path.exists(public_tempdir):
+                        os.mkdir(public_tempdir)
+                    dst = os.path.join(public_tempdir, fname)
+                    os.rename(fpath, dst)
+                    res_fpath = dst
+                    break
+
+        if modify_crs:
+            os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tif_path_orig, tif_path_mod))
+            os.remove(tif_path_orig)
+            os.rename(tif_path_mod, tif_path_orig)
+
+        if coverage_files:
+            res_fpath = os.path.join(res_contents_path, res_id + '.zip')
+            response = make_zipfile(coverage_files, res_fpath)
+            if not response['success']:
+                return_obj['message'] = response['message']
+            else:
+                return_obj['is_zip'] = True
+
+        return_obj['res_filepath'] = res_fpath
+        return_obj['res_type'] = res_type
+        return_obj['success'] = True
+
+    return return_obj
+
+
+def get_hs_res_list(hs):
+    # Deletes all stores from geoserver
+    # engine = return_spatial_dataset_engine()
+    # stores = engine.list_stores(get_workspace_id())
+    # for store in stores['result']:
+    #     engine.delete_store(store_id=store_id, purge=True, recurse=True)
+    #     print "Store %s deleted" % store
+    return_obj = {
+        'success': False,
+        'message': None,
+        'res_list': None
+    }
+    res_list = []
+
+    try:
+        valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
+        for res in hs.getResourceList(types=valid_res_types):
+            res_id = res['resource_id']
+            res_size = 0
+            try:
+                for res_file in hs.getResourceFileList(res_id):
+                    res_size += res_file['size']
+
+            except hs_r.HydroShareNotAuthorized:
+                continue
+            except Exception as e:
+                print str(e)
+
+            res_list.append({
+                'title': res['resource_title'],
+                'type': res['resource_type'],
+                'id': res_id,
+                'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
+                'owner': res['creator']
+            })
+
+        return_obj['res_list'] = res_list
+        return_obj['success'] = True
+
+    except hs_r.HydroShareHTTPException:
+        return_obj['message'] = 'The HydroShare server appears to be down.'
+    except Exception as e:
+        print e
+        return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
+        if gethostname() != 'ubuntu':
+            email_traceback(exc_info())
+
+    return return_obj
+
+
+def get_workspace_id():
+    global workspace_id
+    if workspace_id is None:
+        if 'apps.hydroshare' in gethostname():
+            workspace_id = 'hydroshare_gis'
+        else:
+            workspace_id = 'hydroshare_gis_testing'
+
+    return workspace_id
+
+
+def email_traceback(traceback, custom_msg=None):
+    exc_type, exc_value, exc_traceback = traceback
+    email = 'scrawley@byu.edu'
+    trcbck = ''.join(format_exception(exc_type, exc_value, exc_traceback))
+    msg_raw = trcbck + custom_msg if custom_msg else trcbck
+    msg = MIMEText(msg_raw)
+    msg['Subject'] = 'HydroShare GIS ERROR'
+    msg['From'] = email
+    msg['To'] = email
+
+    s = None
+    try:
+        s = SMTP(gethostname())
+        s.sendmail(email, [email], msg.as_string())
+    except Exception as e:
+        print str(e)
+    if s:
+        s.quit()
+
+
+def check_crs(fpath):
+    return_obj = {
+        'success': False,
+        'code': None,
+        'crsWasChanged': False
+    }
+
+    gdal_info = check_output(['gdalinfo', fpath])
+    start = 'Coordinate System is:'
+    length = len(start)
+    end = 'Origin ='
+    start_index = gdal_info.find(start) + length
+    end_index = gdal_info.find(end)
+    crs_raw = gdal_info[start_index:end_index]
+    crs = ''.join(crs_raw.split())
+
+    endpoint = 'http://prj2epsg.org/search.json'
+    params = {
+        'mode': 'wkt',
+        'terms': crs
+    }
+    crs_is_unknown = True
+    try:
+        while crs_is_unknown:
+            r = requests.get(endpoint, params=params)
+            response = r.json()
+            print response
+            if 'errors' in response:
+                errs = response['errors']
+                if 'Invalid WKT syntax' in errs:
+                    err = errs.split(':')[2]
+                    if err and 'Parameter' in err:
+                        crs_param = err.split('"')[1]
+                        rm_indx_start = crs.find(crs_param)
+                        rm_indx_end = None
+                        sub_str = crs[rm_indx_start:]
+                        counter = 0
+                        check = False
+                        for i, c in enumerate(sub_str):
+                            if c == '[':
+                                counter += 1
+                                check = True
+                            elif c == ']':
+                                counter -= 1
+                                check = True
+                            if check:
+                                if counter == 0:
+                                    rm_indx_end = i + rm_indx_start + 1
+                                    break
+                        crs = crs[:rm_indx_start] + crs[rm_indx_end:]
+                        if ',' in crs[:-4]:
+                            i = crs.rfind(',')
+                            crs = crs[:i] + crs[i+1:]
+                        params['terms'] = crs
+                        return_obj['crsWasChanged'] = True
+                    else:
+                        break
+                else:
+                    break
+            else:
+                crs_is_unknown = False
+                return_obj['code'] = 'EPSG:' + response['codes'][0]['code']
+                return_obj['success'] = True
+    except Exception as e:
+        print str(e)
+
+    return return_obj
+
+
+def delete_public_tempfiles():
+    if os.path.exists(public_tempdir):
+        shutil.rmtree(public_tempdir)

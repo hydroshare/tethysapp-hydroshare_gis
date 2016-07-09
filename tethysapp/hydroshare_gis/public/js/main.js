@@ -38,6 +38,8 @@
         dataTableLoadRes,
         insetMap,
         layersContextMenuBase,
+        layersContextMenuGeospatialBase,
+        layersContextMenuViewFile,
         layersContextMenuRaster,
         layersContextMenuVector,
         layersContextMenuTimeSeries,
@@ -47,6 +49,7 @@
         projectInfo,
     //  *********FUNCTIONS***********
         addContextMenuToListItem,
+        addGenericResToUI,
         addLayerToMap,
         addLayerToUI,
         addListenersToListItem,
@@ -54,12 +57,15 @@
         addLoadResSelEvnt,
         addInitialEventListeners,
         areValidFiles,
+        buildHSResTable,
         changeBaseMap,
         checkCsrfSafe,
         checkURLForParameters,
         closeLyrEdtInpt,
+        createExportCanvas,
         createLayerListItem,
         displaySymbologyModalError,
+        deletePublicTempfiles,
         drawLayersInListOrder,
         drawPointSymbologyPreview,
         editLayerName,
@@ -83,6 +89,7 @@
         onClickAddToNewProject,
         onClickDeleteLayer,
         onClickModifySymbology,
+        onClickViewFile,
         onClickOpenInHS,
         onClickRenameLayer,
         onClickSaveProject,
@@ -90,6 +97,7 @@
         onClickViewLegend,
         onClickZoomToLayer,
         prepareFilesForAjax,
+        processAddHSResResults,
         processSaveProjectResponse,
         redrawDataTable,
         reprojectExtents,
@@ -122,6 +130,7 @@
         $modalLoadRes,
         $modalSaveNewProject,
         $modalSymbology,
+        $modalViewFile,
         $progressBar,
         $progressText,
         $uploadBtn;
@@ -138,12 +147,43 @@
                 'mouseClick': 'left',
                 'position': 'right',
                 'onOpen': function (e) {
+                    $('.hmbrgr-div').removeClass('hmbrgr-open');
                     $(e.trigger.context).parent().addClass('hmbrgr-open');
                 },
                 'onClose': function (e) {
                     $(e.trigger.context).parent().removeClass('hmbrgr-open');
                 }
             });
+    };
+
+    addGenericResToUI = function (results) {
+        var $newLayerListItem;
+        var layerName = results.layer_name;
+        var resId = results.res_id;
+        var layerIndex = Math.floor(Math.random() * 1000) + 1000;
+        var publicFilename = results.public_fname;
+        var resType = results.res_type;
+        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, layerName, 'None', resId, publicFilename, true);
+        $newLayerListItem = $currentLayersList.find(':first-child');
+        addContextMenuToListItem($newLayerListItem, resType);
+        addListenersToListItem($newLayerListItem, layerIndex);
+
+        // Add layer data to project info
+        projectInfo.map.layers[layerIndex] = {
+            hsResId: resId,
+            attributes: 'None',
+            cssStyles: 'None',
+            extents: 'None',
+            geomType: 'None',
+            id: 'None',
+            index: layerIndex,
+            listOrder: 1,
+            name: layerName,
+            resType: resType,
+            visible: true,
+            hide255: false,
+            filename: publicFilename
+        };
     };
 
     addLayerToMap = function (data) {
@@ -155,7 +195,8 @@
             resType = data.resType,
             geomType = data.geomType,
             cssStyles = data.cssStyles,
-            visible = data.visible;
+            visible = data.visible,
+            hide255 = data.hide255;
 
         if (resType.indexOf('TimeSeriesResource') > -1) {
             newLayer = new ol.layer.Vector({
@@ -178,7 +219,7 @@
                 'TILED': true
             };
             if (cssStyles && cssStyles !== 'Default') {
-                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId);
+                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId, hide255);
                 lyrParams.SLD_BODY = sldString;
             }
             newLayer = new ol.layer.Tile({
@@ -186,7 +227,8 @@
                 source: new ol.source.TileWMS({
                     url: projectInfo.map.geoserverUrl + '/wms',
                     params: lyrParams,
-                    serverType: 'geoserver'
+                    serverType: 'geoserver',
+                    crossOrigin: 'Anonymous'
                 }),
                 visible: visible
             });
@@ -196,8 +238,9 @@
         }
     };
 
-    addLayerToUI = function (response, resId, lastResource) {
+    addLayerToUI = function (results, isLastResource) {
         var geomType,
+            hide255 = false,
             cssStyles,
             layerAttributes,
             layerExtents,
@@ -207,95 +250,93 @@
             resType,
             bandInfo,
             rawLayerExtents,
+            resId,
             tsSiteInfo,
             $newLayerListItem;
 
-        if (response.hasOwnProperty('success')) {
-            if (lastResource) {
-                hideMainLoadAnim();
-                showResLoadingStatus(true, 'Resource(s) added successfully!');
-            }
-            if (resId === 'None') {
-                resId = response.res_id;
-            }
-            resType = response.res_type;
-            if (resType === 'GeographicFeatureResource') {
-                geomType = getGeomType(response.geom_type);
-                layerAttributes = response.layer_attributes;
-            } else {
-                geomType = "None";
-                layerAttributes = "None";
-            }
-            bandInfo = (resType === 'RasterResource' && response.band_info) ? response.band_info : 'None';
-            layerName = response.layer_name;
-            layerId = response.layer_id || response.res_id;
-            rawLayerExtents = response.layer_extents;
-
-            if (resType.indexOf('TimeSeriesResource') > -1) {
-                tsSiteInfo = response.site_info;
-                layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
-            } else {
-                layerExtents = reprojectExtents(rawLayerExtents);
-            }
-
-            if (bandInfo === 'None') {
-                cssStyles = 'Default';
-            } else {
-                cssStyles = {'color-map': {}};
-                cssStyles['color-map'][bandInfo.nd] = {
-                    color: '#000000',
-                    opacity: 0
-                };
-                cssStyles['color-map'][bandInfo.min] = {
-                    color: '#000000',
-                    opacity: 1
-                };
-                cssStyles['color-map'][bandInfo.max] = {
-                    color: '#ffffff',
-                    opacity: 1
-                };
-            }
-
-            addLayerToMap({
-                cssStyles: cssStyles,
-                geomType: geomType,
-                resType: resType,
-                lyrExtents: layerExtents,
-                url: projectInfo.map.geoserverUrl + '/wms',
-                lyrId: layerId
-            });
-
-            layerIndex = layerCount.get();
-
-            // Add layer data to project info
-            projectInfo.map.layers[layerIndex] = {
-                hsResId: resId,
-                attributes: layerAttributes,
-                cssStyles: cssStyles,
-                extents: layerExtents,
-                geomType: geomType,
-                id: layerId,
-                index: layerIndex,
-                listOrder: 1,
-                name: layerName,
-                resType: resType,
-                visible: true
-            };
-
-            createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
-            $newLayerListItem = $currentLayersList.find(':first-child');
-            addContextMenuToListItem($newLayerListItem, resType);
-            addListenersToListItem($newLayerListItem, layerIndex);
-
-            drawLayersInListOrder(); // Must be called after creating the new layer list item
-            zoomToLayer(layerExtents, map.getSize(), resType);
-
-            $btnSaveProject.prop('disabled', false);
+        resId = results.res_id;
+        resType = results.res_type;
+        if (resType === 'GeographicFeatureResource') {
+            geomType = getGeomType(results.geom_type);
+            layerAttributes = results.layer_attributes;
         } else {
-            if (lastResource) {
-                hideMainLoadAnim();
-                showResLoadingStatus(false, response.error);
+            geomType = "None";
+            layerAttributes = "None";
+        }
+        bandInfo = (resType === 'RasterResource' && results.band_info) ? results.band_info : 'None';
+        layerName = results.layer_name;
+        layerId = results.layer_id || results.res_id;
+        rawLayerExtents = results.layer_extents;
+
+        if (resType.indexOf('TimeSeriesResource') > -1) {
+            tsSiteInfo = results.site_info;
+            layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
+        } else {
+            layerExtents = reprojectExtents(rawLayerExtents);
+        }
+
+        if (bandInfo === 'None') {
+            cssStyles = 'Default';
+        } else {
+            cssStyles = {'color-map': {}};
+            cssStyles['color-map'][bandInfo.nd] = {
+                color: '#000000',
+                opacity: 0
+            };
+            cssStyles['color-map'][bandInfo.min] = {
+                color: '#000000',
+                opacity: 1
+            };
+            cssStyles['color-map'][bandInfo.max] = {
+                color: '#ffffff',
+                opacity: 1
+            };
+            if (bandInfo.min > 255 || bandInfo.max < 255) {
+                hide255 = true;
             }
+        }
+
+        addLayerToMap({
+            cssStyles: cssStyles,
+            geomType: geomType,
+            resType: resType,
+            lyrExtents: layerExtents,
+            url: projectInfo.map.geoserverUrl + '/wms',
+            lyrId: layerId,
+            hide255: hide255
+        });
+
+        layerIndex = layerCount.get();
+
+        // Add layer data to project info
+        projectInfo.map.layers[layerIndex] = {
+            hsResId: resId,
+            attributes: layerAttributes,
+            cssStyles: cssStyles,
+            extents: layerExtents,
+            geomType: geomType,
+            id: layerId,
+            index: layerIndex,
+            listOrder: 1,
+            name: layerName,
+            resType: resType,
+            visible: true,
+            hide255: hide255
+        };
+
+        createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
+        $newLayerListItem = $currentLayersList.find(':first-child');
+        addListenersToListItem($newLayerListItem, layerIndex);
+        addContextMenuToListItem($newLayerListItem, resType);
+
+        drawLayersInListOrder(); // Must be called after creating the new layer list item
+        zoomToLayer(layerExtents, map.getSize(), resType);
+
+        $btnSaveProject.prop('disabled', false);
+
+        if (isLastResource) {
+            hideMainLoadAnim();
+            showResLoadingStatus(true, 'Resource(s) added successfully!');
         }
     };
 
@@ -303,7 +344,6 @@
         var $layerNameInput;
         $listItem.find('.layer-name').on('dblclick', function () {
             var $layerNameSpan = $(this);
-
             $layerNameSpan.addClass('hidden');
             $layerNameInput = $listItem.find('input[type=text]');
             $layerNameInput
@@ -319,6 +359,21 @@
             $(document).on('click.edtLyrNm', function () {
                 closeLyrEdtInpt($layerNameSpan, $layerNameInput);
             });
+        });
+        $listItem.find('.hmbrgr-div img').on('click', function (e) {
+            var clickedObj = $(e.currentTarget);
+            var menuIndex;
+            var menuObj;
+            var newStyle;
+            menuIndex = clickedObj.parent().parent().attr('data-layer-index') - 3;
+            menuObj = $($('.iw-contextMenu')[menuIndex]);
+            if (menuObj.attr('style') !== undefined && menuObj.attr('style').indexOf('display: none;') === -1) {
+                window.setTimeout(function () {
+                    newStyle = menuObj.attr('style').replace('inline-block', 'none');
+                    menuObj.attr('style', newStyle);
+                    clickedObj.parent().removeClass('hmbrgr-open');
+                }, 100);
+            }
         });
     };
 
@@ -350,6 +405,10 @@
     };
 
     addInitialEventListeners = function () {
+        $('#close-modalViewFile').on('click', function () {
+            $modalViewFile.modal('hide');
+        });
+
         $modalLegend.on('shown.bs.modal', function () {
             $('#img-legend').css('height', $('#img-legend')[0].naturalHeight);
         });
@@ -720,7 +779,7 @@
         $('#btn-export-png').on('click', function () {
             if ($('#btn-export-png').prop('download') !== "") {
                 map.once('postcompose', function (event) {
-                    var canvas = event.context.canvas;
+                    var canvas = createExportCanvas(event.context.canvas);
                     $(this).attr('href', canvas.toDataURL('image/png'));
                 }, this);
                 map.renderSync();
@@ -730,22 +789,7 @@
         });
 
         $('#btn-export-pdf').on('click', function () {
-            var dims,
-                loading,
-                loaded,
-                format,
-                resolution,
-                dim,
-                width,
-                height,
-                size,
-                extent,
-                source = null,
-                tileLoadStart,
-                tileLoadEnd,
-                baseMapIndex;
-
-            dims = {
+            var dims = {
                 a0: [1189, 841],
                 a1: [841, 594],
                 a2: [594, 420],
@@ -753,65 +797,19 @@
                 a4: [297, 210],
                 a5: [210, 148]
             };
-
-            loading = 0;
-            loaded = 0;
+            var format = $('#slct-format').val();
+            var dim = dims[format];
 
             $(this).prop('disabled', true);
 
-            format = $('#slct-format').val();
-            resolution = $('#slct-resolution').val();
-            dim = dims[format];
-            width = Math.round(dim[0] * resolution / 25.4);
-            height = Math.round(dim[1] * resolution / 25.4);
-            size = /** @type {ol.Size} */ (map.getSize());
-            extent = map.getView().calculateExtent(size);
-            baseMapIndex = $('#basemap-dropdown').next().find('li').index($('.selected-basemap-option')) - 1;
-            if (baseMapIndex >= 0) {
-                source = map.getLayers().item(baseMapIndex).getSource();
-            }
-
-            tileLoadStart = function () {
-                ++loading;
-            };
-
-            tileLoadEnd = function () {
-                ++loaded;
-                if (loading === loaded) {
-                    var canvas = this;
-                    if (source !== null) {
-                        source.un('tileloadstart', tileLoadStart);
-                        source.un('tileloadend', tileLoadEnd, canvas);
-                        source.un('tileloaderror', tileLoadEnd, canvas);
-                    }
-                    window.setTimeout(function () {
-                        var data,
-                            pdf;
-
-                        loading = 0;
-                        loaded = 0;
-                        data = canvas.toDataURL('image/png');
-                        pdf = new jsPDF('landscape', undefined, format);
-                        pdf.addImage(data, 'JPEG', 0, 0, dim[0], dim[1]);
-                        pdf.save('map.pdf');
-                        map.setSize(size);
-                        map.getView().fit(extent, size);
-                        map.renderSync();
-                        $('#btn-export-pdf').prop('disabled', false);
-                    }, 100);
-                }
-            };
-
             map.once('postcompose', function (event) {
-                if (source !== null) {
-                    source.on('tileloadstart', tileLoadStart);
-                    source.on('tileloadend', tileLoadEnd, event.context.canvas);
-                    source.on('tileloaderror', tileLoadEnd, event.context.canvas);
-                }
+                var canvas = createExportCanvas(event.context.canvas);
+                var pdf = new jsPDF('landscape', undefined, format);
+                var data = canvas.toDataURL('image/png');
+                pdf.addImage(data, 'JPEG', 0, 0, dim[0], dim[1]);
+                pdf.save('mapProject.pdf');
+                $('#btn-export-pdf').prop('disabled', false);
             });
-
-            map.setSize([width, height]);
-            map.getView().fit(extent, /** @type {ol.Size} */ (map.getSize()));
             map.renderSync();
         });
 
@@ -863,6 +861,40 @@
             }
         }
         return (((hasTif || hasZip) && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
+    };
+
+    buildHSResTable = function (resList) {
+        var resTableHtml;
+
+        resList = typeof resList === 'string' ? JSON.parse(resList) : resList;
+        resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
+
+        resList.forEach(function (resource) {
+            resTableHtml += '<tr>' +
+                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
+                '<td class="res_title">' + resource.title + '</td>' +
+                '<td class="res_size">' + resource.size + '</td>' +
+                '<td class="res_type">' + resource.type + '</td>' +
+                '<td class="res_owner">' + resource.owner + '</td>' +
+                '</tr>';
+        });
+        resTableHtml += '</tbody></table>';
+        $modalLoadRes.find('.modal-body').html(resTableHtml);
+        addLoadResSelEvnt();
+        dataTableLoadRes = $('#tbl-resources').DataTable({
+            'order': [[1, 'asc']],
+            'columnDefs': [{
+                'orderable': false,
+                'targets': 0
+            }],
+            "scrollY": '500px',
+            "scrollCollapse": true,
+            fixedHeader: {
+                header: true,
+                footer: true
+            }
+        });
+        redrawDataTable(dataTableLoadRes, $modalLoadRes);
     };
 
     changeBaseMap = function () {
@@ -929,24 +961,61 @@
         $(document).off('click.edtLyrNm');
     };
 
-    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName, bandInfo, resId) {
-        var $newLayerListItem,
-            listHtmlString =
-                '<li class="ui-state-default" ' +
-                'data-layer-index="' + layerIndex + '" ' +
-                'data-layer-id="' + layerId + '" ' +
-                'data-res-id="' + resId + '" ' +
-                'data-res-type="' + resType + '" ' +
-                'data-geom-type="' + geomType + '" ' +
-                'data-layer-attributes="' + layerAttributes + '" ' +
-                'data-band-min="' + (bandInfo ? bandInfo.min : undefined) + '" ' +
-                'data-band-max="' + (bandInfo ? bandInfo.max : undefined) + '" ' +
-                'data-band-nd="' + (bandInfo ? bandInfo.nd : undefined) + '">' +
-                '<input class="chkbx-layer" type="checkbox">' +
-                '<span class="layer-name">' + layerName + '</span>' +
-                '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
-                '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"></div>' +
-                '</li>';
+    createExportCanvas = function (mapCanvas) {
+        var insetCanvas, exportCanvas, context, insetHeightOffset, $insetDiv, height, width,
+            $insetMap, divHeightOffset, divWidthOffset;
+
+        exportCanvas = $('#export-canvas')[0];
+        exportCanvas.width = mapCanvas.width;
+        exportCanvas.height = mapCanvas.height;
+        context = exportCanvas.getContext('2d');
+        context.drawImage(mapCanvas, 0, 0);
+        $insetMap = $('.ol-overviewmap-map');
+        if ($insetMap.length !== 0) {
+            insetCanvas = $insetMap.find('canvas')[0];
+            insetHeightOffset = mapCanvas.height - insetCanvas.height;
+            context.drawImage(insetCanvas, 0, insetHeightOffset);
+            $insetDiv = $('.ol-overlay-container');
+            height = $insetDiv.height();
+            width = $insetDiv.width();
+            divHeightOffset = $insetDiv.position().top;
+            divWidthOffset = $insetDiv.position().left;
+            context.setLineDash([2, 2]);
+            context.moveTo(divWidthOffset, insetHeightOffset + divHeightOffset);
+            context.lineTo(divWidthOffset + width, insetHeightOffset + divHeightOffset);
+            context.lineTo(divWidthOffset + width, insetHeightOffset + divHeightOffset + height);
+            context.lineTo(divWidthOffset, insetHeightOffset + divHeightOffset + height);
+            context.lineTo(divWidthOffset, insetHeightOffset + divHeightOffset);
+            context.stroke();
+        }
+        return exportCanvas;
+    };
+
+    createLayerListItem = function (position, layerIndex, layerId, resType, geomType, layerAttributes, visible, layerName, bandInfo, resId, publicFilename, disableChkbx) {
+        var $newLayerListItem;
+        var chkbxHtml;
+        if (disableChkbx === true) {
+            chkbxHtml = '<input class="chkbx-layer" type="checkbox" disabled>';
+        } else {
+            chkbxHtml = '<input class="chkbx-layer" type="checkbox">';
+        }
+        var listHtmlString =
+            '<li class="ui-state-default" ' +
+            'data-layer-index="' + layerIndex + '" ' +
+            'data-layer-id="' + layerId + '" ' +
+            'data-res-id="' + resId + '" ' +
+            'data-res-type="' + resType + '" ' +
+            'data-geom-type="' + geomType + '" ' +
+            'data-public-fname="' + publicFilename + '" ' +
+            'data-layer-attributes="' + layerAttributes + '" ' +
+            'data-band-min="' + (bandInfo ? bandInfo.min : undefined) + '" ' +
+            'data-band-max="' + (bandInfo ? bandInfo.max : undefined) + '" ' +
+            'data-band-nd="' + (bandInfo ? bandInfo.nd : undefined) + '">' +
+            chkbxHtml +
+            '<span class="layer-name">' + layerName + '</span>' +
+            '<input type="text" class="edit-layer-name hidden" value="' + layerName + '">' +
+            '<div class="hmbrgr-div"><img src="/static/hydroshare_gis/images/hamburger-menu.svg"></div>' +
+            '</li>';
 
         if (position === 'prepend') {
             $currentLayersList.prepend(listHtmlString);
@@ -968,6 +1037,13 @@
         }, 7000);
     };
 
+    deletePublicTempfiles = function () {
+        $.ajax({
+            url: '/apps/hydroshare-gis/delete-public-tempfiles',
+            async: true
+        });
+    };
+
     drawLayersInListOrder = function () {
         var i,
             index,
@@ -975,13 +1051,15 @@
             count,
             zIndex;
 
-        count = layerCount.get();
+        count = $currentLayersList.children().length + 2;
         for (i = 3; i <= count; i++) {
             layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
             index = Number(layer.attr('data-layer-index'));
             zIndex = count - i;
-            map.getLayers().item(index).setZIndex(zIndex);
-            projectInfo.map.layers[index].listOrder = i - 2;
+            if (index < 1000) {
+                map.getLayers().item(index).setZIndex(zIndex);
+                projectInfo.map.layers[index].listOrder = i - 2;
+            }
             $btnSaveProject.prop('disabled', false);
         }
     };
@@ -1174,41 +1252,13 @@
                 }
             },
             success: function (response) {
-                var resources,
-                    resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
-
-                if (!response.hasOwnProperty('success')) {
-                    $modalLoadRes.find('.modal-body').html('<div class="error">' + response.error + '</div>');
-                } else {
-                    if (response.hasOwnProperty('resources')) {
-                        resources = JSON.parse(response.resources);
-                        resources.forEach(function (resource) {
-                            resTableHtml += '<tr>' +
-                                '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
-                                '<td class="res_title">' + resource.title + '</td>' +
-                                '<td class="res_size">' + resource.size + '</td>' +
-                                '<td class="res_type">' + resource.type + '</td>' +
-                                '<td class="res_owner">' + resource.owner + '</td>' +
-                                '</tr>';
-                        });
-                        resTableHtml += '</tbody></table>';
-                        $modalLoadRes.find('.modal-body').html(resTableHtml);
-                        addLoadResSelEvnt();
-                        dataTableLoadRes = $('#tbl-resources').DataTable({
-                            'order': [[1, 'asc']],
-                            'columnDefs': [{
-                                'orderable': false,
-                                'targets': 0
-                            }],
-                            "scrollY": '500px',
-                            "scrollCollapse": true,
-                            fixedHeader: {
-                                header: true,
-                                footer: true
-                            }
-                        });
-                        redrawDataTable(dataTableLoadRes, $modalLoadRes);
-
+                if (response.hasOwnProperty('success')) {
+                    if (!response.success) {
+                        $modalLoadRes.find('.modal-body').html('<div class="error">' + response.message + '</div>');
+                    } else {
+                        if (response.hasOwnProperty('res_list')) {
+                            buildHSResTable(response.res_list);
+                        }
                         $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
                     }
                 }
@@ -1246,15 +1296,21 @@
                 var numColors,
                     i,
                     colorSelector,
+                    opacity,
                     quantitySelector;
 
                 numColors = $('#color-map-placeholder').attr('data-num-colors');
                 for (i = 0; i < numColors; i++) {
                     colorSelector = '#color' + i;
                     quantitySelector = '#quantity' + i;
+                    if ($(colorSelector).spectrum('get').toRgbString().indexOf('rgba') === -1) {
+                        opacity = $('#raster-opacity').val();
+                    } else {
+                        opacity = $(colorSelector).spectrum('get').getAlpha().toString();
+                    }
                     cssStyles['color-map'][$(quantitySelector).val()] = {
                         'color': $(colorSelector).spectrum('get').toHexString(),
-                        'opacity': $(colorSelector).spectrum('get').getAlpha().toString()
+                        'opacity': opacity
                     };
                 }
             }());
@@ -1388,6 +1444,7 @@
         $modalLoadRes = $('#modalLoadRes');
         $modalSaveNewProject = $('#modalSaveNewProject');
         $modalSymbology = $('#modalSymbology');
+        $modalViewFile = $('#modalViewFile');
         $progressBar = $('#progress-bar');
         $progressText = $('#progress-text');
         $uploadBtn = $('.btn-upload');
@@ -1408,12 +1465,6 @@
                     onClickRenameLayer(e);
                 }
             }, {
-                name: 'Zoom to',
-                title: 'Zoom to',
-                fun: function (e) {
-                    onClickZoomToLayer(e);
-                }
-            }, {
                 name: 'Delete',
                 title: 'Delete',
                 fun: function (e) {
@@ -1422,7 +1473,25 @@
             }
         ];
 
-        layersContextMenuRaster = layersContextMenuBase.slice();
+        layersContextMenuViewFile = layersContextMenuBase.slice();
+        layersContextMenuViewFile.unshift({
+            name: 'View file',
+            title: 'View file',
+            fun: function (e) {
+                onClickViewFile(e);
+            }
+        });
+
+        layersContextMenuGeospatialBase = layersContextMenuBase.slice();
+        layersContextMenuGeospatialBase.unshift({
+            name: 'Zoom to',
+            title: 'Zoom to',
+            fun: function (e) {
+                onClickZoomToLayer(e);
+            }
+        });
+
+        layersContextMenuRaster = layersContextMenuGeospatialBase.slice();
         layersContextMenuRaster.unshift({
             name: 'Modify symbology',
             title: 'Modify symbology',
@@ -1446,7 +1515,7 @@
             }
         });
 
-        layersContextMenuTimeSeries = layersContextMenuBase.slice();
+        layersContextMenuTimeSeries = layersContextMenuGeospatialBase.slice();
         layersContextMenuTimeSeries.unshift({
             name: 'View time series',
             title: 'View time series',
@@ -1460,6 +1529,7 @@
         });
 
         contextMenuDict = {
+            'GenericResource': layersContextMenuViewFile,
             'GeographicFeatureResource': layersContextMenuVector,
             'TimeSeriesResource': layersContextMenuTimeSeries,
             'RefTimeSeriesResource': layersContextMenuTimeSeries,
@@ -1512,6 +1582,7 @@
             })
         });
 
+        map.addControl(new ol.control.ZoomSlider());
         map.addControl(mousePositionControl);
         map.addControl(fullScreenControl);
     };
@@ -1556,7 +1627,7 @@
         $('#chkbx-show-inset-map').trigger('change');
     };
 
-    loadResource = function (resId, resType, resTitle, lastResource, additionalResources) {
+    loadResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
         var $footerInfoAddRes = $('#footer-info-addRes');
         var data = {'res_id': resId};
 
@@ -1571,7 +1642,7 @@
 
         $.ajax({
             type: 'GET',
-            url: '/apps/hydroshare-gis/load-file',
+            url: '/apps/hydroshare-gis/add-hs-res',
             dataType: 'json',
             data: data,
             error: function () {
@@ -1580,48 +1651,21 @@
                 console.error('Failure!');
             },
             success: function (response) {
-                $footerInfoAddRes.addClass('hidden');
-                $('#btn-upload-res').prop('disabled', false);
-                if (response.hasOwnProperty('error')) {
-                    showResLoadingStatus(false, response.error);
-                    hideMainLoadAnim();
-                } else {
-                    if (response.hasOwnProperty('project_info')) {
-                        loadProjectFile(JSON.parse(response.project_info));
-                        if (additionalResources) {
-                            (function () {
-                                var i;
-                                var length = additionalResources.length;
-                                var resource;
-
-                                for (i = 0; i < length; i++) {
-                                    resource = additionalResources[i];
-                                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                                }
-                            }());
+                if (response.hasOwnProperty('success')) {
+                    if (!response.success) {
+                        showResLoadingStatus(false, response.message);
+                        hideMainLoadAnim();
+                    } else {
+                        if (response.hasOwnProperty('results')) {
+                            processAddHSResResults(response.results, isLastResource, additionalResources);
                         }
-                        if (lastResource) {
-                            hideMainLoadAnim();
+                        if ($('#chkbx-res-auto-close').is(':checked')) {
+                            $modalLoadRes.modal('hide');
                         }
-                        return;
-                    }
-                    if (additionalResources) {
-                        (function () {
-                            var i;
-                            var length = additionalResources.length;
-                            var resource;
-
-                            for (i = 0; i < length; i++) {
-                                resource = additionalResources[i];
-                                loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                            }
-                        }());
-                    }
-                    addLayerToUI(response, resId, lastResource);
-                    if ($('#chkbx-res-auto-close').is(':checked')) {
-                        $modalLoadRes.modal('hide');
                     }
                 }
+                $footerInfoAddRes.addClass('hidden');
+                $('#btn-upload-res').prop('disabled', false);
             }
         });
     };
@@ -1699,18 +1743,21 @@
             delete projectInfo.map.layers[endIndex];
         };
 
-        maxLyrIndxBfrDel = layerCount.get();
-        map.getLayers().removeAt(deleteIndex);
         $lyrListItem.remove();
         delete projectInfo.map.layers[deleteIndex];
-        updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
 
-        count = layerCount.get();
-        for (i = 3; i <= count; i++) {
-            layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-            index = Number(layer.attr('data-layer-index'));
-            if (index > deleteIndex) {
-                layer.attr('data-layer-index', index - 1);
+        if (deleteIndex < 1000) {
+            maxLyrIndxBfrDel = layerCount.get();
+            map.getLayers().removeAt(deleteIndex);
+            updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
+
+            count = $currentLayersList.children().length;
+            for (i = 3; i <= count; i++) {
+                layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+                index = Number(layer.attr('data-layer-index'));
+                if (index > deleteIndex) {
+                    layer.attr('data-layer-index', index - 1);
+                }
             }
         }
     };
@@ -1721,6 +1768,39 @@
 
         setupSymbologyModalState($lyrListItem);
         $modalSymbology.modal('show');
+    };
+
+    onClickViewFile = function (e) {
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var fName = $lyrListItem.attr('data-public-fname');
+        var url;
+        var location = window.location;
+        var obj;
+        var validImgTypes = ['png', 'jpg', 'gif'];
+
+        $('.view-file').addClass('hidden');
+
+        if (fName.toLowerCase().indexOf('.pdf') !== -1) {
+            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
+            obj = $('#iframe-js-viewer');
+        } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+            obj = $('#img-viewer');
+        } else {
+            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+            obj = $('#unviewable-file');
+            $('#link-download-file').attr('href', url);
+        }
+        obj.attr('src', url).removeClass('hidden');
+        $modalViewFile.modal('show');
+
+        $(document).on('keyup.viewfile', function (e) {
+            if (e.which === 27) {
+                $(document).off('keyup.viewfile');
+                $modalViewFile.modal('hide');
+            }
+        });
     };
 
     onClickOpenInHS = function (e) {
@@ -1810,10 +1890,11 @@
         var cssStyles = projectInfo.map.layers[layerIndex].cssStyles;
         var geoserverUrl = projectInfo.map.geoserverUrl;
         var imageUrl =  geoserverUrl + '/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=75&HEIGHT=75&LAYER=' + layerId;
+        var hide255 = projectInfo.map.layers[layerIndex].hide255;
 
         imageUrl += '&LEGEND_OPTIONS=forceRule:True;fontStyle:bold;fontSize:14';
         if (cssStyles !== 'Default') {
-            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, true));
+            imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255, true));
         }
         $('#img-legend').attr('src', imageUrl);
 
@@ -1854,6 +1935,45 @@
         return data;
     };
 
+    processAddHSResResults = function (results, isLastResource, additionalResources) {
+        if (results.res_type === 'GenericResource') {
+            if (results.project_info !== null) {
+                loadProjectFile(JSON.parse(results.project_info));
+            } else if (results.public_fname !== null) {
+                addGenericResToUI(results);
+            }
+            if (additionalResources) {
+                (function () {
+                    var i;
+                    var length = additionalResources.length;
+                    var resource;
+
+                    for (i = 0; i < length; i++) {
+                        resource = additionalResources[i];
+                        loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                    }
+                }());
+            }
+            if (isLastResource) {
+                hideMainLoadAnim();
+            }
+            return;
+        }
+        if (additionalResources) {
+            (function () {
+                var i;
+                var length = additionalResources.length;
+                var resource;
+
+                for (i = 0; i < length; i++) {
+                    resource = additionalResources[i];
+                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                }
+            }());
+        }
+        addLayerToUI(results, isLastResource);
+    };
+
     processSaveProjectResponse = function (response) {
         var $footerInfoSaveProj = $('#footer-info-saveProj');
         if (response.hasOwnProperty('success')) {
@@ -1874,7 +1994,7 @@
         var interval;
         interval = window.setInterval(function () {
             if ($modal.css('display') !== 'none' && $modal.find('table').length > 0) {
-                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 145 + 'px');
+                $modal.find('.dataTables_scrollBody').css('height', $modal.find('.modal-body').height().toString() - 160 + 'px');
                 dataTable.columns.adjust().draw();
                 window.clearInterval(interval);
             }
@@ -2051,6 +2171,10 @@
             $('#slct-stroke-width').val(1);
         } else {
             setupSymbologyStrokeState(layerCssStyles);
+
+            if (layerCssStyles.labels) {
+                setupSymbologyLabelsState(layerCssStyles);
+            }
         }
         $('.line').removeClass('hidden');
         $('#symbology-preview-container').removeClass('hidden');
@@ -2142,14 +2266,15 @@
             layerId = $this.attr('data-layer-id'),
             layerIndex = $this.attr('data-layer-index'),
             sldString,
-            cssStyles;
+            cssStyles,
+            hide255 = projectInfo.map.layers[layerIndex].hide255;
 
         cssStyles = getCssStyles(geomType);
         if (cssStyles === null) {
             return;
         }
         projectInfo.map.layers[layerIndex].cssStyles = cssStyles;
-        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId);
+        sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
     };
@@ -2196,7 +2321,7 @@
                 fileLoaded = true;
                 updateProgressBar('100%');
                 $('#btn-upload-file').prop('disabled', false);
-                addLayerToUI(response, 'None', true);
+                addLayerToUI(response, true);
                 if ($('#chkbx-file-auto-close').is(':checked')) {
                     $modalLoadFile.modal('hide');
                 }
@@ -2217,6 +2342,7 @@
             resType = $rdoRes.parent().parent().find('.res_type').text(),
             resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
+        showMainLoadAnim();
         loadResource(resId, resType, resTitle, true, null);
     };
 
@@ -2296,4 +2422,6 @@
             }
         };
     }());
+
+    window.onbeforeunload = deletePublicTempfiles;
 }());

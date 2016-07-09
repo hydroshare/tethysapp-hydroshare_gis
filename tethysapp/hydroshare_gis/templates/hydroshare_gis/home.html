@@ -163,7 +163,6 @@
                 </div>
                 <div class="modal-body">
                     <form>
-                        <h4>Options:</h4>
                         <fieldset id="point-options" class="hidden point">
                             <label for="slct-point-shape">Point marker shape:</label>
                             <select id="slct-point-shape">
@@ -221,6 +220,12 @@
                                 <p>Max value: <span id="rast-max-val"></span></p>
                                 <p>No Data value: <span id="rast-nd-val"></span></p>
                             </div>
+                            <label for="raster-opacity">Raster Opacity:</label>
+                            <input id="raster-opacity" type="number" min="0" max="1" step="0.1" value="1">
+                            <span>(Where 0=Invisible and 1=Visible)</span>
+                            <div>Note: This will be overridden by opacities specified in gradient color selectors. Specify opacities individually if you wish to
+                            create a opacity-gradient in addition to a color gradient.</div>
+                            <br>
                             <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
                             <select id="slct-num-colors-in-gradient">
                                 {% for val in num_gradient_colors_options %}
@@ -436,11 +441,30 @@
     </div>
     <!--End modal-->
 
+    <!-- View File Modal -->
+    <div id="modalViewFile" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <span id="close-modalViewFile">X</span>
+            <div class="modal-content flex-container-row">
+                <iframe id="iframe-js-viewer" src="" allowfullscreen class="view-file"></iframe>
+                <img id="img-viewer" src="" class="view-file">
+                <div id="unviewable-file" class="view-file flex-container-col">
+                    <h3>No preview available for the selected file.</h3>
+                    <a href="" target="_blank" id="link-download-file" class="btn btn-primary btn-lg">Download</a>
+                </div>
+            </div>
+            <!--End modal content-->
+        </div>
+    </div>
+    <!--End modal-->
+
     <div id="res-load-status" class="hidden">
         <div id="status-text"></div>
     </div>
     <div id="div-loading" class="hidden">
         <img src="/static/hydroshare_gis/images/main-loading-anim.gif" />
     </div>
+    <canvas id="export-canvas" class="hidden" hidden></canvas>
 
 {% endblock %}

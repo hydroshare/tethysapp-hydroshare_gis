@@ -726,22 +726,18 @@ def get_workspace_id():
 
 def email_traceback(traceback, custom_msg=None):
     exc_type, exc_value, exc_traceback = traceback
-    email = 'scrawley@byu.edu'
     trcbck = ''.join(format_exception(exc_type, exc_value, exc_traceback))
-    msg_raw = trcbck + custom_msg if custom_msg else trcbck
-    msg = MIMEText(msg_raw)
-    msg['Subject'] = 'HydroShare GIS ERROR'
-    msg['From'] = email
-    msg['To'] = email
-
-    s = None
-    try:
-        s = SMTP(gethostname())
-        s.sendmail(email, [email], msg.as_string())
-    except Exception as e:
-        print str(e)
-    if s:
-        s.quit()
+    msg = trcbck + custom_msg if custom_msg else trcbck
+    requests.post(
+        "https://api.mailgun.net/v3/sandbox5d62ce2f0725460bb5eab88b496fd2a6.mailgun.org/messages",
+        auth=("api", "key-6eee015c8a719e4510a093cabf7bdfd4"),
+        data={
+            "from": "Mailgun Sandbox <postmaster@sandbox5d62ce2f0725460bb5eab88b496fd2a6.mailgun.org>",
+            "to": "progrummer@gmail.com",
+            "subject": "HydroShare GIS: Error Report",
+            "text": msg
+        }
+    )
 
 
 def check_crs(fpath):

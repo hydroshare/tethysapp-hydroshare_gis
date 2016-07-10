@@ -176,4 +176,4 @@ def ajax_delete_public_tempfiles(request):
     if request.is_ajax and request.method == 'GET':
         delete_public_tempfiles()
 
-    return JsonResponse({'success', True})
+    return JsonResponse({'success', 'True'})

@@ -602,7 +602,10 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     tif_count += 1
                     if tif_count == 1:
                         r = check_crs(res_type, fpath)
-                        if r['success'] and r['crsWasChanged']:
+                        if not r['success']:
+                            return_obj['message'] = r['message']
+                            return return_obj
+                        elif r['crsWasChanged']:
                             modify_crs = True
                             tif_path_orig = fpath
                             tif_path_mod = fpath[:-4] + '_reprojected' + fpath[-4:]
@@ -632,7 +635,10 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         tif_count += 1
                         if tif_count == 1:
                             r = check_crs(res_type, fpath)
-                            if r['success'] and r['crsWasChanged']:
+                            if not r['success']:
+                                return_obj['message'] = r['message']
+                                return return_obj
+                            elif r['crsWasChanged']:
                                 modify_crs = True
                                 tif_path_orig = fpath
                                 tif_path_mod = fpath[:-4] + '_reprojected' + fpath[-4:]
@@ -749,6 +755,7 @@ def email_traceback(traceback, custom_msg=None):
 def check_crs(res_type, fpath):
     return_obj = {
         'success': False,
+        'message': None,
         'code': None,
         'crsWasChanged': False,
         'new_wkt': None
@@ -758,6 +765,10 @@ def check_crs(res_type, fpath):
         start = 'Coordinate System is:'
         length = len(start)
         end = 'Origin ='
+        if gdal_info.find(start) == -1:
+            return_obj['message'] = 'There is no projection information associated with this resource.' \
+                                    '\nResource cannot be added to the map project.'
+            return return_obj
         start_index = gdal_info.find(start) + length
         end_index = gdal_info.find(end)
         crs_raw = gdal_info[start_index:end_index]

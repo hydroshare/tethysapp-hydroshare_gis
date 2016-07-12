@@ -764,7 +764,10 @@
                     layers: [
                         new ol.layer.Tile({
                             style: 'Road',
-                            source: new ol.source.MapQuest({layer: 'osm'})
+                            source: new ol.source.BingMaps({
+                                key: 'AnOW7YhvlSoT5teH6u7HmKhs2BJWeh5QNzp5CBU-4su1K1XI98TGIONClI22jpbk',
+                                imagerySet: 'Road'
+                            })
                         })
                     ]
                 });
@@ -1552,24 +1555,26 @@
             new ol.layer.Tile({
                 style: 'Aerial',
                 visible: false,
-                source: new ol.source.MapQuest({layer: 'sat'})
+                source: new ol.source.BingMaps({
+                    key: 'AnOW7YhvlSoT5teH6u7HmKhs2BJWeh5QNzp5CBU-4su1K1XI98TGIONClI22jpbk',
+                    imagerySet: 'Aerial'
+                })
             }),
-            new ol.layer.Group({
+            new ol.layer.Tile({
                 style: 'AerialWithLabels',
                 visible: false,
-                layers: [
-                    new ol.layer.Tile({
-                        source: new ol.source.MapQuest({layer: 'sat'})
-                    }),
-                    new ol.layer.Tile({
-                        source: new ol.source.MapQuest({layer: 'hyb'})
-                    })
-                ]
+                source: new ol.source.BingMaps({
+                    key: 'AnOW7YhvlSoT5teH6u7HmKhs2BJWeh5QNzp5CBU-4su1K1XI98TGIONClI22jpbk',
+                    imagerySet: 'AerialWithLabels'
+                })
             }),
             new ol.layer.Tile({
                 style: 'Road',
                 visible: false,
-                source: new ol.source.MapQuest({layer: 'osm'})
+                source: new ol.source.BingMaps({
+                    key: 'AnOW7YhvlSoT5teH6u7HmKhs2BJWeh5QNzp5CBU-4su1K1XI98TGIONClI22jpbk',
+                    imagerySet: 'Road'
+                })
             })
         ];
 
@@ -1578,7 +1583,9 @@
             target: 'map',
             view: new ol.View({
                 center: [0, 0],
-                zoom: 2
+                zoom: 2,
+                maxZoom: 19,
+                minZoom: 2
             })
         });
 

@@ -492,7 +492,7 @@ def process_res_by_type(hs, res_id, res_type):
     return_obj = {
         'success': False,
         'message': None,
-        'res_type': None,
+        'res_type': res_type,
         'project_info': None,
         'layer_id': None,
         'band_info': None,
@@ -506,7 +506,7 @@ def process_res_by_type(hs, res_id, res_type):
     if res_type == 'RefTimeSeriesResource':
         site_info = extract_site_info_from_ref_time_series(hs, res_id)
         if not site_info:
-            return_obj['message'] = 'Required site info data not available.'
+            return_obj['message'] = 'Resource contains insufficient geospatial information. Resource not added.'
         else:
             return_obj['site_info'] = site_info
             return_obj['success'] = True

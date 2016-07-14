@@ -2,10 +2,10 @@ from oauthlib.oauth2 import TokenExpiredError
 from django.http import JsonResponse
 from django.core.exceptions import ObjectDoesNotExist
 
-from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, request_wfs_info, get_geoserver_url, delete_public_tempfiles
+from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, request_wfs_info, get_geoserver_url, \
+    delete_public_tempfiles, process_local_file, save_new_project
 
 from json import dumps, loads
-from tempfile import TemporaryFile
 
 
 def add_hs_res(request):
@@ -39,16 +39,23 @@ def add_hs_res(request):
 
 
 def add_local_file(request):
-    """
-    Controller for the "Load file from computer" button.
-
-    :param request: the request object sent by the browser
-    :returns JsonResponse: a JSON formatted response object
-    """
-
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {}
+    }
     if request.is_ajax() and request.method == 'POST':
-        pass
-        # return process_local_file(request)
+        file_list = request.FILES.getlist('files')
+        proj_id = request.POST['proj_id']
+        hs = get_oauth_hs(request)
+        if hs is None:
+            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+        else:
+            return_obj = process_local_file(file_list, proj_id, hs)
+    else:
+        return_obj['message'] = 'This request can only be made through a "POST" AJAX call.'
+
+    return JsonResponse(return_obj)
 
 
 def ajax_get_hs_res_list(request):
@@ -103,40 +110,27 @@ def generate_attribute_table(request):
             'feature_properties': dumps(feature_properties)
         })
 
-def save_new_project(request):
-    return_json = {}
-    fname = 'mapProject.json'
-
+def ajax_save_new_project(request):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'res_id': None
+    }
     if request.is_ajax() and request.method == 'GET':
-        try:
-            get_data = request.GET
-            project_info = loads(get_data['projectInfo'])
-            res_title = str(get_data['resTitle'])
-            res_abstract = str(get_data['resAbstract'])
-            res_keywords_raw = str(get_data['resKeywords'])
-            res_keywords = res_keywords_raw.split(',')
-            res_type = 'GenericResource'
+        get_data = request.GET
+        project_info = get_data['projectInfo']
+        res_title = str(get_data['resTitle'])
+        res_abstract = str(get_data['resAbstract'])
+        res_keywords_raw = str(get_data['resKeywords'])
+        res_keywords = res_keywords_raw.split(',')
 
-            hs = get_oauth_hs(request)
-            with TemporaryFile() as f:
-                f.write(dumps(project_info))
-                f.seek(0)
-                res_id = hs.createResource(res_type,
-                                           res_title,
-                                           resource_file=f,
-                                           resource_filename=fname,
-                                           keywords=res_keywords,
-                                           abstract=res_abstract
-                                           )
+        hs = get_oauth_hs(request)
+        if hs is None:
+            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+        else:
+            return_obj = save_new_project(hs, project_info, res_title, res_abstract, res_keywords)
 
-            return_json['success'] = 'Resource created successfully.'
-            return_json['res_id'] = res_id
-
-        except Exception as e:
-            print str(e)
-            return_json['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
-
-        return JsonResponse(return_json)
+        return JsonResponse(return_obj)
 
 
 def save_project(request):
@@ -152,10 +146,14 @@ def save_project(request):
             hs = get_oauth_hs(request)
             res_id = hs.deleteResourceFile(res_id, fname)
 
-            with TemporaryFile() as f:
+            tempfile = '/tmp/hs_gis_files/mapProject.json'
+            with open(tempfile, 'w+') as f:
                 f.write(dumps(project_info))
-                f.seek(0)
-                hs.addResourceFile(res_id, f, fname)
+            hs.addResourceFile(pid=res_id, resource_file=tempfile)
+            # with TemporaryFile() as f:
+            #     f.write(dumps(project_info))
+            #     f.seek(0)
+            #     hs.addResourceFile(res_id, f, fname)
             return_json['success'] = 'Resource saved successfully.'
 
         except (ObjectDoesNotExist, TokenExpiredError) as e:
@@ -176,4 +174,4 @@ def ajax_delete_public_tempfiles(request):
     if request.is_ajax and request.method == 'GET':
         delete_public_tempfiles()
 
-    return JsonResponse({'success', 'True'})
+    return JsonResponse({'success': True})

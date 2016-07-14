@@ -13,11 +13,11 @@
 {% block app_navigation_items %}
     <li class="active">
         <button id="btn-show-modal-save-new-project" class="btn btn-warning btn-md">Save as...</button>
-{#        <button id="btn-save-project" class="btn btn-warning btn-md" disabled>Save</button>#}
+        <button id="btn-save-project" class="btn btn-warning btn-md" disabled>Save</button>
     </li>
         <li class="active">
             <div class="dropdown">
-                <button class="btn btn dropdown-toggle" type="button" id="dropdown-export" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                <button class="btn dropdown-toggle" type="button" id="dropdown-export" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
                     Export as...
                     <span class="caret"></span>
                 </button>
@@ -28,8 +28,8 @@
             </div>
         </li>
     <br>
-    <li class="active"><a id="load-from-hs" class="import-btn" data-toggle="modal" data-target="#modalLoadRes">Add HydroShare Resource</a></li>
-{#    <li class="active"><a id="load-from-pc" class="import-btn" data-toggle="modal" data-target="#modalLoadFile">Add File</a></li>#}
+    <li class="active"><button id="load-from-hs" class="btn btn-secondary import-btn" data-toggle="modal" data-target="#modalLoadRes">Add HydroShare Resource</button></li>
+    <li class="active"><button id="load-from-pc" class="btn btn-secondary import-btn" data-toggle="modal" data-target="#modalLoadFile" disabled>Add Local File</button></li>
 {#    <li class="active"><a id="add-wms-layer" class="import-btn" data-toggle="modal" data-target="#modalAddWMS">Add WMS Layer</a></li>#}
     <br>
     <li class="active">

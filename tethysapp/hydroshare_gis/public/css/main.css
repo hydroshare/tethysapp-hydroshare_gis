@@ -215,10 +215,24 @@
     margin-right: 38%;
 }
 .import-btn {
-    cursor: pointer;
+    background-color: #1abc9c !important;
 }
-.import-btn:hover {
+.import-btn:not(:disabled):hover {
     background-color: rgb(19, 140, 116) !important;
+}
+#load-from-pc:disabled {
+    pointer-events: all;
+    cursor: default;
+}
+#load-from-pc:disabled:hover::after {
+    content: "The project must be saved before local files can be added";
+    position: absolute;
+    top: 0;
+    white-space: normal;
+    background-color: yellow;
+    font-size: small;
+    left: 125px;
+    color: black;
 }
 /*****************************************************/
 

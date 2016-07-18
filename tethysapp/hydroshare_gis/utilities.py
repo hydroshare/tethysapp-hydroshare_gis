@@ -642,11 +642,13 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
             for fname in os.listdir(res_contents_path):
                 fpath = os.path.join(res_contents_path, fname)
                 if fname.endswith('.tif'):
+                    if tif_count == 0:
+                        new_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
+                    else:
+                        new_fpath = os.path.join(res_contents_path, 'res_%s_%s.tif' % (res_id, tif_count))
                     tif_count += 1
-                    new_fpath = os.path.join(res_contents_path, 'res_%s_%s.tif' % (res_id, tif_count))
                     os.rename(fpath, new_fpath)
-                    fpath = new_fpath
-                    r = check_crs(res_type, fpath)
+                    r = check_crs(res_type, new_fpath)
                     if not r['success']:
                         return_obj['message'] = r['message']
                         return return_obj

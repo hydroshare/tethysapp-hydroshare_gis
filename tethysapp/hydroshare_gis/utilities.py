@@ -809,7 +809,7 @@ def check_crs(res_type, fpath):
         'new_wkt': None
     }
     if res_type == 'RasterResource':
-        gdal_info = check_output(['gdalinfo', fpath])
+        gdal_info = check_output('gdalinfo %s' % fpath, shell=True)
         start = 'Coordinate System is:'
         length = len(start)
         end = 'Origin ='

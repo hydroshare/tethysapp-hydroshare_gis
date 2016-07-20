@@ -271,10 +271,12 @@
             cssStyles = 'Default';
         } else {
             cssStyles = {'color-map': {}};
-            cssStyles['color-map'][bandInfo.nd] = {
-                color: '#000000',
-                opacity: 0
-            };
+            if (bandInfo.nd) {
+                cssStyles['color-map'][bandInfo.nd] = {
+                    color: '#000000',
+                    opacity: 0
+                };
+            }
             cssStyles['color-map'][bandInfo.min] = {
                 color: '#000000',
                 opacity: 1

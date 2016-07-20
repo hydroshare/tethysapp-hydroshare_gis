@@ -47,7 +47,7 @@ def get_json_response(response_type, message):
     return JsonResponse({response_type: message})
 
 
-def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
+def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
     return_obj = {
         'success': False,
         'message': None,
@@ -64,10 +64,9 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
 
     try:
         if res_type == 'RasterResource':
-            coverage_type = 'imagemosaic' if is_mosaic else 'geotiff'
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
-                                                       coverage_type=coverage_type,
+                                                       coverage_type='geotiff',
                                                        overwrite=True,
                                                        debug=get_debug_val())
 
@@ -96,7 +95,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
                     if not result['success']:
                         raise Exception
                     else:
-                        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
+                        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip)
                 except Exception as e:
                     e.message = response['error']
                     raise
@@ -117,7 +116,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic):
         engine.create_workspace(workspace_id=get_workspace(),
                                 uri='tethys_app-%s' % get_workspace(),
                                 debug=get_debug_val())
-        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, is_mosaic)
+        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip)
 
     return return_obj
 
@@ -292,11 +291,13 @@ def get_band_info(hs, res_id, res_type):
         try:
             md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
             band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
-            band_info = {
-                'min': float(band_info_raw['hsterms:minimumValue']),
-                'max': float(band_info_raw['hsterms:maximumValue']),
-                'nd': float(band_info_raw['hsterms:noDataValue'])
-            }
+            band_info = {}
+            if 'hsterms:minimumValue' in band_info_raw:
+                band_info['min'] = float(band_info_raw['hsterms:minimumValue'])
+            if 'hsterms:maximumValue' in band_info_raw:
+                band_info['max'] = float(band_info_raw['hsterms:maximumValue'])
+            if 'hsterms:noDataValue' in band_info_raw:
+                band_info['nd'] = float(band_info_raw['hsterms:noDataValue'])
         except KeyError:
             pass
         except Exception as e:
@@ -373,7 +374,7 @@ def process_local_file(file_list, proj_id, hs):
     if res_type is not None:
         results['res_type'] = res_type
 
-        check_res = upload_file_to_geoserver(res_id, res_type, res_files, is_zip, False)
+        check_res = upload_file_to_geoserver(res_id, res_type, res_files, is_zip)
         if not check_res['success']:
             return_obj['message'] = check_res['message']
         else:
@@ -570,7 +571,6 @@ def process_res_by_type(hs, res_id, res_type):
                 return_obj['message'] = response['message']
             else:
                 res_filepath = response['res_filepath']
-                is_mosaic = response['is_mosaic']
                 is_zip = response['is_zip']
                 res_type = response['res_type']
                 return_obj['res_type'] = res_type
@@ -589,7 +589,7 @@ def process_res_by_type(hs, res_id, res_type):
                         return_obj['message'] = 'This resource does not contain any content ' \
                                                 'that HydroShare GIS can display.'
                 elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
-                    check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, is_zip, is_mosaic)
+                    check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, is_zip)
                     if not check_res['success']:
                         return_obj['message'] = check_res['message']
                     else:
@@ -617,7 +617,6 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
         'success': False,
         'res_filepath': None,
         'res_type': res_type,
-        'is_mosaic': False,
         'is_zip': False
     }
     res_fpath = None
@@ -639,31 +638,46 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
         elif res_type == 'RasterResource':
             coverage_files = []
             tif_count = 0
-            for fname in os.listdir(res_contents_path):
+            res_files_list = os.listdir(res_contents_path)
+            num_files = len(res_files_list)
+            no_data_val = None
+            for fname in res_files_list:
                 fpath = os.path.join(res_contents_path, fname)
                 if fname.endswith('.tif'):
-                    if tif_count == 0:
-                        new_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
-                    else:
+                    if num_files == 2:
                         new_fpath = os.path.join(res_contents_path, 'res_%s_%s.tif' % (res_id, tif_count))
-                    tif_count += 1
-                    os.rename(fpath, new_fpath)
-                    r = check_crs(res_type, new_fpath)
-                    if not r['success']:
-                        return_obj['message'] = r['message']
-                        return return_obj
-                    elif r['crsWasChanged']:
-                        tif_path_mod = new_fpath.replace('.', '_reprojected.')
-                        code = r['code']
-                        os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, new_fpath, tif_path_mod))
-                        os.remove(new_fpath)
-                        os.rename(tif_path_mod, new_fpath)
-                else:
-                    new_fpath = os.path.join(res_contents_path, 'res_%s.vrt' % res_id)
-                    os.rename(fpath, new_fpath)
-                coverage_files.append(new_fpath)
-            if tif_count > 1:
-                return_obj['is_mosaic'] = True
+                        os.rename(fpath, new_fpath)
+                        r = check_crs(res_type, new_fpath)
+                        if not r['success']:
+                            return_obj['message'] = r['message']
+                            return return_obj
+                        else:
+                            if r['crsWasChanged']:
+                                tif_path_mod = new_fpath.replace('.', '_reprojected.')
+                                code = r['code']
+                                os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, new_fpath, tif_path_mod))
+                                os.remove(new_fpath)
+                                os.rename(tif_path_mod, new_fpath)
+                            coverage_files.append(new_fpath)
+                            break
+                    else:
+                        coverage_files.append(fpath)
+                elif fname.endswith('.vrt'):
+                    with open(fpath) as f:
+                        md_dict = xmltodict.parse(f.read())
+                        no_data_val = md_dict['VRTDataset']['VRTRasterBand']['NoDataValue']
+
+            if num_files > 2:
+                new_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
+                print ' '.join(coverage_files)
+                os.system('gdal_merge.py {0} -o {1} {2}'.format(('-a_nodata %s' % no_data_val) if no_data_val else '',
+                                                                new_fpath,
+                                                                ' '.join(coverage_files)))
+                coverage_files = [new_fpath]
+            else:
+                new_fpath = os.path.join(res_contents_path, 'res_%s.tif' % (res_id))
+                os.rename(coverage_files[0], new_fpath)
+                coverage_files = [new_fpath]
             if coverage_files:
                 res_fpath = os.path.join(res_contents_path, 'res_' + res_id + '.zip')
                 response = make_zipfile(coverage_files, res_fpath)
@@ -726,9 +740,9 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
 def get_hs_res_list(hs):
     # Deletes all stores from geoserver
     # engine = return_spatial_dataset_engine()
-    # stores = engine.list_stores(get_workspace_id())
+    # stores = engine.list_stores(get_workspace())
     # for store in stores['result']:
-    #     engine.delete_store(store_id=store_id, purge=True, recurse=True)
+    #     engine.delete_store(store_id=store, purge=True, recurse=True)
     #     print "Store %s deleted" % store
     return_obj = {
         'success': False,

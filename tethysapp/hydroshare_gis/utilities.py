@@ -713,7 +713,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         if not os.path.exists(public_tempdir):
                             os.mkdir(public_tempdir)
                         dst = os.path.join(public_tempdir, fname)
-                        os.rename(fpath, dst)
+                        shutil.move(fpath, dst)
                         res_fpath = dst
                         break
 

@@ -18,15 +18,13 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Add File</h4>
+                    <h4 class="modal-title">Add Local File</h4>
                 </div>
                 <div class="modal-body">
                     <input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj, .tif, .zip">
                     <br>
                     <div id="msg-file" class="hidden"></div>
-                    <div id="empty-bar" class="hidden"></div>
-                    <div id="progress-bar" class="hidden"></div>
-                    <div id="progress-text" class="hidden">0%</div>
+                    <p><b>Note: All uploaded files will become part of your saved map project resource on HydroShare</b></p>
                     <p>You have 3 upload options:</p>
                     <ul>
                         <li>A shapefile requiring a .shp, .dbf, .shx, and .prj file (select all 4 together).</li>
@@ -37,8 +35,14 @@
                     <label for="chkbx-file-auto-close">Automatically close dialog when file is done loading</label>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled>Upload</button>
+                    <div class="footer-info flex1-0 hidden" id="footer-info-addFile">
+                        Loading...&nbsp;
+                        <img src="/static/hydroshare_gis/images/loading-animation.gif" />
+                    </div>
+                    <div class="button-group flex1-0">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled>Add</button>
+                    </div>
                 </div>
             </div>
             <!--End modal content-->
@@ -67,7 +71,7 @@
                 </div>
                 <div class="modal-footer">
                     <div class="footer-info flex1-0 hidden" id="footer-info-addRes">
-                        Loading...
+                        Loading...&nbsp;
                         <img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </div>
                     <div class="button-group flex1-0">
@@ -222,9 +226,8 @@
                             </div>
                             <label for="raster-opacity">Raster Opacity:</label>
                             <input id="raster-opacity" type="number" min="0" max="1" step="0.1" value="1">
+                            <button type="button" id="apply-opacity-to-colors">Apply to all colors</button>
                             <span>(Where 0=Invisible and 1=Visible)</span>
-                            <div>Note: This will be overridden by opacities specified in gradient color selectors. Specify opacities individually if you wish to
-                            create a opacity-gradient in addition to a color gradient.</div>
                             <br>
                             <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
                             <select id="slct-num-colors-in-gradient">
@@ -297,7 +300,7 @@
                 </div>
                 <div class="modal-footer">
                     <div class="footer-info flex1-0 hidden" id="footer-info-saveProj">
-                        Saving...<img src="/static/hydroshare_gis/images/loading-animation.gif" />
+                        Saving...&nbsp;<img src="/static/hydroshare_gis/images/loading-animation.gif" />
                     </div>
                     <div class="button-group flex1-0">
                         <button type="button" class="btn btn-default footer" data-dismiss="modal">Close</button>

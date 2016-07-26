@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
 from tethys_sdk.services import get_spatial_dataset_engine
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -25,6 +26,7 @@ hs_tempdir = '/tmp/hs_gis_files/'
 public_tempdir = getfile(currentframe()).replace('utilities.py', 'public/temp/')
 workspace_id = None
 spatial_dataset_engine = None
+current_user = None
 
 
 def get_oauth_hs(request):
@@ -64,9 +66,11 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
 
     try:
         if res_type == 'RasterResource':
+            coverage_type = 'imagepyramid' if is_zip else 'geotiff'
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
-                                                       coverage_type='geotiff',
+                                                       coverage_type=coverage_type,
+                                                       coverage_name=store_id,
                                                        overwrite=True,
                                                        debug=get_debug_val())
 
@@ -121,10 +125,9 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
     return return_obj
 
 
-def make_zipfile(res_files, zip_path):
+def zip_files(res_files, zip_path):
     return_obj = {
-        'success': False,
-        'message': None
+        'success': False
     }
 
     if not os.path.exists(zip_path):
@@ -135,8 +138,10 @@ def make_zipfile(res_files, zip_path):
         if type(res_files) is list:
             for f in res_files:
                 zip_object.write(f, os.path.basename(f))
-        else:
+        elif type(res_files) == UploadedFile:
             zip_object.writestr(os.path.basename(res_files), res_files.read())
+        else:
+            zip_object.write(res_files, os.path.basename(res_files))
         zip_object.close()
 
     return_obj['success'] = True
@@ -336,8 +341,7 @@ def process_local_file(file_list, proj_id, hs):
     is_zip = False
     res_files = None
 
-    if not os.path.exists(hs_tempdir):
-        os.mkdir(hs_tempdir)
+    make_temp_dir()
 
     for f in file_list:
         file_name = f.name
@@ -350,7 +354,7 @@ def process_local_file(file_list, proj_id, hs):
             results['layer_name'] = os.path.splitext(file_name)[0]
             res_type = 'RasterResource'
             res_files = os.path.join(hs_tempdir, res_id, file_name[:-4] + '.zip')
-            make_zipfile(f, res_files)
+            zip_files(f, res_files)
             break
         elif file_name.endswith('.zip'):
             is_zip = True
@@ -492,8 +496,7 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             custom_msg += '\nHost: %s\nResource ID: %s' % (gethostname(), res_id)
             email_traceback(exc_info(), custom_msg)
 
-    if os.path.exists(os.path.join(hs_tempdir, res_id)):
-        shutil.rmtree(os.path.join(hs_tempdir, res_id))
+    shutil.rmtree(hs_tempdir, True)
 
     return return_obj
 
@@ -527,8 +530,7 @@ def download_res_from_hs(hs, res_id):
         'success': False,
         'res_contents_path': None
     }
-    if not os.path.exists(hs_tempdir):
-        os.mkdir(hs_tempdir)
+    make_temp_dir()
     hs.getResource(res_id, destination=hs_tempdir, unzip=True)
     res_contents_path = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
 
@@ -636,55 +638,40 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     f.write(r['new_wkt'])
                     f.truncate()
         elif res_type == 'RasterResource':
-            coverage_files = []
-            tif_count = 0
             res_files_list = os.listdir(res_contents_path)
             num_files = len(res_files_list)
-            no_data_val = None
+            vrt_path = None
             for fname in res_files_list:
                 fpath = os.path.join(res_contents_path, fname)
                 if fname.endswith('.tif'):
                     if num_files == 2:
-                        new_fpath = os.path.join(res_contents_path, 'res_%s_%s.tif' % (res_id, tif_count))
-                        os.rename(fpath, new_fpath)
-                        r = check_crs(res_type, new_fpath)
+                        tmp_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
+                        os.rename(fpath, tmp_fpath)
+                        r = check_crs(res_type, tmp_fpath)
                         if not r['success']:
                             return_obj['message'] = r['message']
                             return return_obj
                         else:
                             if r['crsWasChanged']:
-                                tif_path_mod = new_fpath.replace('.', '_reprojected.')
+                                tif_path_mod = tmp_fpath.replace('.', '_reprojected.')
                                 code = r['code']
-                                os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, new_fpath, tif_path_mod))
-                                os.remove(new_fpath)
-                                os.rename(tif_path_mod, new_fpath)
-                            coverage_files.append(new_fpath)
+                                os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tmp_fpath, tif_path_mod))
+                                os.remove(tmp_fpath)
+                                os.rename(tif_path_mod, tmp_fpath)
+                            res_fpath = tmp_fpath.replace('tif', 'zip')
+                            zip_files(tmp_fpath, res_fpath)
                             break
-                    else:
-                        coverage_files.append(fpath)
                 elif fname.endswith('.vrt'):
-                    with open(fpath) as f:
-                        md_dict = xmltodict.parse(f.read())
-                        no_data_val = md_dict['VRTDataset']['VRTRasterBand']['NoDataValue']
+                    vrt_path = fpath
 
             if num_files > 2:
-                new_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
-                print ' '.join(coverage_files)
-                os.system('gdal_merge.py {0} -o {1} {2}'.format(('-a_nodata %s' % no_data_val) if no_data_val else '',
-                                                                new_fpath,
-                                                                ' '.join(coverage_files)))
-                coverage_files = [new_fpath]
-            else:
-                new_fpath = os.path.join(res_contents_path, 'res_%s.tif' % (res_id))
-                os.rename(coverage_files[0], new_fpath)
-                coverage_files = [new_fpath]
-            if coverage_files:
-                res_fpath = os.path.join(res_contents_path, 'res_' + res_id + '.zip')
-                response = make_zipfile(coverage_files, res_fpath)
-                if not response['success']:
-                    return_obj['message'] = response['message']
-                else:
-                    return_obj['is_zip'] = True
+                pyramid_dir_path = os.path.join(hs_tempdir, 'res_%s/' % res_id)
+                res_fpath = '%s.zip' % pyramid_dir_path[:-1]
+                os.mkdir(pyramid_dir_path)
+                gdal_retile = 'gdal_retile.py -levels 9 -ps 2048 2048 -co "TILED=YES" -targetDir %s %s'
+                os.system(gdal_retile % (pyramid_dir_path, vrt_path))
+                zip_folder(pyramid_dir_path, res_fpath)
+                return_obj['is_zip'] = True
         else:
             if 'mapProject.json' in os.listdir(res_contents_path):
                 res_fpath = os.path.join(res_contents_path, 'mapProject.json')
@@ -715,7 +702,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                             os.rename(tif_path_mod, fpath)
                         coverage_files.append(fpath)
                         res_fpath = os.path.join(res_contents_path, 'res_' + res_id + '.zip')
-                        response = make_zipfile(coverage_files, res_fpath)
+                        response = zip_files(coverage_files, res_fpath)
                         if not response['success']:
                             return_obj['message'] = response['message']
                         else:
@@ -912,16 +899,12 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
         'message': None,
         'res_id': None
     }
-    orig_id = None
-    res_contents_path = None
     res_id = None
     try:
         res_type = 'GenericResource'
         fname = 'mapProject.json'
-        tempfile = os.path.join(hs_tempdir, fname)
         project_info_json = loads(project_info)
         orig_id = project_info_json['resId']
-        print orig_id
 
         with TemporaryFile() as f:
             f.write(dumps(project_info_json))
@@ -933,19 +916,13 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
                                        keywords=res_keywords,
                                        abstract=res_abstract
                                        )
-            # project_info['map']['resId'] = res_id
-            # f.seek(0)
-            # f.write(dumps(project_info_json))
-            # f.truncate()
-            # hs.deleteResourceFile(res_id, fname)
-            # hs.addResourceFile(pid=res_id, resource_file=f, resource_filename=fname)
-
-        project_info_json['resId'] = res_id
-        with open(tempfile, 'w+') as f:
+            project_info_json['resId'] = res_id
+            f.seek(0)
             f.write(dumps(project_info_json))
-
-        hs.deleteResourceFile(pid=res_id, filename=fname)
-        hs.addResourceFile(pid=res_id, resource_file=tempfile)
+            f.truncate()
+            f.seek(0)
+            hs.deleteResourceFile(res_id, fname)
+            hs.addResourceFile(pid=res_id, resource_file=f, resource_filename=fname)
 
         if orig_id:
             r = download_res_from_hs(hs, orig_id)
@@ -956,16 +933,8 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
                 if len(os.listdir(res_contents_path)) > 1:
                     os.remove(os.path.join(res_contents_path, fname))
                     res_list = [os.path.join(res_contents_path, f) for f in os.listdir(res_contents_path)]
-                    # Option 1: Add each file individually
                     for f in res_list:
                         hs.addResourceFile(pid=res_id, resource_file=f)
-                    # Option 2: Add all files as a zip
-                    # zip_path = os.path.join(res_contents_path, 'temp.zip')
-                    # r = make_zipfile(res_list, zip_path)
-                    # if not r['success']:
-                    #     return_obj['message'] = r['message']
-                    # else:
-                    #     hs.addResourceFile(pid=res_id, resource_file=zip_path)
 
                     return_obj['success'] = 'Resource created successfully.'
                     return_obj['res_id'] = res_id
@@ -977,8 +946,84 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
         if res_id:
             hs.deleteResource(pid=res_id)
         return_obj['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
-    finally:
-        if orig_id and res_contents_path and os.path.exists(os.path.join(res_contents_path, orig_id)):
-            shutil.rmtree(os.path.join(hs_tempdir, orig_id))
+
+    return return_obj
+
+
+def zip_folder(folder_path, output_path):
+    """Zip the contents of an entire folder (with that folder included
+    in the archive). Empty subfolders will be included in the archive
+    as well.
+    """
+
+    parent_folder = os.path.dirname(folder_path)
+    contents = os.walk(folder_path)
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for root, folders, files in contents:
+            for folder_name in folders:
+                absolute_path = os.path.join(root, folder_name)
+                relative_path = absolute_path.replace(parent_folder + '/', '')
+                zip_file.write(absolute_path, relative_path)
+            for file_name in files:
+                absolute_path = os.path.join(root, file_name)
+                relative_path = absolute_path.replace(parent_folder + '/', '')
+                zip_file.write(absolute_path, relative_path)
+
+
+def make_temp_dir():
+    if not os.path.exists(hs_tempdir):
+        os.mkdir(hs_tempdir)
+
+
+def save_project(hs, res_id, project_info):
+    return_obj = {
+        'success': False,
+        'message': None
+    }
+    try:
+        fname = 'mapProject.json'
+
+        hs.deleteResourceFile(res_id, fname)
+
+        with TemporaryFile() as f:
+            f.write(project_info)
+            f.seek(0)
+            hs.addResourceFile(res_id, f, fname)
+        return_obj['success'] = True
+
+    except Exception as e:
+        print str(e)
+        return_obj['message'] = 'An unknown/unexpected error was encountered. Project not saved.'
+
+    return return_obj
+
+def generate_attribute_table(layer_id, layer_attributes):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'feature_properties': None
+    }
+    try:
+        params = {
+            'service': 'wfs',
+            'version': '2.0.0',
+            'request': 'GetFeature',
+            'typeNames': layer_id,
+            'propertyName': layer_attributes,
+            'outputFormat': 'application/json'
+        }
+
+        r = request_wfs_info(params)
+        json = r.json()
+
+        feature_properties = []
+
+        features = json['features']
+        for feature in features:
+            feature_properties.append(feature['properties'])
+        return_obj['feature_properties'] = dumps(feature_properties)
+        return_obj['success'] = True
+    except Exception as e:
+        return_obj['message'] = str(e)
 
     return return_obj

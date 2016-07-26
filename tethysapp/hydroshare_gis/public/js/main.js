@@ -397,6 +397,14 @@
     };
 
     addInitialEventListeners = function () {
+        $('#apply-opacity-to-colors').on('click', function () {
+            var opacity = $('#raster-opacity').val();
+            $('input[id^=color]').each(function (i, o) {
+                var color = $(o).spectrum('get');
+                color.setAlpha(opacity);
+                $(o).spectrum('set', color);
+            });
+        });
         map.on('moveend', function () {
             $btnSaveProject.prop('disabled', false);
         });
@@ -1302,11 +1310,7 @@
                 for (i = 0; i < numColors; i++) {
                     colorSelector = '#color' + i;
                     quantitySelector = '#quantity' + i;
-                    if ($(colorSelector).spectrum('get').toRgbString().indexOf('rgba') === -1) {
-                        opacity = $('#raster-opacity').val();
-                    } else {
-                        opacity = $(colorSelector).spectrum('get').getAlpha().toString();
-                    }
+                    opacity = $(colorSelector).spectrum('get').getAlpha().toString();
                     cssStyles['color-map'][$(quantitySelector).val()] = {
                         'color': $(colorSelector).spectrum('get').toHexString(),
                         'opacity': opacity

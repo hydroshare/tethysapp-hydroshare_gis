@@ -1,11 +1,7 @@
-from oauthlib.oauth2 import TokenExpiredError
 from django.http import JsonResponse
-from django.core.exceptions import ObjectDoesNotExist
 
-from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, request_wfs_info, get_geoserver_url, \
-    delete_public_tempfiles, process_local_file, save_new_project
-
-from json import dumps, loads
+from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, get_geoserver_url, delete_public_tempfiles, \
+    process_local_file, save_new_project, save_project, generate_attribute_table
 
 
 def add_hs_res(request):
@@ -82,33 +78,13 @@ def ajax_get_hs_res_list(request):
     return JsonResponse(return_obj)
 
 
-def generate_attribute_table(request):
+def ajax_generate_attribute_table(request):
     if request.is_ajax() and request.method == 'GET':
         layer_id = request.GET['layerId']
         layer_attributes = request.GET['layerAttributes']
 
-        params = {
-            'service': 'wfs',
-            'version': '2.0.0',
-            'request': 'GetFeature',
-            'typeNames': layer_id,
-            'propertyName': layer_attributes,
-            'outputFormat': 'application/json'
-        }
-
-        r = request_wfs_info(params)
-        json = r.json()
-
-        feature_properties = []
-
-        features = json['features']
-        for feature in features:
-            feature_properties.append(feature['properties'])
-
-        return JsonResponse({
-            'success': 'Resources obtained successfully.',
-            'feature_properties': dumps(feature_properties)
-        })
+        return_obj = generate_attribute_table(layer_id, layer_attributes)
+        return JsonResponse(return_obj)
 
 def ajax_save_new_project(request):
     return_obj = {
@@ -133,37 +109,21 @@ def ajax_save_new_project(request):
         return JsonResponse(return_obj)
 
 
-def save_project(request):
-    return_json = {}
-    fname = 'mapProject.json'
+def ajax_save_project(request):
+    return_obj = {}
 
     if request.is_ajax() and request.method == 'GET':
-        try:
-            get_data = request.GET
-            res_id = get_data['res_id']
-            project_info = loads(get_data['project_info'])
+        get_data = request.GET
+        res_id = get_data['res_id']
+        project_info = get_data['project_info']
 
-            hs = get_oauth_hs(request)
-            res_id = hs.deleteResourceFile(res_id, fname)
+        hs = get_oauth_hs(request)
+        if hs is None:
+            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+        else:
+            return_obj = save_project(hs, res_id, project_info)
 
-            tempfile = '/tmp/hs_gis_files/mapProject.json'
-            with open(tempfile, 'w+') as f:
-                f.write(dumps(project_info))
-            hs.addResourceFile(pid=res_id, resource_file=tempfile)
-            # with TemporaryFile() as f:
-            #     f.write(dumps(project_info))
-            #     f.seek(0)
-            #     hs.addResourceFile(res_id, f, fname)
-            return_json['success'] = 'Resource saved successfully.'
-
-        except (ObjectDoesNotExist, TokenExpiredError) as e:
-            print str(e)
-            return_json['error'] = 'Login timed out! Please re-sign in with your HydroShare account.'
-        except Exception as e:
-            print str(e)
-            return_json['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
-
-        return JsonResponse(return_json)
+        return JsonResponse(return_obj)
 
 
 def ajax_get_geoserver_url(request):

@@ -492,9 +492,9 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
-            custom_msg = e.message if e.message else ''
-            custom_msg += '\nHost: %s\nResource ID: %s' % (gethostname(), res_id)
-            email_traceback(exc_info(), custom_msg)
+            msg = e.message if e.message else ''
+            msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+            email_traceback(exc_info(), msg)
 
     shutil.rmtree(hs_tempdir, True)
 

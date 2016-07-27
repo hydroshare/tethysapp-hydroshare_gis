@@ -453,11 +453,12 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
                     return_obj['message'] = response['message']
                 else:
                     result = {
-                        'layer_id': '%s:%s' % (get_workspace(), layer_name),
-                        'layer_name': res_title,
+                        'res_id': res_id,
                         'res_type': res_type,
-                        'layer_attributes': response['attributes'],
+                        'layer_name': res_title,
+                        'layer_id': '%s:%s' % (get_workspace(), layer_name),
                         'layer_extents': response['extents'],
+                        'layer_attributes': response['attributes'],
                         'geom_type': response['geom_type'],
                         'band_info': get_band_info(hs, res_id, res_type)
                     }
@@ -477,7 +478,7 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
                     result = {
                         'res_id': res_id,
                         'res_type': r['res_type'] if 'res_type' in r else res_type,
-                        'layer_name': r['layer_name'] if 'layer_name' in r else res_title,
+                        'layer_name': r['layer_name'] if ('layer_name' in r and r['layer_name'] is not None) else res_title,
                         'layer_id': r['layer_id'] if 'layer_id' in r else None,
                         'layer_extents': r['layer_extents'] if 'layer_extents' in r else None,
                         'layer_attributes': r['layer_attributes'] if 'layer_attributes' in r else None,
@@ -509,7 +510,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
             email_traceback(exc_info(), msg)
 
-    shutil.rmtree(hs_tempdir, True)
+    os.system('rm -rf %s*' % hs_tempdir)
+    # shutil.rmtree(hs_tempdir, True)
 
     return return_obj
 
@@ -681,10 +683,16 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     f.seek(0)
                     f.write(r['new_wkt'])
                     f.truncate()
+            result = {
+                'res_filepath': res_fpath,
+                'res_type': res_type,
+            }
+            results.append(result)
         elif res_type == 'RasterResource':
             res_files_list = os.listdir(res_contents_path)
             num_files = len(res_files_list)
             vrt_path = None
+            res_fpath = None
             for fname in res_files_list:
                 fpath = os.path.join(res_contents_path, fname)
                 if fname.endswith('.tif'):
@@ -716,6 +724,11 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                 os.system(gdal_retile % (pyramid_dir_path, vrt_path))
                 zip_folder(pyramid_dir_path, res_fpath)
                 return_obj['is_zip'] = True
+            result = {
+                'res_filepath': res_fpath,
+                'res_type': res_type,
+            }
+            results.append(result)
         else:
             if 'mapProject.json' in os.listdir(res_contents_path):
                 res_fpath = os.path.join(res_contents_path, 'mapProject.json')
@@ -760,7 +773,6 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         dst = os.path.join(public_tempdir, fname)
                         shutil.move(fpath, dst)
                         res_fpath = dst
-                        print res_fpath
 
                     result = {
                         'res_filepath': res_fpath,
@@ -1075,5 +1087,31 @@ def generate_attribute_table(layer_id, layer_attributes):
         return_obj['success'] = True
     except Exception as e:
         return_obj['message'] = str(e)
+
+    return return_obj
+
+
+def get_generic_file(hs, res_id):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {
+            'res_files': []
+        }
+    }
+
+    r = download_res_from_hs(hs, res_id)
+    if not r['success']:
+        return_obj['message'] = r['message']
+    else:
+        res_contents_path = r['res_contents_path']
+        for fname in os.listdir(res_contents_path):
+            fpath = os.path.join(res_contents_path, fname)
+            if not os.path.exists(public_tempdir):
+                os.mkdir(public_tempdir)
+            dst = os.path.join(public_tempdir, fname)
+            shutil.move(fpath, dst)
+            return_obj['results']['res_files'].append(os.path.basename(dst))
+        return_obj['success'] = True
 
     return return_obj

@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 
 from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, get_geoserver_url, delete_public_tempfiles, \
-    process_local_file, save_new_project, save_project, generate_attribute_table
+    process_local_file, save_new_project, save_project, generate_attribute_table, get_generic_file
 
 
 def add_hs_res(request):
@@ -135,3 +135,23 @@ def ajax_delete_public_tempfiles(request):
         delete_public_tempfiles()
 
     return JsonResponse({'success': True})
+
+
+def ajax_get_generic_files(request):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {
+            'res_files': []
+        }
+    }
+
+    if request.is_ajax and request.method == 'GET':
+        res_id = request.GET['res_id']
+        hs = get_oauth_hs(request)
+        if hs is None:
+            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+        else:
+            return_obj = get_generic_file(hs, res_id)
+
+        return JsonResponse(return_obj)

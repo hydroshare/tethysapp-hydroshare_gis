@@ -67,7 +67,7 @@
         deletePublicTempfiles,
         drawLayersInListOrder,
         drawPointSymbologyPreview,
-        editLayerName,
+        editLayerDisplayName,
         generateAttributeTable,
         generateResourceList,
         getCookie,
@@ -132,6 +132,8 @@
      ******************************************************/
 
     addContextMenuToListItem = function ($listItem, resType) {
+        var contextMenuId;
+
         $listItem.find('.hmbrgr-div img')
             .contextMenu('menu', contextMenuDict[resType], {
                 'triggerOn': 'click',
@@ -146,36 +148,42 @@
                     $(e.trigger.context).parent().removeClass('hmbrgr-open');
                 }
             });
+        contextMenuId = $('.iw-contextMenu:last-child').attr('id');
+        $listItem.attr('data-context-menu', contextMenuId);
     };
 
     addGenericResToUI = function (results, isLastResource) {
         var $newLayerListItem;
-        var layerName = results.layer_name;
+        var iDisplayName = results.layer_name;
         var resId = results.res_id;
         var layerIndex = Math.floor(Math.random() * 1000) + 1000;
         var publicFilename = results.public_fname;
         var resType = results.res_type;
-        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, layerName, 'None', resId, publicFilename, true);
+
+        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, iDisplayName, 'None', resId, publicFilename, true);
         $newLayerListItem = $currentLayersList.find(':first-child');
         addListenersToListItem($newLayerListItem, layerIndex);
         addContextMenuToListItem($newLayerListItem, resType);
 
         // Add layer data to project info
-        projectInfo.map.layers[layerIndex] = {
+        projectInfo.map.layers[iDisplayName] = {
+            displayName: iDisplayName,
             hsResId: resId,
-            attributes: 'None',
-            cssStyles: 'None',
-            extents: 'None',
-            geomType: 'None',
-            id: 'None',
-            index: layerIndex,
-            listOrder: 1,
-            name: layerName,
             resType: resType,
-            visible: true,
-            hide255: false,
-            filename: publicFilename
+            filename: publicFilename,
+            listOrder: 1
         };
+
+        (function () {
+            var numLayers = $currentLayersList.children().length;
+            var i;
+            var layer;
+            for (i = 1; i <= numLayers; i++) {
+                layer = $currentLayersList.find('li:nth-child(' + i + ')');
+                iDisplayName = layer.find('.layer-name').text();
+                projectInfo.map.layers[iDisplayName].listOrder = i;
+            }
+        }());
 
         if (isLastResource) {
             hideMainLoadAnim();
@@ -241,7 +249,7 @@
             cssStyles,
             layerAttributes,
             layerExtents,
-            layerName,
+            displayName,
             layerId,
             layerIndex,
             resType,
@@ -261,7 +269,7 @@
             layerAttributes = "None";
         }
         bandInfo = (resType === 'RasterResource' && results.band_info) ? results.band_info : 'None';
-        layerName = results.layer_name;
+        displayName = results.layer_name;
         layerId = results.layer_id || results.res_id;
         rawLayerExtents = results.layer_extents;
 
@@ -308,22 +316,23 @@
         layerIndex = layerCount.get();
 
         // Add layer data to project info
-        projectInfo.map.layers[layerIndex] = {
+        projectInfo.map.layers[displayName] = {
+            displayName: displayName,
             hsResId: resId,
+            resType: resType,
             attributes: layerAttributes,
             cssStyles: cssStyles,
             extents: layerExtents,
             geomType: geomType,
+            bandInfo: bandInfo,
             id: layerId,
             index: layerIndex,
-            listOrder: 1,
-            name: layerName,
-            resType: resType,
             visible: true,
-            hide255: hide255
+            hide255: hide255,
+            listOrder: 1
         };
 
-        createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
+        createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, displayName, bandInfo, resId);
         $newLayerListItem = $currentLayersList.find(':first-child');
         addListenersToListItem($newLayerListItem, layerIndex);
         addContextMenuToListItem($newLayerListItem, resType);
@@ -337,7 +346,7 @@
         }
     };
 
-    addListenersToListItem = function ($listItem, layerIndex) {
+    addListenersToListItem = function ($listItem) {/*, layerIndex) {*/
         var $layerNameInput;
         $listItem.find('.layer-name').on('dblclick', function () {
             var $layerNameSpan = $(this);
@@ -347,7 +356,7 @@
                 .removeClass('hidden')
                 .select()
                 .on('keyup', function (e) {
-                    editLayerName(e, $(this), $layerNameSpan, layerIndex);
+                    editLayerDisplayName(e, $(this), $layerNameSpan);/*, layerIndex);*/
                 })
                 .on('click', function (e) {
                     e.stopPropagation();
@@ -359,11 +368,11 @@
         });
         $listItem.find('.hmbrgr-div img').on('click', function (e) {
             var clickedObj = $(e.currentTarget);
-            var menuIndex;
+            var contextmenuId;
             var menuObj;
             var newStyle;
-            menuIndex = clickedObj.parent().parent().attr('data-layer-index') - 3;
-            menuObj = $($('.iw-contextMenu')[menuIndex]);
+            contextmenuId = $listItem.attr('data-context-menu');
+            menuObj = $('#' + contextmenuId);
             if (menuObj.attr('style') !== undefined && menuObj.attr('style').indexOf('display: none;') === -1) {
                 window.setTimeout(function () {
                     newStyle = menuObj.attr('style').replace('inline-block', 'none');
@@ -1060,18 +1069,20 @@
         var i,
             index,
             layer,
-            count,
+            displayName,
+            numLayers,
             zIndex;
 
-        count = $currentLayersList.children().length + 2;
-        for (i = 3; i <= count; i++) {
+        numLayers = $currentLayersList.children().length + 2;
+        for (i = 3; i <= numLayers; i++) {
             layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+            displayName = layer.find('.layer-name').text();
             index = Number(layer.attr('data-layer-index'));
-            zIndex = count - i;
             if (index < 1000) {
+                zIndex = numLayers - i;
                 map.getLayers().item(index).setZIndex(zIndex);
-                projectInfo.map.layers[index].listOrder = i - 2;
             }
+            projectInfo.map.layers[displayName].listOrder = i - 2;
             $btnSaveProject.prop('disabled', false);
         }
     };
@@ -1182,12 +1193,15 @@
             .css(cssObj);
     };
 
-    editLayerName = function (e, $layerNameInput, $layerNameSpan, layerIndex) {
-        var layerName;
+    editLayerDisplayName = function (e, $layerNameInput, $layerNameSpan) {
+        var newDisplayName;
+        var nameB4Change = $layerNameSpan.text();
         if (e.which === 13) {  // Enter key
-            layerName = $layerNameInput.val();
-            $layerNameSpan.text(layerName);
-            projectInfo.map.layers[layerIndex].name = layerName;
+            newDisplayName = $layerNameInput.val();
+            $layerNameSpan.text(newDisplayName);
+            projectInfo.map.layers[nameB4Change].displayName = newDisplayName;
+            projectInfo.map.layers[newDisplayName] = projectInfo.map.layers[nameB4Change];
+            delete projectInfo.map.layers[nameB4Change];
             $btnSaveProject.prop('disabled', false);
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         } else if (e.which === 27) {  // Esc key
@@ -1584,6 +1598,8 @@
             layers = fileProjectInfo.map.layers,
             numLayers = Object.keys(layers).length,
             key,
+            layerIndex,
+            downloadedGenericFiles = {},
             $newLayerListItem;
 
         projectInfo = fileProjectInfo;
@@ -1594,20 +1610,74 @@
             for (key in layers) {
                 if (layers.hasOwnProperty(key)) {
                     if (layers[key].listOrder === i) {
-                        addLayerToMap({
-                            lyrExtents: layers[key].extents,
-                            url: fileProjectInfo.map.geoserverUrl + '/wms',
-                            lyrId: layers[key].id,
-                            resType: layers[key].resType,
-                            geomType: layers[key].geomType,
-                            cssStyles: layers[key].cssStyles,
-                            visible: layers[key].visible,
-                            hide255: layers[key].hide255
-                        });
-                        createLayerListItem('append', layerCount.get(), layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
-                        $newLayerListItem = $currentLayersList.find(':last-child');
-                        addListenersToListItem($newLayerListItem, layers[key].index);
-                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                        if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
+                            addLayerToMap({
+                                lyrExtents: layers[key].extents,
+                                url: fileProjectInfo.map.geoserverUrl + '/wms',
+                                lyrId: layers[key].id,
+                                resType: layers[key].resType,
+                                geomType: layers[key].geomType,
+                                cssStyles: layers[key].cssStyles,
+                                visible: layers[key].visible,
+                                hide255: layers[key].hide255
+                            });
+                            layerIndex = layerCount.get();
+                            createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
+                                layers[key].geomType, layers[key].attributes, layers[key].visible,
+                                layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
+                            $newLayerListItem = $currentLayersList.find(':last-child');
+                            addListenersToListItem($newLayerListItem, layers[key].index);
+                            addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                        } else if (layers[key].resType === 'GenericResource') {
+                            if (!downloadedGenericFiles.hasOwnProperty(layers[key].hsResId)) {
+                                $.ajax({
+                                    type: 'GET',
+                                    url: '/apps/hydroshare-gis/get-generic-files',
+                                    data: {
+                                        res_id: layers[key].hsResId
+                                    },
+                                    async: false,
+                                    success: function (response) {
+                                        if (response.hasOwnProperty('success')) {
+                                            if (!response.success) {
+                                                alert('Failed to obtain file from Generic resource');
+                                            } else {
+                                                (function (layers, key, layerIndex, $newLayerListItem) {
+                                                    var res_files = response.results.res_files;
+                                                    downloadedGenericFiles[layers[key].hsResId] = res_files;
+                                                    if (res_files.indexOf(layers[key].filename) === -1) {
+                                                        showResLoadingStatus(false, 'File named' + layers[key].filename + 'not found. Please check to make sure it was not renamed');
+                                                    } else {
+                                                        layerIndex = layers[key].index;
+                                                        createLayerListItem('append', layerIndex, layers[key].id,
+                                                            layers[key].resType, layers[key].geomType,
+                                                            layers[key].attributes, true,
+                                                            layers[key].displayName, layers[key].bandInfo,
+                                                            layers[key].hsResId, layers[key].filename, true);
+                                                        $newLayerListItem = $currentLayersList.find(':last-child');
+                                                        addListenersToListItem($newLayerListItem, layers[key].index);
+                                                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                                                    }
+                                                }(layers, key, layerIndex, $newLayerListItem));
+                                            }
+                                        }
+                                    }
+                                });
+                            } else {
+                                if (downloadedGenericFiles[layers[key].hsResId].indexOf(layers[key].filename) === -1) {
+                                    showResLoadingStatus(false, 'File named' + layers[key].filename + 'not found. Please check to make sure it was not renamed');
+                                } else {
+                                    layerIndex = layers[key].index;
+                                    createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
+                                        layers[key].geomType, layers[key].attributes, true,
+                                        layers[key].displayName, layers[key].bandInfo, layers[key].hsResId,
+                                        layers[key].filename, true);
+                                    $newLayerListItem = $currentLayersList.find(':last-child');
+                                    addListenersToListItem($newLayerListItem, layers[key].index);
+                                    addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1726,36 +1796,40 @@
         var clickedElement = e.trigger.context,
             count,
             $lyrListItem = $(clickedElement).parent().parent(),
+            displayName = $lyrListItem.find('.layer-name').text(),
             deleteIndex = Number($lyrListItem.attr('data-layer-index')),
             i,
             index,
-            maxLyrIndxBfrDel,
-            layer;
+            // maxLyrIndxBfrDel,
+            $layer;
 
-        var updateLayerIndex = function (startIndex, endIndex) {
-            for (i = startIndex; i < endIndex; i++) {
-                projectInfo.map.layers[i] = projectInfo.map.layers[i + 1];
-                projectInfo.map.layers[i].index = i;
-            }
-            delete projectInfo.map.layers[endIndex];
-        };
+        // var updateLayerIndex = function (startIndex, endIndex) {
+        //     for (i = startIndex; i < endIndex; i++) {
+        //         projectInfo.map.layers[i] = projectInfo.map.layers[i + 1];
+        //         projectInfo.map.layers[i].index = i;
+        //     }
+        //     delete projectInfo.map.layers[endIndex];
+        // };
 
         $lyrListItem.remove();
-        delete projectInfo.map.layers[deleteIndex];
+        delete projectInfo.map.layers[displayName];
 
         if (deleteIndex < 1000) {
-            maxLyrIndxBfrDel = layerCount.get();
+            // maxLyrIndxBfrDel = layerCount.get();
             map.getLayers().removeAt(deleteIndex);
-            updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
+            // updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
+        }
 
-            count = $currentLayersList.children().length;
-            for (i = 3; i <= count; i++) {
-                layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                index = Number(layer.attr('data-layer-index'));
-                if (index > deleteIndex) {
-                    layer.attr('data-layer-index', index - 1);
-                }
+        count = $currentLayersList.children().length;
+        for (i = 1; i <= count; i++) {
+            $layer = $currentLayersList.find('li:nth-child(' + i + ')');
+            displayName = $layer.find('.layer-name').text();
+            index = Number($layer.attr('data-layer-index'));
+            if (deleteIndex < 1000 && (index > deleteIndex)) {
+                $layer.attr('data-layer-index', index - 1);
+                projectInfo.map.layers[displayName].index = projectInfo.map.layers[displayName].index - 1;
             }
+            projectInfo.map.layers[displayName].listOrder = i;
         }
     };
 
@@ -1821,15 +1895,15 @@
         var clickedElement = e.trigger.context,
             $lyrListItem = $(clickedElement).parent().parent(),
             $layerNameInput = $lyrListItem.find('input[type=text]'),
-            $LayerNameSpan = $lyrListItem.find('span'),
-            layerIndex = $lyrListItem.attr('data-layer-index');
+            $LayerNameSpan = $lyrListItem.find('span');
+        // layerIndex = $lyrListItem.attr('data-layer-index');
 
         $LayerNameSpan.addClass('hidden');
         $lyrListItem.find('input')
             .removeClass('hidden')
             .select()
             .on('keyup', function (e) {
-                editLayerName(e, $(this), $LayerNameSpan, layerIndex);
+                editLayerDisplayName(e, $(this), $LayerNameSpan);/*, layerIndex);*/
             })
             .on('click', function (e) {
                 e.stopPropagation();
@@ -1960,6 +2034,8 @@
             if (result.res_type === 'GenericResource') {
                 if (result.project_info !== null) {
                     loadProjectFile(JSON.parse(result.project_info));
+                    showResLoadingStatus(true, 'Project loaded successfully!');
+                    hideMainLoadAnim();
                 } else if (result.public_fname !== null) {
                     addGenericResToUI(result, isLastResource && i === numResults - 1);
                 }

@@ -46,7 +46,7 @@
         layerCount,
         map,
         projectInfo,
-    //  *********FUNCTIONS***********
+        //  *********FUNCTIONS***********
         addContextMenuToListItem,
         addGenericResToUI,
         addLayerToMap,
@@ -111,7 +111,7 @@
         uploadFileButtonHandler,
         uploadResourceButtonHandler,
         zoomToLayer,
-    //  **********Query Selectors************
+        //  **********Query Selectors************
         $btnApplySymbology,
         $btnShowModalSaveNewProject,
         $btnSaveNewProject,
@@ -148,7 +148,7 @@
             });
     };
 
-    addGenericResToUI = function (results) {
+    addGenericResToUI = function (results, isLastResource) {
         var $newLayerListItem;
         var layerName = results.layer_name;
         var resId = results.res_id;
@@ -176,6 +176,11 @@
             hide255: false,
             filename: publicFilename
         };
+
+        if (isLastResource) {
+            hideMainLoadAnim();
+            showResLoadingStatus(true, 'Resource(s) added successfully!');
+        }
     };
 
     addLayerToMap = function (data) {
@@ -1769,13 +1774,18 @@
         var url;
         var location = window.location;
         var obj;
+        var done = false;
         var validImgTypes = ['png', 'jpg', 'gif'];
 
         $('.view-file').addClass('hidden');
 
         if (fName.toLowerCase().indexOf('.pdf') !== -1) {
             url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
-            obj = $('#iframe-js-viewer');
+            $('#iframe-container')
+                .empty()
+                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+                .removeClass('hidden');
+            done = true;
         } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
             url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
             obj = $('#img-viewer');
@@ -1784,7 +1794,9 @@
             obj = $('#unviewable-file');
             $('#link-download-file').attr('href', url);
         }
-        obj.attr('src', url).removeClass('hidden');
+        if (!done) {
+            obj.attr('src', url).removeClass('hidden');
+        }
         $modalViewFile.modal('show');
 
         $(document).on('keyup.viewfile', function (e) {
@@ -1928,42 +1940,33 @@
     };
 
     processAddHSResResults = function (results, isLastResource, additionalResources) {
-        if (results.res_type === 'GenericResource') {
-            if (results.project_info !== null) {
-                loadProjectFile(JSON.parse(results.project_info));
-            } else if (results.public_fname !== null) {
-                addGenericResToUI(results);
-            }
+        var numResults = results.length;
+        var result;
+        var i;
+        var numAdditionalResources;
+        var resource;
+        var j;
+        for (i = 0; i < numResults; i++) {
             if (additionalResources) {
-                (function () {
-                    var i;
-                    var length = additionalResources.length;
-                    var resource;
-
-                    for (i = 0; i < length; i++) {
-                        resource = additionalResources[i];
-                        loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                    }
-                }());
-            }
-            if (isLastResource) {
-                hideMainLoadAnim();
-            }
-            return;
-        }
-        if (additionalResources) {
-            (function () {
-                var i;
-                var length = additionalResources.length;
-                var resource;
-
-                for (i = 0; i < length; i++) {
-                    resource = additionalResources[i];
-                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                numAdditionalResources = additionalResources.length;
+                for (j = 0; j < numAdditionalResources; j++) {
+                    resource = additionalResources[j];
+                    loadResource(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
                 }
-            }());
+            }
+
+            result = results[i];
+
+            if (result.res_type === 'GenericResource') {
+                if (result.project_info !== null) {
+                    loadProjectFile(JSON.parse(result.project_info));
+                } else if (result.public_fname !== null) {
+                    addGenericResToUI(result, isLastResource && i === numResults - 1);
+                }
+            } else {
+                addLayerToUI(result, isLastResource && i === numResults - 1);
+            }
         }
-        addLayerToUI(results, isLastResource);
         $btnSaveProject.prop('disabled', false);
     };
 

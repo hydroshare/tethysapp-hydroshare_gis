@@ -1896,6 +1896,7 @@
     };
 
     onClickSaveNewProject = function () {
+        showMainLoadAnim();
         var $footerInfoSaveProj = $('#footer-info-saveProj');
 
         $btnSaveProject.prop('disabled', true);
@@ -2030,6 +2031,7 @@
     processSaveNewProjectResponse = function (response) {
         var $footerInfoSaveProj = $('#footer-info-saveProj');
         var resId;
+        hideMainLoadAnim();
         if (response.hasOwnProperty('success')) {
             if (response.success) {
                 resId = response.res_id;

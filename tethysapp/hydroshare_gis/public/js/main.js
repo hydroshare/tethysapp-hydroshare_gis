@@ -161,7 +161,7 @@
         var resType = results.res_type;
 
         createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, iDisplayName, 'None', resId, publicFilename, true);
-        $newLayerListItem = $currentLayersList.find(':first-child');
+        $newLayerListItem = $currentLayersList.find('li:first-child');
         addListenersToListItem($newLayerListItem, layerIndex);
         addContextMenuToListItem($newLayerListItem, resType);
 
@@ -284,7 +284,7 @@
             cssStyles = 'Default';
         } else {
             cssStyles = {'color-map': {}};
-            if (bandInfo.nd) {
+            if (bandInfo.nd || bandInfo.nd === 0) {
                 cssStyles['color-map'][bandInfo.nd] = {
                     color: '#000000',
                     opacity: 0
@@ -333,7 +333,7 @@
         };
 
         createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, displayName, bandInfo, resId);
-        $newLayerListItem = $currentLayersList.find(':first-child');
+        $newLayerListItem = $currentLayersList.find('li:first-child');
         addListenersToListItem($newLayerListItem, layerIndex);
         addContextMenuToListItem($newLayerListItem, resType);
 
@@ -492,7 +492,7 @@
             layerIndex = layerCount.get();
 
             createLayerListItem('prepend', layerIndex, wmsUrl, 'RasterResource', 'None', 'None', true, wmsName, 'None');
-            $newLayerListItem = $currentLayersList.find(':first-child');
+            $newLayerListItem = $currentLayersList.find('li:first-child');
             addListenersToListItem($newLayerListItem, layerIndex);
             addContextMenuToListItem($newLayerListItem, 'RasterResource');
 
@@ -562,9 +562,11 @@
         });
 
         $(document).on('change', '.chkbx-layer', function () {
+            var displayName = $(this).next().text();
             var index = Number($(this).parent().attr('data-layer-index'));
+
             map.getLayers().item(index).setVisible($(this).is(':checked'));
-            projectInfo.map.layers[index].visible = $(this).is(':checked');
+            projectInfo.map.layers[displayName].visible = $(this).is(':checked');
         });
 
         $modalLoadRes.on('shown.bs.modal', function () {
@@ -1040,7 +1042,7 @@
 
         if (position === 'prepend') {
             $currentLayersList.prepend(listHtmlString);
-            $newLayerListItem = $currentLayersList.find(':first-child');
+            $newLayerListItem = $currentLayersList.find('li:first-child');
         } else {
             $currentLayersList.append(listHtmlString);
             $newLayerListItem = $currentLayersList.find(':last-child');
@@ -1599,8 +1601,23 @@
             numLayers = Object.keys(layers).length,
             key,
             layerIndex,
-            downloadedGenericFiles = {},
+            resDownloadDict = {},
             $newLayerListItem;
+
+        var downloadGenericFiles = function (resDownloadDict) {
+            if (Object.keys(resDownloadDict).length !== 0) {
+                $.ajax({
+                    type: 'GET',
+                    url: '/apps/hydroshare-gis/get-generic-files',
+                    data: {
+                        res_dict_string: JSON.stringify(resDownloadDict)
+                    },
+                    success: function () {
+                        console.log('SUCCESS');
+                    }
+                });
+            }
+        };
 
         projectInfo = fileProjectInfo;
 
@@ -1625,59 +1642,23 @@
                             createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
                                 layers[key].geomType, layers[key].attributes, layers[key].visible,
                                 layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
-                            $newLayerListItem = $currentLayersList.find(':last-child');
-                            addListenersToListItem($newLayerListItem, layers[key].index);
-                            addContextMenuToListItem($newLayerListItem, layers[key].resType);
                         } else if (layers[key].resType === 'GenericResource') {
-                            if (!downloadedGenericFiles.hasOwnProperty(layers[key].hsResId)) {
-                                $.ajax({
-                                    type: 'GET',
-                                    url: '/apps/hydroshare-gis/get-generic-files',
-                                    data: {
-                                        res_id: layers[key].hsResId
-                                    },
-                                    async: false,
-                                    success: function (response) {
-                                        if (response.hasOwnProperty('success')) {
-                                            if (!response.success) {
-                                                alert('Failed to obtain file from Generic resource');
-                                            } else {
-                                                (function (layers, key, layerIndex, $newLayerListItem) {
-                                                    var res_files = response.results.res_files;
-                                                    downloadedGenericFiles[layers[key].hsResId] = res_files;
-                                                    if (res_files.indexOf(layers[key].filename) === -1) {
-                                                        showResLoadingStatus(false, 'File named' + layers[key].filename + 'not found. Please check to make sure it was not renamed');
-                                                    } else {
-                                                        layerIndex = layers[key].index;
-                                                        createLayerListItem('append', layerIndex, layers[key].id,
-                                                            layers[key].resType, layers[key].geomType,
-                                                            layers[key].attributes, true,
-                                                            layers[key].displayName, layers[key].bandInfo,
-                                                            layers[key].hsResId, layers[key].filename, true);
-                                                        $newLayerListItem = $currentLayersList.find(':last-child');
-                                                        addListenersToListItem($newLayerListItem, layers[key].index);
-                                                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
-                                                    }
-                                                }(layers, key, layerIndex, $newLayerListItem));
-                                            }
-                                        }
-                                    }
-                                });
+                            layerIndex = layers[key].index;
+                            createLayerListItem('append', layerIndex, layers[key].id,
+                                layers[key].resType, layers[key].geomType,
+                                layers[key].attributes, true,
+                                layers[key].displayName, layers[key].bandInfo,
+                                layers[key].hsResId, layers[key].filename, true);
+
+                            if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
+                                resDownloadDict[layers[key].hsResId].push(layers[key].filename);
                             } else {
-                                if (downloadedGenericFiles[layers[key].hsResId].indexOf(layers[key].filename) === -1) {
-                                    showResLoadingStatus(false, 'File named' + layers[key].filename + 'not found. Please check to make sure it was not renamed');
-                                } else {
-                                    layerIndex = layers[key].index;
-                                    createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
-                                        layers[key].geomType, layers[key].attributes, true,
-                                        layers[key].displayName, layers[key].bandInfo, layers[key].hsResId,
-                                        layers[key].filename, true);
-                                    $newLayerListItem = $currentLayersList.find(':last-child');
-                                    addListenersToListItem($newLayerListItem, layers[key].index);
-                                    addContextMenuToListItem($newLayerListItem, layers[key].resType);
-                                }
+                                resDownloadDict[layers[key].hsResId] = [layers[key].filename];
                             }
                         }
+                        $newLayerListItem = $currentLayersList.find(':last-child');
+                        addListenersToListItem($newLayerListItem, layers[key].index);
+                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
                     }
                 }
             }
@@ -1692,6 +1673,8 @@
         window.setTimeout(function () {
             $btnSaveProject.prop('disabled', true);
         }, 100);
+
+        downloadGenericFiles(resDownloadDict);
     };
 
     loadResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
@@ -1800,24 +1783,13 @@
             deleteIndex = Number($lyrListItem.attr('data-layer-index')),
             i,
             index,
-            // maxLyrIndxBfrDel,
             $layer;
-
-        // var updateLayerIndex = function (startIndex, endIndex) {
-        //     for (i = startIndex; i < endIndex; i++) {
-        //         projectInfo.map.layers[i] = projectInfo.map.layers[i + 1];
-        //         projectInfo.map.layers[i].index = i;
-        //     }
-        //     delete projectInfo.map.layers[endIndex];
-        // };
 
         $lyrListItem.remove();
         delete projectInfo.map.layers[displayName];
 
         if (deleteIndex < 1000) {
-            // maxLyrIndxBfrDel = layerCount.get();
             map.getLayers().removeAt(deleteIndex);
-            // updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
         }
 
         count = $currentLayersList.children().length;
@@ -1963,12 +1935,12 @@
         var $lyrListItem = $(clickedElement).parent().parent();
         var geomType = $lyrListItem.attr('data-geom-type');
         var layerId = $lyrListItem.attr('data-layer-id');
-        var layerIndex = $lyrListItem.attr('data-layer-index');
+        var displayName = $lyrListItem.find('.layer-name').text();
         var layerName = $lyrListItem.text();
-        var cssStyles = projectInfo.map.layers[layerIndex].cssStyles;
+        var cssStyles = projectInfo.map.layers[displayName].cssStyles;
         var geoserverUrl = projectInfo.map.geoserverUrl;
         var imageUrl =  geoserverUrl + '/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=75&HEIGHT=75&LAYER=' + layerId;
-        var hide255 = projectInfo.map.layers[layerIndex].hide255;
+        var hide255 = projectInfo.map.layers[displayName].hide255;
 
         imageUrl += '&LEGEND_OPTIONS=forceRule:True;fontStyle:bold;fontSize:14';
         if (cssStyles !== 'Default') {
@@ -2122,6 +2094,7 @@
     setupSymbologyModalState = function ($lyrListItem) {
         var geomType = $lyrListItem.attr('data-geom-type'),
             layerId = $lyrListItem.attr('data-layer-id'),
+            displayName = $lyrListItem.find('.layer-name').text(),
             layerIndex = $lyrListItem.attr('data-layer-index'),
             labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
             bandInfo = {
@@ -2136,7 +2109,8 @@
         $modalSymbology.find('#btn-apply-symbology').attr({
             'data-geom-type': geomType,
             'data-layer-id': layerId,
-            'data-layer-index': layerIndex
+            'data-layer-index': layerIndex,
+            'data-layer-name': displayName
         });
 
         labelFieldOptions.forEach(function (option) {
@@ -2153,7 +2127,7 @@
             .prop('checked', false)
             .trigger('change');
 
-        layerCssStyles = projectInfo.map.layers[layerIndex].cssStyles;
+        layerCssStyles = projectInfo.map.layers[displayName].cssStyles;
         if (geomType === 'polygon') {
             setupSymbologyPolygonState(layerCssStyles);
         } else if (geomType === 'point') {
@@ -2335,16 +2309,17 @@
     updateSymbology = function ($this) {
         var geomType = $this.attr('data-geom-type'),
             layerId = $this.attr('data-layer-id'),
+            displayName = $this.attr('data-layer-name'),
             layerIndex = $this.attr('data-layer-index'),
             sldString,
             cssStyles,
-            hide255 = projectInfo.map.layers[layerIndex].hide255;
+            hide255 = projectInfo.map.layers[displayName].hide255;
 
         cssStyles = getCssStyles(geomType);
         if (cssStyles === null) {
             return;
         }
-        projectInfo.map.layers[layerIndex].cssStyles = cssStyles;
+        projectInfo.map.layers[displayName].cssStyles = cssStyles;
         sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});

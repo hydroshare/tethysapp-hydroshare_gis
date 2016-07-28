@@ -1091,27 +1091,31 @@ def generate_attribute_table(layer_id, layer_attributes):
     return return_obj
 
 
-def get_generic_file(hs, res_id):
+def get_generic_files(hs, res_dict_string):
     return_obj = {
         'success': False,
         'message': None,
-        'results': {
-            'res_files': []
-        }
     }
-
-    r = download_res_from_hs(hs, res_id)
-    if not r['success']:
-        return_obj['message'] = r['message']
-    else:
-        res_contents_path = r['res_contents_path']
-        for fname in os.listdir(res_contents_path):
-            fpath = os.path.join(res_contents_path, fname)
-            if not os.path.exists(public_tempdir):
-                os.mkdir(public_tempdir)
-            dst = os.path.join(public_tempdir, fname)
-            shutil.move(fpath, dst)
-            return_obj['results']['res_files'].append(os.path.basename(dst))
+    res_dict = loads(res_dict_string)
+    if not os.path.exists(public_tempdir):
+        os.mkdir(public_tempdir)
+    for res in res_dict:
+        for res_file in res_dict[res]:
+            hs.getResourceFile(res, res_file, destination=public_tempdir)
         return_obj['success'] = True
+
+    # r = download_res_from_hs(hs, res_id)
+    # if not r['success']:
+    #     return_obj['message'] = r['message']
+    # else:
+    #     res_contents_path = r['res_contents_path']
+    #     for fname in os.listdir(res_contents_path):
+    #         fpath = os.path.join(res_contents_path, fname)
+    #         if not os.path.exists(public_tempdir):
+    #             os.mkdir(public_tempdir)
+    #         dst = os.path.join(public_tempdir, fname)
+    #         shutil.move(fpath, dst)
+    #         return_obj['results']['res_files'].append(os.path.basename(dst))
+    #     return_obj['success'] = True
 
     return return_obj

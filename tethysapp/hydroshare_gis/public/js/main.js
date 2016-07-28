@@ -44,6 +44,7 @@
         layersContextMenuVector,
         layersContextMenuTimeSeries,
         layerCount,
+        loadGenericFilesStatus,
         map,
         projectInfo,
         //  *********FUNCTIONS***********
@@ -411,6 +412,15 @@
     };
 
     addInitialEventListeners = function () {
+        $('.modal').on('shown.bs.modal', function (event) {
+            $(document).on('keyup.modal', function (e) {
+                if (e.which === 27) {
+                    $(document).off('keyup.modal');
+                    $(event.target).modal('hide');
+                }
+            });
+        });
+
         $('#apply-opacity-to-colors').on('click', function () {
             var opacity = $('#raster-opacity').val();
             $('input[id^=color]').each(function (i, o) {
@@ -419,6 +429,7 @@
                 $(o).spectrum('set', color);
             });
         });
+
         map.on('moveend', function () {
             $btnSaveProject.prop('disabled', false);
         });
@@ -1606,15 +1617,15 @@
 
         var downloadGenericFiles = function (resDownloadDict) {
             if (Object.keys(resDownloadDict).length !== 0) {
+                loadGenericFilesStatus.setPending();
                 $.ajax({
                     type: 'GET',
                     url: '/apps/hydroshare-gis/get-generic-files',
                     data: {
                         res_dict_string: JSON.stringify(resDownloadDict)
                     },
-                    success: function () {
-                        console.log('SUCCESS');
-                    }
+                    error: loadGenericFilesStatus.setError,
+                    success: loadGenericFilesStatus.setSuccess
                 });
             }
         };
@@ -1819,38 +1830,36 @@
         var fName = $lyrListItem.attr('data-public-fname');
         var url;
         var location = window.location;
-        var obj;
-        var done = false;
         var validImgTypes = ['png', 'jpg', 'gif'];
 
         $('.view-file').addClass('hidden');
 
-        if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
-            $('#iframe-container')
-                .empty()
-                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+        if (loadGenericFilesStatus.get() === 'Pending') {
+            $('#view-file-status')
+                .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
                 .removeClass('hidden');
-            done = true;
-        } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-            obj = $('#img-viewer');
+        } else if (loadGenericFilesStatus.get() === 'Error') {
+            $('#view-file-status')
+                .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
+                .removeClass('hidden');
         } else {
-            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-            obj = $('#unviewable-file');
-            $('#link-download-file').attr('href', url);
-        }
-        if (!done) {
-            obj.attr('src', url).removeClass('hidden');
-        }
-        $modalViewFile.modal('show');
-
-        $(document).on('keyup.viewfile', function (e) {
-            if (e.which === 27) {
-                $(document).off('keyup.viewfile');
-                $modalViewFile.modal('hide');
+            if (fName.toLowerCase().indexOf('.pdf') !== -1) {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
+                $('#iframe-container')
+                    .empty()
+                    .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+                    .removeClass('hidden');
+            } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                $('#img-viewer').attr('src', url).removeClass('hidden');
+            } else {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                $('#link-download-file').attr('href', url);
+                $('#unviewable-file').attr('src', url).removeClass('hidden');
             }
-        });
+        }
+
+        $modalViewFile.modal('show');
     };
 
     onClickOpenInHS = function (e) {
@@ -2404,18 +2413,18 @@
         initializeLayersContextMenus();
         addInitialEventListeners();
 
+        if (window.location.pathname.indexOf('add-to-project') > -1) {
+            $('#modalAddToProject').modal('show');
+        } else {
+            $('#modalWelcome').modal('show');
+        }
+
         $currentLayersList.sortable({
             placeholder: "ui-state-highlight",
             stop: drawLayersInListOrder
         });
         $currentLayersList.disableSelection();
     });
-
-    if (window.location.pathname.indexOf('add-to-project') > -1) {
-        $('#modalAddToProject').modal('show');
-    } else {
-        $('#modalWelcome').modal('show');
-    }
 
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
@@ -2448,6 +2457,24 @@
             },
             'decrease': function () {
                 count -= 1;
+            }
+        };
+    }());
+
+    loadGenericFilesStatus = (function () {
+        var status = 'None';
+        return {
+            'setSuccess': function () {
+                status = 'Success';
+            },
+            'setError': function () {
+                status = 'Error';
+            },
+            'setPending': function () {
+                status = 'Pending';
+            },
+            'get': function () {
+                return status;
             }
         };
     }());

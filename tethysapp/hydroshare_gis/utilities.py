@@ -511,7 +511,6 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             email_traceback(exc_info(), msg)
 
     os.system('rm -rf %s*' % hs_tempdir)
-    # shutil.rmtree(hs_tempdir, True)
 
     return return_obj
 

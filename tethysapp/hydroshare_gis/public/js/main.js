@@ -44,9 +44,10 @@
         layersContextMenuVector,
         layersContextMenuTimeSeries,
         layerCount,
+        loadGenericFilesStatus,
         map,
         projectInfo,
-    //  *********FUNCTIONS***********
+        //  *********FUNCTIONS***********
         addContextMenuToListItem,
         addGenericResToUI,
         addLayerToMap,
@@ -67,7 +68,7 @@
         deletePublicTempfiles,
         drawLayersInListOrder,
         drawPointSymbologyPreview,
-        editLayerName,
+        editLayerDisplayName,
         generateAttributeTable,
         generateResourceList,
         getCookie,
@@ -111,7 +112,7 @@
         uploadFileButtonHandler,
         uploadResourceButtonHandler,
         zoomToLayer,
-    //  **********Query Selectors************
+        //  **********Query Selectors************
         $btnApplySymbology,
         $btnShowModalSaveNewProject,
         $btnSaveNewProject,
@@ -132,6 +133,8 @@
      ******************************************************/
 
     addContextMenuToListItem = function ($listItem, resType) {
+        var contextMenuId;
+
         $listItem.find('.hmbrgr-div img')
             .contextMenu('menu', contextMenuDict[resType], {
                 'triggerOn': 'click',
@@ -146,36 +149,47 @@
                     $(e.trigger.context).parent().removeClass('hmbrgr-open');
                 }
             });
+        contextMenuId = $('.iw-contextMenu:last-child').attr('id');
+        $listItem.attr('data-context-menu', contextMenuId);
     };
 
-    addGenericResToUI = function (results) {
+    addGenericResToUI = function (results, isLastResource) {
         var $newLayerListItem;
-        var layerName = results.layer_name;
+        var iDisplayName = results.layer_name;
         var resId = results.res_id;
         var layerIndex = Math.floor(Math.random() * 1000) + 1000;
         var publicFilename = results.public_fname;
         var resType = results.res_type;
-        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, layerName, 'None', resId, publicFilename, true);
-        $newLayerListItem = $currentLayersList.find(':first-child');
+
+        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, iDisplayName, 'None', resId, publicFilename, true);
+        $newLayerListItem = $currentLayersList.find('li:first-child');
         addListenersToListItem($newLayerListItem, layerIndex);
         addContextMenuToListItem($newLayerListItem, resType);
 
         // Add layer data to project info
-        projectInfo.map.layers[layerIndex] = {
+        projectInfo.map.layers[iDisplayName] = {
+            displayName: iDisplayName,
             hsResId: resId,
-            attributes: 'None',
-            cssStyles: 'None',
-            extents: 'None',
-            geomType: 'None',
-            id: 'None',
-            index: layerIndex,
-            listOrder: 1,
-            name: layerName,
             resType: resType,
-            visible: true,
-            hide255: false,
-            filename: publicFilename
+            filename: publicFilename,
+            listOrder: 1
         };
+
+        (function () {
+            var numLayers = $currentLayersList.children().length;
+            var i;
+            var layer;
+            for (i = 1; i <= numLayers; i++) {
+                layer = $currentLayersList.find('li:nth-child(' + i + ')');
+                iDisplayName = layer.find('.layer-name').text();
+                projectInfo.map.layers[iDisplayName].listOrder = i;
+            }
+        }());
+
+        if (isLastResource) {
+            hideMainLoadAnim();
+            showResLoadingStatus(true, 'Resource(s) added successfully!');
+        }
     };
 
     addLayerToMap = function (data) {
@@ -236,7 +250,7 @@
             cssStyles,
             layerAttributes,
             layerExtents,
-            layerName,
+            displayName,
             layerId,
             layerIndex,
             resType,
@@ -256,7 +270,7 @@
             layerAttributes = "None";
         }
         bandInfo = (resType === 'RasterResource' && results.band_info) ? results.band_info : 'None';
-        layerName = results.layer_name;
+        displayName = results.layer_name;
         layerId = results.layer_id || results.res_id;
         rawLayerExtents = results.layer_extents;
 
@@ -271,7 +285,7 @@
             cssStyles = 'Default';
         } else {
             cssStyles = {'color-map': {}};
-            if (bandInfo.nd) {
+            if (bandInfo.nd || bandInfo.nd === 0) {
                 cssStyles['color-map'][bandInfo.nd] = {
                     color: '#000000',
                     opacity: 0
@@ -303,23 +317,24 @@
         layerIndex = layerCount.get();
 
         // Add layer data to project info
-        projectInfo.map.layers[layerIndex] = {
+        projectInfo.map.layers[displayName] = {
+            displayName: displayName,
             hsResId: resId,
+            resType: resType,
             attributes: layerAttributes,
             cssStyles: cssStyles,
             extents: layerExtents,
             geomType: geomType,
+            bandInfo: bandInfo,
             id: layerId,
             index: layerIndex,
-            listOrder: 1,
-            name: layerName,
-            resType: resType,
             visible: true,
-            hide255: hide255
+            hide255: hide255,
+            listOrder: 1
         };
 
-        createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, layerName, bandInfo, resId);
-        $newLayerListItem = $currentLayersList.find(':first-child');
+        createLayerListItem('prepend', layerIndex, layerId, resType, geomType, layerAttributes, true, displayName, bandInfo, resId);
+        $newLayerListItem = $currentLayersList.find('li:first-child');
         addListenersToListItem($newLayerListItem, layerIndex);
         addContextMenuToListItem($newLayerListItem, resType);
 
@@ -332,7 +347,7 @@
         }
     };
 
-    addListenersToListItem = function ($listItem, layerIndex) {
+    addListenersToListItem = function ($listItem) {/*, layerIndex) {*/
         var $layerNameInput;
         $listItem.find('.layer-name').on('dblclick', function () {
             var $layerNameSpan = $(this);
@@ -342,7 +357,7 @@
                 .removeClass('hidden')
                 .select()
                 .on('keyup', function (e) {
-                    editLayerName(e, $(this), $layerNameSpan, layerIndex);
+                    editLayerDisplayName(e, $(this), $layerNameSpan);/*, layerIndex);*/
                 })
                 .on('click', function (e) {
                     e.stopPropagation();
@@ -354,11 +369,11 @@
         });
         $listItem.find('.hmbrgr-div img').on('click', function (e) {
             var clickedObj = $(e.currentTarget);
-            var menuIndex;
+            var contextmenuId;
             var menuObj;
             var newStyle;
-            menuIndex = clickedObj.parent().parent().attr('data-layer-index') - 3;
-            menuObj = $($('.iw-contextMenu')[menuIndex]);
+            contextmenuId = $listItem.attr('data-context-menu');
+            menuObj = $('#' + contextmenuId);
             if (menuObj.attr('style') !== undefined && menuObj.attr('style').indexOf('display: none;') === -1) {
                 window.setTimeout(function () {
                     newStyle = menuObj.attr('style').replace('inline-block', 'none');
@@ -397,6 +412,15 @@
     };
 
     addInitialEventListeners = function () {
+        $('.modal').on('shown.bs.modal', function (event) {
+            $(document).on('keyup.modal', function (e) {
+                if (e.which === 27) {
+                    $(document).off('keyup.modal');
+                    $(event.target).modal('hide');
+                }
+            });
+        });
+
         $('#apply-opacity-to-colors').on('click', function () {
             var opacity = $('#raster-opacity').val();
             $('input[id^=color]').each(function (i, o) {
@@ -405,6 +429,7 @@
                 $(o).spectrum('set', color);
             });
         });
+
         map.on('moveend', function () {
             $btnSaveProject.prop('disabled', false);
         });
@@ -478,7 +503,7 @@
             layerIndex = layerCount.get();
 
             createLayerListItem('prepend', layerIndex, wmsUrl, 'RasterResource', 'None', 'None', true, wmsName, 'None');
-            $newLayerListItem = $currentLayersList.find(':first-child');
+            $newLayerListItem = $currentLayersList.find('li:first-child');
             addListenersToListItem($newLayerListItem, layerIndex);
             addContextMenuToListItem($newLayerListItem, 'RasterResource');
 
@@ -548,9 +573,11 @@
         });
 
         $(document).on('change', '.chkbx-layer', function () {
+            var displayName = $(this).next().text();
             var index = Number($(this).parent().attr('data-layer-index'));
+
             map.getLayers().item(index).setVisible($(this).is(':checked'));
-            projectInfo.map.layers[index].visible = $(this).is(':checked');
+            projectInfo.map.layers[displayName].visible = $(this).is(':checked');
         });
 
         $modalLoadRes.on('shown.bs.modal', function () {
@@ -1026,7 +1053,7 @@
 
         if (position === 'prepend') {
             $currentLayersList.prepend(listHtmlString);
-            $newLayerListItem = $currentLayersList.find(':first-child');
+            $newLayerListItem = $currentLayersList.find('li:first-child');
         } else {
             $currentLayersList.append(listHtmlString);
             $newLayerListItem = $currentLayersList.find(':last-child');
@@ -1055,18 +1082,20 @@
         var i,
             index,
             layer,
-            count,
+            displayName,
+            numLayers,
             zIndex;
 
-        count = $currentLayersList.children().length + 2;
-        for (i = 3; i <= count; i++) {
+        numLayers = $currentLayersList.children().length + 2;
+        for (i = 3; i <= numLayers; i++) {
             layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
+            displayName = layer.find('.layer-name').text();
             index = Number(layer.attr('data-layer-index'));
-            zIndex = count - i;
             if (index < 1000) {
+                zIndex = numLayers - i;
                 map.getLayers().item(index).setZIndex(zIndex);
-                projectInfo.map.layers[index].listOrder = i - 2;
             }
+            projectInfo.map.layers[displayName].listOrder = i - 2;
             $btnSaveProject.prop('disabled', false);
         }
     };
@@ -1177,12 +1206,15 @@
             .css(cssObj);
     };
 
-    editLayerName = function (e, $layerNameInput, $layerNameSpan, layerIndex) {
-        var layerName;
+    editLayerDisplayName = function (e, $layerNameInput, $layerNameSpan) {
+        var newDisplayName;
+        var nameB4Change = $layerNameSpan.text();
         if (e.which === 13) {  // Enter key
-            layerName = $layerNameInput.val();
-            $layerNameSpan.text(layerName);
-            projectInfo.map.layers[layerIndex].name = layerName;
+            newDisplayName = $layerNameInput.val();
+            $layerNameSpan.text(newDisplayName);
+            projectInfo.map.layers[nameB4Change].displayName = newDisplayName;
+            projectInfo.map.layers[newDisplayName] = projectInfo.map.layers[nameB4Change];
+            delete projectInfo.map.layers[nameB4Change];
             $btnSaveProject.prop('disabled', false);
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         } else if (e.which === 27) {  // Esc key
@@ -1579,7 +1611,24 @@
             layers = fileProjectInfo.map.layers,
             numLayers = Object.keys(layers).length,
             key,
+            layerIndex,
+            resDownloadDict = {},
             $newLayerListItem;
+
+        var downloadGenericFiles = function (resDownloadDict) {
+            if (Object.keys(resDownloadDict).length !== 0) {
+                loadGenericFilesStatus.setPending();
+                $.ajax({
+                    type: 'GET',
+                    url: '/apps/hydroshare-gis/get-generic-files',
+                    data: {
+                        res_dict_string: JSON.stringify(resDownloadDict)
+                    },
+                    error: loadGenericFilesStatus.setError,
+                    success: loadGenericFilesStatus.setSuccess
+                });
+            }
+        };
 
         projectInfo = fileProjectInfo;
 
@@ -1589,17 +1638,35 @@
             for (key in layers) {
                 if (layers.hasOwnProperty(key)) {
                     if (layers[key].listOrder === i) {
-                        addLayerToMap({
-                            lyrExtents: layers[key].extents,
-                            url: fileProjectInfo.map.geoserverUrl + '/wms',
-                            lyrId: layers[key].id,
-                            resType: layers[key].resType,
-                            geomType: layers[key].geomType,
-                            cssStyles: layers[key].cssStyles,
-                            visible: layers[key].visible,
-                            hide255: layers[key].hide255
-                        });
-                        createLayerListItem('append', layerCount.get(), layers[key].id, layers[key].resType, layers[key].geomType, layers[key].attributes, layers[key].visible, layers[key].name);
+                        if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
+                            addLayerToMap({
+                                lyrExtents: layers[key].extents,
+                                url: fileProjectInfo.map.geoserverUrl + '/wms',
+                                lyrId: layers[key].id,
+                                resType: layers[key].resType,
+                                geomType: layers[key].geomType,
+                                cssStyles: layers[key].cssStyles,
+                                visible: layers[key].visible,
+                                hide255: layers[key].hide255
+                            });
+                            layerIndex = layerCount.get();
+                            createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
+                                layers[key].geomType, layers[key].attributes, layers[key].visible,
+                                layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
+                        } else if (layers[key].resType === 'GenericResource') {
+                            layerIndex = layers[key].index;
+                            createLayerListItem('append', layerIndex, layers[key].id,
+                                layers[key].resType, layers[key].geomType,
+                                layers[key].attributes, true,
+                                layers[key].displayName, layers[key].bandInfo,
+                                layers[key].hsResId, layers[key].filename, true);
+
+                            if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
+                                resDownloadDict[layers[key].hsResId].push(layers[key].filename);
+                            } else {
+                                resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                            }
+                        }
                         $newLayerListItem = $currentLayersList.find(':last-child');
                         addListenersToListItem($newLayerListItem, layers[key].index);
                         addContextMenuToListItem($newLayerListItem, layers[key].resType);
@@ -1617,6 +1684,8 @@
         window.setTimeout(function () {
             $btnSaveProject.prop('disabled', true);
         }, 100);
+
+        downloadGenericFiles(resDownloadDict);
     };
 
     loadResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
@@ -1721,36 +1790,29 @@
         var clickedElement = e.trigger.context,
             count,
             $lyrListItem = $(clickedElement).parent().parent(),
+            displayName = $lyrListItem.find('.layer-name').text(),
             deleteIndex = Number($lyrListItem.attr('data-layer-index')),
             i,
             index,
-            maxLyrIndxBfrDel,
-            layer;
-
-        var updateLayerIndex = function (startIndex, endIndex) {
-            for (i = startIndex; i < endIndex; i++) {
-                projectInfo.map.layers[i] = projectInfo.map.layers[i + 1];
-                projectInfo.map.layers[i].index = i;
-            }
-            delete projectInfo.map.layers[endIndex];
-        };
+            $layer;
 
         $lyrListItem.remove();
-        delete projectInfo.map.layers[deleteIndex];
+        delete projectInfo.map.layers[displayName];
 
         if (deleteIndex < 1000) {
-            maxLyrIndxBfrDel = layerCount.get();
             map.getLayers().removeAt(deleteIndex);
-            updateLayerIndex(deleteIndex, maxLyrIndxBfrDel);
+        }
 
-            count = $currentLayersList.children().length;
-            for (i = 3; i <= count; i++) {
-                layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
-                index = Number(layer.attr('data-layer-index'));
-                if (index > deleteIndex) {
-                    layer.attr('data-layer-index', index - 1);
-                }
+        count = $currentLayersList.children().length;
+        for (i = 1; i <= count; i++) {
+            $layer = $currentLayersList.find('li:nth-child(' + i + ')');
+            displayName = $layer.find('.layer-name').text();
+            index = Number($layer.attr('data-layer-index'));
+            if (deleteIndex < 1000 && (index > deleteIndex)) {
+                $layer.attr('data-layer-index', index - 1);
+                projectInfo.map.layers[displayName].index = projectInfo.map.layers[displayName].index - 1;
             }
+            projectInfo.map.layers[displayName].listOrder = i;
         }
     };
 
@@ -1768,31 +1830,36 @@
         var fName = $lyrListItem.attr('data-public-fname');
         var url;
         var location = window.location;
-        var obj;
         var validImgTypes = ['png', 'jpg', 'gif'];
 
         $('.view-file').addClass('hidden');
 
-        if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
-            obj = $('#iframe-js-viewer');
-        } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-            obj = $('#img-viewer');
+        if (loadGenericFilesStatus.get() === 'Pending') {
+            $('#view-file-status')
+                .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
+                .removeClass('hidden');
+        } else if (loadGenericFilesStatus.get() === 'Error') {
+            $('#view-file-status')
+                .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
+                .removeClass('hidden');
         } else {
-            url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-            obj = $('#unviewable-file');
-            $('#link-download-file').attr('href', url);
-        }
-        obj.attr('src', url).removeClass('hidden');
-        $modalViewFile.modal('show');
-
-        $(document).on('keyup.viewfile', function (e) {
-            if (e.which === 27) {
-                $(document).off('keyup.viewfile');
-                $modalViewFile.modal('hide');
+            if (fName.toLowerCase().indexOf('.pdf') !== -1) {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
+                $('#iframe-container')
+                    .empty()
+                    .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+                    .removeClass('hidden');
+            } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                $('#img-viewer').attr('src', url).removeClass('hidden');
+            } else {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                $('#link-download-file').attr('href', url);
+                $('#unviewable-file').attr('src', url).removeClass('hidden');
             }
-        });
+        }
+
+        $modalViewFile.modal('show');
     };
 
     onClickOpenInHS = function (e) {
@@ -1809,15 +1876,15 @@
         var clickedElement = e.trigger.context,
             $lyrListItem = $(clickedElement).parent().parent(),
             $layerNameInput = $lyrListItem.find('input[type=text]'),
-            $LayerNameSpan = $lyrListItem.find('span'),
-            layerIndex = $lyrListItem.attr('data-layer-index');
+            $LayerNameSpan = $lyrListItem.find('span');
+        // layerIndex = $lyrListItem.attr('data-layer-index');
 
         $LayerNameSpan.addClass('hidden');
         $lyrListItem.find('input')
             .removeClass('hidden')
             .select()
             .on('keyup', function (e) {
-                editLayerName(e, $(this), $LayerNameSpan, layerIndex);
+                editLayerDisplayName(e, $(this), $LayerNameSpan);/*, layerIndex);*/
             })
             .on('click', function (e) {
                 e.stopPropagation();
@@ -1829,6 +1896,7 @@
     };
 
     onClickSaveNewProject = function () {
+        showMainLoadAnim();
         var $footerInfoSaveProj = $('#footer-info-saveProj');
 
         $btnSaveProject.prop('disabled', true);
@@ -1877,12 +1945,12 @@
         var $lyrListItem = $(clickedElement).parent().parent();
         var geomType = $lyrListItem.attr('data-geom-type');
         var layerId = $lyrListItem.attr('data-layer-id');
-        var layerIndex = $lyrListItem.attr('data-layer-index');
+        var displayName = $lyrListItem.find('.layer-name').text();
         var layerName = $lyrListItem.text();
-        var cssStyles = projectInfo.map.layers[layerIndex].cssStyles;
+        var cssStyles = projectInfo.map.layers[displayName].cssStyles;
         var geoserverUrl = projectInfo.map.geoserverUrl;
         var imageUrl =  geoserverUrl + '/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=75&HEIGHT=75&LAYER=' + layerId;
-        var hide255 = projectInfo.map.layers[layerIndex].hide255;
+        var hide255 = projectInfo.map.layers[displayName].hide255;
 
         imageUrl += '&LEGEND_OPTIONS=forceRule:True;fontStyle:bold;fontSize:14';
         if (cssStyles !== 'Default') {
@@ -1928,48 +1996,42 @@
     };
 
     processAddHSResResults = function (results, isLastResource, additionalResources) {
-        if (results.res_type === 'GenericResource') {
-            if (results.project_info !== null) {
-                loadProjectFile(JSON.parse(results.project_info));
-            } else if (results.public_fname !== null) {
-                addGenericResToUI(results);
-            }
+        var numResults = results.length;
+        var result;
+        var i;
+        var numAdditionalResources;
+        var resource;
+        var j;
+        for (i = 0; i < numResults; i++) {
             if (additionalResources) {
-                (function () {
-                    var i;
-                    var length = additionalResources.length;
-                    var resource;
-
-                    for (i = 0; i < length; i++) {
-                        resource = additionalResources[i];
-                        loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
-                    }
-                }());
-            }
-            if (isLastResource) {
-                hideMainLoadAnim();
-            }
-            return;
-        }
-        if (additionalResources) {
-            (function () {
-                var i;
-                var length = additionalResources.length;
-                var resource;
-
-                for (i = 0; i < length; i++) {
-                    resource = additionalResources[i];
-                    loadResource(resource.id, resource.type, resource.title, (i === length - 1), null);
+                numAdditionalResources = additionalResources.length;
+                for (j = 0; j < numAdditionalResources; j++) {
+                    resource = additionalResources[j];
+                    loadResource(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
                 }
-            }());
+            }
+
+            result = results[i];
+
+            if (result.res_type === 'GenericResource') {
+                if (result.project_info !== null) {
+                    loadProjectFile(JSON.parse(result.project_info));
+                    showResLoadingStatus(true, 'Project loaded successfully!');
+                    hideMainLoadAnim();
+                } else if (result.public_fname !== null) {
+                    addGenericResToUI(result, isLastResource && i === numResults - 1);
+                }
+            } else {
+                addLayerToUI(result, isLastResource && i === numResults - 1);
+            }
         }
-        addLayerToUI(results, isLastResource);
         $btnSaveProject.prop('disabled', false);
     };
 
     processSaveNewProjectResponse = function (response) {
         var $footerInfoSaveProj = $('#footer-info-saveProj');
         var resId;
+        hideMainLoadAnim();
         if (response.hasOwnProperty('success')) {
             if (response.success) {
                 resId = response.res_id;
@@ -2043,6 +2105,7 @@
     setupSymbologyModalState = function ($lyrListItem) {
         var geomType = $lyrListItem.attr('data-geom-type'),
             layerId = $lyrListItem.attr('data-layer-id'),
+            displayName = $lyrListItem.find('.layer-name').text(),
             layerIndex = $lyrListItem.attr('data-layer-index'),
             labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
             bandInfo = {
@@ -2057,7 +2120,8 @@
         $modalSymbology.find('#btn-apply-symbology').attr({
             'data-geom-type': geomType,
             'data-layer-id': layerId,
-            'data-layer-index': layerIndex
+            'data-layer-index': layerIndex,
+            'data-layer-name': displayName
         });
 
         labelFieldOptions.forEach(function (option) {
@@ -2074,7 +2138,7 @@
             .prop('checked', false)
             .trigger('change');
 
-        layerCssStyles = projectInfo.map.layers[layerIndex].cssStyles;
+        layerCssStyles = projectInfo.map.layers[displayName].cssStyles;
         if (geomType === 'polygon') {
             setupSymbologyPolygonState(layerCssStyles);
         } else if (geomType === 'point') {
@@ -2256,16 +2320,17 @@
     updateSymbology = function ($this) {
         var geomType = $this.attr('data-geom-type'),
             layerId = $this.attr('data-layer-id'),
+            displayName = $this.attr('data-layer-name'),
             layerIndex = $this.attr('data-layer-index'),
             sldString,
             cssStyles,
-            hide255 = projectInfo.map.layers[layerIndex].hide255;
+            hide255 = projectInfo.map.layers[displayName].hide255;
 
         cssStyles = getCssStyles(geomType);
         if (cssStyles === null) {
             return;
         }
-        projectInfo.map.layers[layerIndex].cssStyles = cssStyles;
+        projectInfo.map.layers[displayName].cssStyles = cssStyles;
         sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255);
 
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
@@ -2350,18 +2415,18 @@
         initializeLayersContextMenus();
         addInitialEventListeners();
 
+        if (window.location.pathname.indexOf('add-to-project') > -1) {
+            $('#modalAddToProject').modal('show');
+        } else {
+            $('#modalWelcome').modal('show');
+        }
+
         $currentLayersList.sortable({
             placeholder: "ui-state-highlight",
             stop: drawLayersInListOrder
         });
         $currentLayersList.disableSelection();
     });
-
-    if (window.location.pathname.indexOf('add-to-project') > -1) {
-        $('#modalAddToProject').modal('show');
-    } else {
-        $('#modalWelcome').modal('show');
-    }
 
     /*-----------------------------------------------
      ***************INVOKE IMMEDIATELY***************
@@ -2394,6 +2459,24 @@
             },
             'decrease': function () {
                 count -= 1;
+            }
+        };
+    }());
+
+    loadGenericFilesStatus = (function () {
+        var status = 'None';
+        return {
+            'setSuccess': function () {
+                status = 'Success';
+            },
+            'setError': function () {
+                status = 'Error';
+            },
+            'setPending': function () {
+                status = 'Pending';
+            },
+            'get': function () {
+                return status;
             }
         };
     }());

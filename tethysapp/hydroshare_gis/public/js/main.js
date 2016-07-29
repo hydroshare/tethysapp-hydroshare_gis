@@ -1836,8 +1836,7 @@
             $loading = $('#view-file-loading');
             $loading.removeClass('hidden');
             resId = $lyrListItem.attr('data-res-id');
-            // url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
-            url = location.protocol + '//' + location.host + '/apps/';
+            url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
             $('#iframe-container')
                 .empty()
                 .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')

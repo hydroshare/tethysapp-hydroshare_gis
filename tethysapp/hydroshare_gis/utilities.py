@@ -688,6 +688,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
             }
             results.append(result)
         elif res_type == 'RasterResource':
+            is_zip = False
             res_files_list = os.listdir(res_contents_path)
             num_files = len(res_files_list)
             vrt_path = None
@@ -714,6 +715,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                             break
                 elif fname.endswith('.vrt'):
                     vrt_path = fpath
+                    break
 
             if num_files > 2:
                 pyramid_dir_path = os.path.join(hs_tempdir, 'res_%s/' % res_id)
@@ -721,11 +723,12 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                 os.mkdir(pyramid_dir_path)
                 gdal_retile = 'gdal_retile.py -levels 9 -ps 2048 2048 -co "TILED=YES" -targetDir %s %s'
                 os.system(gdal_retile % (pyramid_dir_path, vrt_path))
+                is_zip = True
                 zip_folder(pyramid_dir_path, res_fpath)
-                return_obj['is_zip'] = True
             result = {
                 'res_filepath': res_fpath,
                 'res_type': res_type,
+                'is_zip': is_zip
             }
             results.append(result)
         else:

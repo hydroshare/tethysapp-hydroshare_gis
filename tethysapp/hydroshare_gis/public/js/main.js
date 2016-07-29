@@ -2062,6 +2062,7 @@
 
     reprojectExtents = function (rawExtents) {
         var crs,
+            currentProj,
             extentMaxX,
             extentMaxY,
             extentMinX,
@@ -2079,10 +2080,15 @@
         extentMaxY = Number(rawExtents.maxy);
 
         crs = rawExtents.crs;
-        proj4.defs('new_projection', crs);
+        try {
+            currentProj = proj4(crs);
+        } catch (e) {
+            proj4.defs('new_projection', crs);
+            currentProj = proj4('new_projection');
+        }
 
-        tempCoord1 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMinX, extentMinY]);
-        tempCoord2 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
+        tempCoord1 = proj4(currentProj, proj4('EPSG:3857'), [extentMinX, extentMinY]);
+        tempCoord2 = proj4(currentProj, proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
 
         extents = tempCoord1.concat(tempCoord2);
 

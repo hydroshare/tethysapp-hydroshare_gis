@@ -1829,17 +1829,22 @@
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
         var resId;
+        var $loading;
 
         $('.view-file').addClass('hidden');
         if (resType === 'RefTimeSeriesResource') {
+            $loading = $('#view-file-loading');
+            $loading.removeClass('hidden');
             resId = $lyrListItem.attr('data-res-id');
-            url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
-            showMainLoadAnim();
+            // url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
+            url = location.protocol + '//' + location.host + '/apps/';
             $('#iframe-container')
                 .empty()
                 .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
                 .removeClass('hidden');
-            $('#iframe-js-viewer').one('load', hideMainLoadAnim);
+            $('#iframe-js-viewer').one('load', function () {
+                $loading.addClass('hidden');
+            });
         } else {
             if (loadGenericFilesStatus.get() === 'Pending') {
                 $('#view-file-status')

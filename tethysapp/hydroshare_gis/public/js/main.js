@@ -1831,14 +1831,15 @@
         var resId;
 
         $('.view-file').addClass('hidden');
-
         if (resType === 'RefTimeSeriesResource') {
             resId = $lyrListItem.attr('data-res-id');
-            url = 'https://apps.hydroshare.org/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
+            url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
+            showMainLoadAnim();
             $('#iframe-container')
                 .empty()
                 .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
                 .removeClass('hidden');
+            $('#iframe-js-viewer').one('load', hideMainLoadAnim);
         } else {
             if (loadGenericFilesStatus.get() === 'Pending') {
                 $('#view-file-status')

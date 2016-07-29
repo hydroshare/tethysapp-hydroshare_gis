@@ -1839,10 +1839,10 @@
             url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
             $('#iframe-container')
                 .empty()
-                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
-                .removeClass('hidden');
+                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');
             $('#iframe-js-viewer').one('load', function () {
                 $loading.addClass('hidden');
+                $('#iframe-container').removeClass('hidden');
             });
         } else {
             if (loadGenericFilesStatus.get() === 'Pending') {

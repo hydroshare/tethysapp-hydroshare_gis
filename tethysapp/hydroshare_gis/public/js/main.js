@@ -1535,11 +1535,7 @@
             name: 'View time series',
             title: 'View time series',
             fun: function (e) {
-                var clickedElement = e.trigger.context,
-                    $lyrListItem = $(clickedElement).parent().parent(),
-                    resId = $lyrListItem.attr('data-layer-id');
-
-                window.open('https://appsdev.hydroshare.org/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId);
+                onClickViewFile(e);
             }
         });
 
@@ -1828,34 +1824,45 @@
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
         var fName = $lyrListItem.attr('data-public-fname');
+        var resType = $lyrListItem.attr('data-res-type');
         var url;
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
+        var resId;
 
         $('.view-file').addClass('hidden');
 
-        if (loadGenericFilesStatus.get() === 'Pending') {
-            $('#view-file-status')
-                .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
-                .removeClass('hidden');
-        } else if (loadGenericFilesStatus.get() === 'Error') {
-            $('#view-file-status')
-                .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
+        if (resType === 'RefTimeSeriesResource') {
+            resId = $lyrListItem.attr('data-res-id');
+            url = 'https://apps.hydroshare.org/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
+            $('#iframe-container')
+                .empty()
+                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
                 .removeClass('hidden');
         } else {
-            if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
-                $('#iframe-container')
-                    .empty()
-                    .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+            if (loadGenericFilesStatus.get() === 'Pending') {
+                $('#view-file-status')
+                    .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
                     .removeClass('hidden');
-            } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-                $('#img-viewer').attr('src', url).removeClass('hidden');
+            } else if (loadGenericFilesStatus.get() === 'Error') {
+                $('#view-file-status')
+                    .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
+                    .removeClass('hidden');
             } else {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-                $('#link-download-file').attr('href', url);
-                $('#unviewable-file').attr('src', url).removeClass('hidden');
+                if (fName.toLowerCase().indexOf('.pdf') !== -1) {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
+                    $('#iframe-container')
+                        .empty()
+                        .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+                        .removeClass('hidden');
+                } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#img-viewer').attr('src', url).removeClass('hidden');
+                } else {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#link-download-file').attr('href', url);
+                    $('#unviewable-file').attr('src', url).removeClass('hidden');
+                }
             }
         }
 

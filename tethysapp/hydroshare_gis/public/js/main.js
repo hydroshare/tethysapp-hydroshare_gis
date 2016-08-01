@@ -1870,8 +1870,9 @@
                         .append('<video id="iframe-js-viewer" src="' + url + '" controls></video>')
                         .removeClass('hidden');
                 } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                    // url = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
-                    url = 'https://appsdev.hydroshare.org/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    url = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    // url = 'https://appsdev.hydroshare.org/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    $loading.removeClass('hidden');
                     $('#iframe-container')
                         .empty()
                         .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');

@@ -1828,14 +1828,14 @@
         var url;
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
-        var resId;
-        var $loading;
+        var validMovieTypes = ['mov', 'mp4', 'webm', 'ogg'];
+        var validTextTypes = ['txt', 'py', 'r', 'matlab', 'm', 'sh', 'xml', 'wml', 'gml'];
+        var resId = $lyrListItem.attr('data-res-id');
+        var $loading = $('#view-file-loading');
 
         $('.view-file').addClass('hidden');
         if (resType === 'RefTimeSeriesResource') {
-            $loading = $('#view-file-loading');
             $loading.removeClass('hidden');
-            resId = $lyrListItem.attr('data-res-id');
             url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
             $('#iframe-container')
                 .empty()
@@ -1855,7 +1855,7 @@
                     .removeClass('hidden');
             } else {
                 if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#iframe-container')
                         .empty()
                         .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
@@ -1863,12 +1863,22 @@
                 } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
                     url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#img-viewer').attr('src', url).removeClass('hidden');
-                } else if (fName.toLowerCase().indexOf('.mov') !== -1) {
+                } else if (validMovieTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
                     url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#iframe-container')
                         .empty()
                         .append('<video id="iframe-js-viewer" src="' + url + '" controls></video>')
                         .removeClass('hidden');
+                } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                    // url = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    url = 'https://appsdev.hydroshare.org/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    $('#iframe-container')
+                        .empty()
+                        .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');
+                    $('#iframe-js-viewer').one('load', function () {
+                        $loading.addClass('hidden');
+                        $('#iframe-container').removeClass('hidden');
+                    });
                 } else {
                     url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#link-download-file').attr('href', url);

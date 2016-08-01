@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from tethys_sdk.services import get_spatial_dataset_engine
 from django.core.exceptions import ObjectDoesNotExist
+from model import ResourceTifFilesCount
 
 import hs_restclient as hs_r
 from geoserver.catalog import FailedRequestError
@@ -27,7 +28,7 @@ public_tempdir = getfile(currentframe()).replace('utilities.py', 'public/temp/')
 workspace_id = None
 spatial_dataset_engine = None
 current_user = None
-
+tifFilesCount = ResourceTifFilesCount()
 
 def get_oauth_hs(request):
     hs = None
@@ -67,12 +68,17 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
     try:
         if res_type == 'RasterResource':
             coverage_type = 'imagepyramid' if is_zip else 'geotiff'
+            coverage_name = store_id if is_zip else None
+            if tifFilesCount.get() != 0:
+                store_id = 'res_%s_%s' % (res_id, tifFilesCount.get())
+                full_store_id = '%s:%s' % (get_workspace(), store_id)
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
                                                        coverage_type=coverage_type,
-                                                       coverage_name=store_id,
+                                                       coverage_name=coverage_name,
                                                        overwrite=True,
                                                        debug=get_debug_val())
+            tifFilesCount.increase()
 
         elif res_type == 'GeographicFeatureResource':
             if is_zip is True:
@@ -112,6 +118,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
 
                 results['layer_name'] = layer_name
                 results['layer_id'] = '%s:%s' % (get_workspace(), layer_name)
+                results['store_id'] = store_id
                 return_obj['success'] = True
         else:
             raise Exception
@@ -157,7 +164,7 @@ def return_spatial_dataset_engine():
     return spatial_dataset_engine
 
 
-def get_layer_md_from_geoserver(res_id, layer_name, res_type):
+def get_layer_md_from_geoserver(store_id, layer_name, res_type):
     response_obj = {
         'success': False,
         'message': None,
@@ -170,14 +177,14 @@ def get_layer_md_from_geoserver(res_id, layer_name, res_type):
     geoserver_url = get_geoserver_url()
 
     if res_type == 'GeographicFeatureResource':
-        url = '{0}/rest/workspaces/{1}/datastores/res_{2}/featuretypes/{3}.json'.format(geoserver_url,
+        url = '{0}/rest/workspaces/{1}/datastores/{2}/featuretypes/{3}.json'.format(geoserver_url,
                                                                                         get_workspace(),
-                                                                                        res_id,
+                                                                                        store_id,
                                                                                         layer_name)
     else:
-        url = '{0}/rest/workspaces/{1}/coveragestores/res_{2}/coverages/{3}.json'.format(geoserver_url,
+        url = '{0}/rest/workspaces/{1}/coveragestores/{2}/coverages/{3}.json'.format(geoserver_url,
                                                                                          get_workspace(),
-                                                                                         res_id,
+                                                                                         store_id,
                                                                                          layer_name)
 
     r = requests.get(url, auth=get_geoserver_credentials())
@@ -385,8 +392,9 @@ def process_local_file(file_list, proj_id, hs):
             r = check_res['results']
             layer_name = r['layer_name']
             results['layer_id'] = r['layer_id']
+            store_id = r['store_id']
 
-            response = get_layer_md_from_geoserver(res_id=res_id, layer_name=layer_name,
+            response = get_layer_md_from_geoserver(store_id=store_id, layer_name=layer_name,
                                                    res_type=res_type)
             if not response['success']:
                 results['message'] = response['message']
@@ -447,7 +455,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             check_res = check_geoserver_for_res(res_id)
             if check_res['isOnGeoserver']:
                 layer_name = check_res['layer_name']
-                response = get_layer_md_from_geoserver(res_id=res_id, layer_name=layer_name,
+                store_id = 'res_%s' % res_id
+                response = get_layer_md_from_geoserver(store_id=store_id, layer_name=layer_name,
                                                        res_type=res_type)
                 if not response['success']:
                     return_obj['message'] = response['message']
@@ -629,8 +638,9 @@ def process_res_by_type(hs, res_id, res_type):
                             response = check_res['results']
                             geoserver_layer_name = response['layer_name']
                             layer_id = response['layer_id']
+                            store_id = response['store_id']
 
-                            response = get_layer_md_from_geoserver(res_id=res_id, layer_name=geoserver_layer_name,
+                            response = get_layer_md_from_geoserver(store_id=store_id, layer_name=geoserver_layer_name,
                                                                    res_type=res_type)
                             if not response['success']:
                                 return_obj['message'] = response['message']
@@ -667,10 +677,13 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
     }
     '''
     results = return_obj['results']
+    is_zip = False
 
     if os.path.exists(res_contents_path):
+        res_files_list = os.listdir(res_contents_path)
+
         if res_type == 'GeographicFeatureResource':
-            for f in os.listdir(res_contents_path):
+            for f in res_files_list:
                 src = os.path.join(res_contents_path, f)
                 dst = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
                 os.rename(src, dst)
@@ -688,8 +701,6 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
             }
             results.append(result)
         elif res_type == 'RasterResource':
-            is_zip = False
-            res_files_list = os.listdir(res_contents_path)
             num_files = len(res_files_list)
             vrt_path = None
             res_fpath = None
@@ -725,6 +736,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                 os.system(gdal_retile % (pyramid_dir_path, vrt_path))
                 is_zip = True
                 zip_folder(pyramid_dir_path, res_fpath)
+
             result = {
                 'res_filepath': res_fpath,
                 'res_type': res_type,
@@ -732,7 +744,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
             }
             results.append(result)
         else:
-            if 'mapProject.json' in os.listdir(res_contents_path):
+            tifFilesCount.reset()
+            if 'mapProject.json' in res_files_list:
                 res_fpath = os.path.join(res_contents_path, 'mapProject.json')
                 res_type = 'GenericResource'
                 result = {
@@ -741,7 +754,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                 }
                 results.append(result)
             else:
-                for fname in os.listdir(res_contents_path):
+                for fname in res_files_list:
                     fpath = os.path.join(res_contents_path, fname)
 
                     if fname.endswith('.kml'):
@@ -749,27 +762,31 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(new_fpath, fpath))
                         res_fpath = os.path.join(res_contents_path, res_id)
                         res_type = 'GeographicFeatureResource'
+
                     elif fname.endswith('.tif'):
-                        coverage_files = []
                         res_type = 'RasterResource'
-                        r = check_crs(res_type, fpath)
+                        if tifFilesCount.get() != 0:
+                            tmp_fpath = os.path.join(res_contents_path, 'res_%s_%s.tif' % (res_id, tifFilesCount.get()))
+                        else:
+                            tmp_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
+                        os.rename(fpath, tmp_fpath)
+                        r = check_crs(res_type, tmp_fpath)
                         if not r['success']:
                             return_obj['message'] = r['message']
                             return return_obj
-                        elif r['crsWasChanged']:
-                            tif_path_mod = fpath.replace('.', '_reprojected.')
-                            code = r['code']
-                            os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, fpath, tif_path_mod))
-                            os.remove(fpath)
-                            os.rename(tif_path_mod, fpath)
-                        coverage_files.append(fpath)
-                        res_fpath = os.path.join(res_contents_path, 'res_' + res_id + '.zip')
-                        response = zip_files(coverage_files, res_fpath)
-                        if not response['success']:
-                            return_obj['message'] = response['message']
                         else:
-                            return_obj['is_zip'] = True
+                            if r['crsWasChanged']:
+                                tif_path_mod = tmp_fpath.replace('.', '_reprojected.')
+                                code = r['code']
+                                os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tmp_fpath, tif_path_mod))
+                                os.remove(tmp_fpath)
+                                os.rename(tif_path_mod, tmp_fpath)
+                            res_fpath = tmp_fpath.replace('tif', 'zip')
+                            zip_files(tmp_fpath, res_fpath)
+                            tifFilesCount.increase()
+
                     else:
+                        res_type = 'GenericResource'
                         if not os.path.exists(public_tempdir):
                             os.mkdir(public_tempdir)
                         dst = os.path.join(public_tempdir, fname)
@@ -779,10 +796,12 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     result = {
                         'res_filepath': res_fpath,
                         'res_type': res_type,
-                        'layer_name': fname
+                        'layer_name': fname,
+                        'is_zip': is_zip
                     }
                     results.append(result)
 
+        tifFilesCount.reset()
         return_obj['success'] = True
 
     return return_obj
@@ -994,9 +1013,10 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
                 return_obj['message'] = r['message']
             else:
                 res_contents_path = r['res_contents_path']
-                if len(os.listdir(res_contents_path)) > 1:
+                res_files_list = os.listdir(res_contents_path)
+                if len(res_files_list) > 1:
                     os.remove(os.path.join(res_contents_path, fname))
-                    res_list = [os.path.join(res_contents_path, f) for f in os.listdir(res_contents_path)]
+                    res_list = [os.path.join(res_contents_path, f) for f in res_files_list]
                     for f in res_list:
                         hs.addResourceFile(pid=res_id, resource_file=f)
 
@@ -1105,19 +1125,5 @@ def get_generic_files(hs, res_dict_string):
         for res_file in res_dict[res]:
             hs.getResourceFile(res, res_file, destination=public_tempdir)
         return_obj['success'] = True
-
-    # r = download_res_from_hs(hs, res_id)
-    # if not r['success']:
-    #     return_obj['message'] = r['message']
-    # else:
-    #     res_contents_path = r['res_contents_path']
-    #     for fname in os.listdir(res_contents_path):
-    #         fpath = os.path.join(res_contents_path, fname)
-    #         if not os.path.exists(public_tempdir):
-    #             os.mkdir(public_tempdir)
-    #         dst = os.path.join(public_tempdir, fname)
-    #         shutil.move(fpath, dst)
-    #         return_obj['results']['res_files'].append(os.path.basename(dst))
-    #     return_obj['success'] = True
 
     return return_obj

@@ -1863,6 +1863,12 @@
                 } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
                     url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#img-viewer').attr('src', url).removeClass('hidden');
+                } else if (fName.toLowerCase().indexOf('.mov') !== -1) {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#iframe-container')
+                        .empty()
+                        .append('<video id="iframe-js-viewer" src="' + url + '" controls></video>')
+                        .removeClass('hidden');
                 } else {
                     url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#link-download-file').attr('href', url);

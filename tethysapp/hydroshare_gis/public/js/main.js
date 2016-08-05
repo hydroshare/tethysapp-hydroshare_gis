@@ -202,6 +202,7 @@
             geomType = data.geomType,
             cssStyles = data.cssStyles,
             visible = data.visible,
+            publicFname = data.publicFname,
             hide255 = data.hide255;
 
         if (resType.indexOf('TimeSeriesResource') > -1) {
@@ -220,24 +221,37 @@
                 visible: visible
             });
         } else {
-            lyrParams = {
-                'LAYERS': lyrId,
-                'TILED': true
-            };
-            if (cssStyles && cssStyles !== 'Default') {
-                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId, hide255);
-                lyrParams.SLD_BODY = sldString;
+            if (publicFname && publicFname.indexOf('.kml') !== -1) {
+                (function () {
+                    var url = window.location.protocol + '//' + window.location.host + '/static/hydroshare_gis/temp/' + publicFname;
+                    newLayer = new ol.layer.Vector({
+                        extent: lyrExtents,
+                        source: new ol.source.Vector({
+                            url: url,
+                            format: new ol.format.KML()
+                        })
+                    });
+                }());
+            } else {
+                lyrParams = {
+                    'LAYERS': lyrId,
+                    'TILED': true
+                };
+                if (cssStyles && cssStyles !== 'Default') {
+                    sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId, hide255);
+                    lyrParams.SLD_BODY = sldString;
+                }
+                newLayer = new ol.layer.Tile({
+                    extent: lyrExtents,
+                    source: new ol.source.TileWMS({
+                        url: projectInfo.map.geoserverUrl + '/wms',
+                        params: lyrParams,
+                        serverType: 'geoserver',
+                        crossOrigin: 'Anonymous'
+                    }),
+                    visible: visible
+                });
             }
-            newLayer = new ol.layer.Tile({
-                extent: lyrExtents,
-                source: new ol.source.TileWMS({
-                    url: projectInfo.map.geoserverUrl + '/wms',
-                    params: lyrParams,
-                    serverType: 'geoserver',
-                    crossOrigin: 'Anonymous'
-                }),
-                visible: visible
-            });
         }
         if (newLayer !== null) {
             map.addLayer(newLayer);
@@ -311,7 +325,8 @@
             lyrExtents: layerExtents,
             url: projectInfo.map.geoserverUrl + '/wms',
             lyrId: layerId,
-            hide255: hide255
+            hide255: hide255,
+            publicFname: results.public_fname
         });
 
         layerIndex = layerCount.get();
@@ -1238,7 +1253,8 @@
                     featureProperties,
                     layerAttributesList = [],
                     dataTable,
-                    tableHeadingHTML = '';
+                    tableHeadingHTML = '',
+                    attributeText;
 
                 if (response.hasOwnProperty('success')) {
                     featureProperties = JSON.parse(response.feature_properties);
@@ -1253,7 +1269,11 @@
                     featureProperties.forEach(function (property) {
                         attributeTableHTML += '<tr>';
                         layerAttributesList.forEach(function (attribute) {
-                            attributeTableHTML += '<td class="attribute" data-attribute="' + attribute + '">' + property[attribute] + '</td>';
+                            attributeText = property[attribute];
+                            if (attributeText.indexOf('<') !== -1) {
+                                attributeText = 'None';
+                            }
+                            attributeTableHTML += '<td class="attribute" data-attribute="' + attribute + '">' + attributeText + '</td>';
                         });
                         attributeTableHTML += '</tr>';
                     });

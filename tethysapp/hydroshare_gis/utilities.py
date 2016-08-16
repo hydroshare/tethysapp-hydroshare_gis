@@ -905,12 +905,6 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
 
 
 def get_hs_res_list(hs):
-    # Deletes all stores from geoserver
-    # engine = return_spatial_dataset_engine()
-    # stores = engine.list_stores(get_workspace())
-    # for store in stores['result']:
-    #     engine.delete_store(store_id=store, purge=True, recurse=True)
-    #     print "Store %s deleted" % store
     return_obj = {
         'success': False,
         'message': None,

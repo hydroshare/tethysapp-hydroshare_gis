@@ -202,6 +202,7 @@
             geomType = data.geomType,
             cssStyles = data.cssStyles,
             visible = data.visible,
+            publicFname = data.publicFname,
             hide255 = data.hide255;
 
         if (resType.indexOf('TimeSeriesResource') > -1) {
@@ -220,24 +221,37 @@
                 visible: visible
             });
         } else {
-            lyrParams = {
-                'LAYERS': lyrId,
-                'TILED': true
-            };
-            if (cssStyles && cssStyles !== 'Default') {
-                sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId, hide255);
-                lyrParams.SLD_BODY = sldString;
+            if (publicFname && publicFname.indexOf('.kml') !== -1) {
+                (function () {
+                    var url = window.location.protocol + '//' + window.location.host + '/static/hydroshare_gis/temp/' + publicFname;
+                    newLayer = new ol.layer.Vector({
+                        extent: lyrExtents,
+                        source: new ol.source.Vector({
+                            url: url,
+                            format: new ol.format.KML()
+                        })
+                    });
+                }());
+            } else {
+                lyrParams = {
+                    'LAYERS': lyrId,
+                    'TILED': true
+                };
+                if (cssStyles && cssStyles !== 'Default') {
+                    sldString = SLD_TEMPLATES.getSldString(cssStyles, geomType, lyrId, hide255);
+                    lyrParams.SLD_BODY = sldString;
+                }
+                newLayer = new ol.layer.Tile({
+                    extent: lyrExtents,
+                    source: new ol.source.TileWMS({
+                        url: projectInfo.map.geoserverUrl + '/wms',
+                        params: lyrParams,
+                        serverType: 'geoserver',
+                        crossOrigin: 'Anonymous'
+                    }),
+                    visible: visible
+                });
             }
-            newLayer = new ol.layer.Tile({
-                extent: lyrExtents,
-                source: new ol.source.TileWMS({
-                    url: projectInfo.map.geoserverUrl + '/wms',
-                    params: lyrParams,
-                    serverType: 'geoserver',
-                    crossOrigin: 'Anonymous'
-                }),
-                visible: visible
-            });
         }
         if (newLayer !== null) {
             map.addLayer(newLayer);
@@ -311,7 +325,8 @@
             lyrExtents: layerExtents,
             url: projectInfo.map.geoserverUrl + '/wms',
             lyrId: layerId,
-            hide255: hide255
+            hide255: hide255,
+            publicFname: results.public_fname
         });
 
         layerIndex = layerCount.get();
@@ -1238,7 +1253,8 @@
                     featureProperties,
                     layerAttributesList = [],
                     dataTable,
-                    tableHeadingHTML = '';
+                    tableHeadingHTML = '',
+                    attributeText;
 
                 if (response.hasOwnProperty('success')) {
                     featureProperties = JSON.parse(response.feature_properties);
@@ -1253,7 +1269,11 @@
                     featureProperties.forEach(function (property) {
                         attributeTableHTML += '<tr>';
                         layerAttributesList.forEach(function (attribute) {
-                            attributeTableHTML += '<td class="attribute" data-attribute="' + attribute + '">' + property[attribute] + '</td>';
+                            attributeText = property[attribute];
+                            if (attributeText.indexOf('<') !== -1) {
+                                attributeText = 'None';
+                            }
+                            attributeTableHTML += '<td class="attribute" data-attribute="' + attribute + '">' + attributeText + '</td>';
                         });
                         attributeTableHTML += '</tr>';
                     });
@@ -1535,11 +1555,7 @@
             name: 'View time series',
             title: 'View time series',
             fun: function (e) {
-                var clickedElement = e.trigger.context,
-                    $lyrListItem = $(clickedElement).parent().parent(),
-                    resId = $lyrListItem.attr('data-layer-id');
-
-                window.open('https://appsdev.hydroshare.org/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId);
+                onClickViewFile(e);
             }
         });
 
@@ -1828,34 +1844,67 @@
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
         var fName = $lyrListItem.attr('data-public-fname');
+        var resType = $lyrListItem.attr('data-res-type');
         var url;
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
+        var validMovieTypes = ['mov', 'mp4', 'webm', 'ogg'];
+        var validTextTypes = ['txt', 'py', 'r', 'matlab', 'm', 'sh', 'xml', 'wml', 'gml'];
+        var resId = $lyrListItem.attr('data-res-id');
+        var $loading = $('#view-file-loading');
 
         $('.view-file').addClass('hidden');
-
-        if (loadGenericFilesStatus.get() === 'Pending') {
-            $('#view-file-status')
-                .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
-                .removeClass('hidden');
-        } else if (loadGenericFilesStatus.get() === 'Error') {
-            $('#view-file-status')
-                .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
-                .removeClass('hidden');
+        if (resType === 'RefTimeSeriesResource') {
+            $loading.removeClass('hidden');
+            url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
+            $('#iframe-container')
+                .empty()
+                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');
+            $('#iframe-js-viewer').one('load', function () {
+                $loading.addClass('hidden');
+                $('#iframe-container').removeClass('hidden');
+            });
         } else {
-            if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/ViewerJS/index.html#../temp/' + fName;
-                $('#iframe-container')
-                    .empty()
-                    .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+            if (loadGenericFilesStatus.get() === 'Pending') {
+                $('#view-file-status')
+                    .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
                     .removeClass('hidden');
-            } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-                $('#img-viewer').attr('src', url).removeClass('hidden');
+            } else if (loadGenericFilesStatus.get() === 'Error') {
+                $('#view-file-status')
+                    .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
+                    .removeClass('hidden');
             } else {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
-                $('#link-download-file').attr('href', url);
-                $('#unviewable-file').attr('src', url).removeClass('hidden');
+                if (fName.toLowerCase().indexOf('.pdf') !== -1) {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#iframe-container')
+                        .empty()
+                        .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
+                        .removeClass('hidden');
+                } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#img-viewer').attr('src', url).removeClass('hidden');
+                } else if (validMovieTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#iframe-container')
+                        .empty()
+                        .append('<video id="iframe-js-viewer" src="' + url + '" controls></video>')
+                        .removeClass('hidden');
+                } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                    url = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    // url = 'https://appsdev.hydroshare.org/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                    $loading.removeClass('hidden');
+                    $('#iframe-container')
+                        .empty()
+                        .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');
+                    $('#iframe-js-viewer').one('load', function () {
+                        $loading.addClass('hidden');
+                        $('#iframe-container').removeClass('hidden');
+                    });
+                } else {
+                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
+                    $('#link-download-file').attr('href', url);
+                    $('#unviewable-file').attr('src', url).removeClass('hidden');
+                }
             }
         }
 
@@ -2062,6 +2111,7 @@
 
     reprojectExtents = function (rawExtents) {
         var crs,
+            currentProj,
             extentMaxX,
             extentMaxY,
             extentMinX,
@@ -2079,10 +2129,15 @@
         extentMaxY = Number(rawExtents.maxy);
 
         crs = rawExtents.crs;
-        proj4.defs('new_projection', crs);
+        try {
+            currentProj = proj4(crs);
+        } catch (e) {
+            proj4.defs('new_projection', crs);
+            currentProj = proj4('new_projection');
+        }
 
-        tempCoord1 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMinX, extentMinY]);
-        tempCoord2 = proj4(proj4('new_projection'), proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
+        tempCoord1 = proj4(currentProj, proj4('EPSG:3857'), [extentMinX, extentMinY]);
+        tempCoord2 = proj4(currentProj, proj4('EPSG:3857'), [extentMaxX, extentMaxY]);
 
         extents = tempCoord1.concat(tempCoord2);
 

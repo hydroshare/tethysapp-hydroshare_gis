@@ -55,6 +55,9 @@ class HydroshareGis(TethysAppBase):
                             controller='hydroshare_gis.controllers_ajax.ajax_delete_public_tempfiles'),
                     url_map(name='ajax_get_generic_files',
                             url='hydroshare-gis/get-generic-files',
-                            controller='hydroshare_gis.controllers_ajax.ajax_get_generic_files')
+                            controller='hydroshare_gis.controllers_ajax.ajax_get_generic_files'),
+                    url_map(name='run_tests',
+                            url='hydroshare-gis/run-tests',
+                            controller='hydroshare_gis.tests.hs_gis_tests.Test_All_Resources')
                     )
         return url_maps

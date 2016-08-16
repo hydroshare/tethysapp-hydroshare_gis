@@ -425,6 +425,7 @@ def process_local_file(file_list, proj_id, hs):
 
 
 def process_hs_res(hs, res_id, res_type=None, res_title=None):
+    global currently_testing
     return_obj = {
         'success': False,
         'message': None,
@@ -519,9 +520,10 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
-            msg = e.message if e.message else ''
-            msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
-            email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
+            if not currently_testing:
+                msg = e.message if e.message else ''
+                msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+                email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
 
     os.system('rm -rf %s*' % hs_tempdir)
 
@@ -905,6 +907,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
 
 
 def get_hs_res_list(hs):
+    global currently_testing
     return_obj = {
         'success': False,
         'message': None,
@@ -942,7 +945,7 @@ def get_hs_res_list(hs):
     except Exception as e:
         print e
         return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
-        if gethostname() != 'ubuntu':
+        if gethostname() != 'ubuntu' and not currently_testing:
             email_admin('Error Report', traceback=exc_info())
 
     return return_obj

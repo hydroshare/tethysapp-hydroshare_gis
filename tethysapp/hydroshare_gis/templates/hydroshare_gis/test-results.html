@@ -1,0 +1,15 @@
+{% extends "tethys_apps/app_base.html" %}
+
+{% load staticfiles %}
+
+{% block title %}- {{ tethys_app.name }}{% endblock %}
+
+{% block app_icon %}
+    <img src="{% static tethys_app.icon %}">
+{% endblock %}
+
+{% block app_title %}{{ tethys_app.name }}{% endblock %}
+
+{% block app_content %}
+    <div>{{ results |safe }}</div>
+{% endblock %}

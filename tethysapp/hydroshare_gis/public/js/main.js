@@ -186,7 +186,9 @@
             resType: resType,
             filename: publicFilename,
             siteInfo: siteInfo,
-            listOrder: 1
+            listOrder: 1,
+            index: layerIndex,
+            extents: layerExtents
         };
 
         createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, displayName, 'None', resId, publicFilename, disabled);
@@ -1689,67 +1691,67 @@
 
         for (i = 1; i <= numLayers; i++) {
             for (key in layers) {
-                disabled = true;
                 if (layers.hasOwnProperty(key)) {
-                    if (layers[key].listOrder === i) {
-                        if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
-                            disabled = false;
-                            addLayerToMap({
-                                lyrExtents: layers[key].extents,
-                                url: fileProjectInfo.map.geoserverUrl + '/wms',
-                                lyrId: layers[key].id,
-                                resType: layers[key].resType,
-                                geomType: layers[key].geomType,
-                                cssStyles: layers[key].cssStyles,
-                                visible: layers[key].visible,
-                                hide255: layers[key].hide255
-                            });
-                            layerIndex = layerCount.get();
-                            createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
-                                layers[key].geomType, layers[key].attributes, layers[key].visible,
-                                layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
-                        } else {
-                            layerIndex = layers[key].index;
-                            if (layers[key].siteInfo) {
+                    disabled = true;
+                    if (layers.hasOwnProperty(key)) {
+                        if (layers[key].listOrder === i) {
+                            if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
+                                disabled = false;
                                 addLayerToMap({
-                                    cssStyles: 'Default',
-                                    geomType: 'None',
-                                    resType: layers[key].resType,
                                     lyrExtents: layers[key].extents,
-                                    url: projectInfo.map.geoserverUrl + '/wms',
-                                    lyrId: 'None'
+                                    url: fileProjectInfo.map.geoserverUrl + '/wms',
+                                    lyrId: layers[key].id,
+                                    resType: layers[key].resType,
+                                    geomType: layers[key].geomType,
+                                    cssStyles: layers[key].cssStyles,
+                                    visible: layers[key].visible,
+                                    hide255: layers[key].hide255
                                 });
                                 layerIndex = layerCount.get();
-                                disabled = false;
-                            }
-                            createLayerListItem('append', layerIndex, layers[key].id,
-                                layers[key].resType, layers[key].geomType,
-                                layers[key].attributes, true,
-                                layers[key].displayName, layers[key].bandInfo,
-                                layers[key].hsResId, layers[key].filename, disabled);
-                            if (layers[key].resType !== 'RefTimeSeriesResource') {
-                                if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
-                                    resDownloadDict[layers[key].hsResId].push(layers[key].filename);
-                                } else {
-                                    resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                                createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
+                                    layers[key].geomType, layers[key].attributes, layers[key].visible,
+                                    layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
+                            } else {
+                                layerIndex = layers[key].index;
+                                if (layers[key].siteInfo) {
+                                    addLayerToMap({
+                                        cssStyles: 'Default',
+                                        geomType: 'None',
+                                        resType: layers[key].resType,
+                                        lyrExtents: layers[key].extents,
+                                        lyrId: 'None',
+                                        visible: layers[key].visible
+                                    });
+                                    layerIndex = layerCount.get();
+                                    disabled = false;
+                                }
+                                createLayerListItem('append', layerIndex, layers[key].id,
+                                    layers[key].resType, layers[key].geomType,
+                                    layers[key].attributes, true,
+                                    layers[key].displayName, layers[key].bandInfo,
+                                    layers[key].hsResId, layers[key].filename, disabled);
+                                if (layers[key].resType !== 'RefTimeSeriesResource') {
+                                    if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
+                                        resDownloadDict[layers[key].hsResId].push(layers[key].filename);
+                                    } else {
+                                        resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                                    }
                                 }
                             }
-                        }
-                        $newLayerListItem = $currentLayersList.find(':last-child');
-                        addListenersToListItem($newLayerListItem, layers[key].index);
-                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                            $newLayerListItem = $currentLayersList.find(':last-child');
+                            addListenersToListItem($newLayerListItem, layers[key].index);
+                            addContextMenuToListItem($newLayerListItem, layers[key].resType);
 
-                        if (layers[key].siteInfo) {
-                            contextMenu = layersContextMenuViewFile.slice();
-                            contextMenu.splice(1, 0, {
-                                name: 'Zoom to',
-                                title: 'Zoom to',
-                                fun: function (e) {
-                                    onClickZoomToLayer(e);
-                                }
-                            });
-                            $newLayerListItem.find('.hmbrgr-div img').contextMenu('menu', contextMenu);
-                            $newLayerListItem.find('.hmbrgr-div img').contextMenu('refresh');
+                            if (layers[key].siteInfo) {
+                                contextMenu = layersContextMenuViewFile.slice();
+                                contextMenu.splice(1, 0, {
+                                    name: 'Zoom to',
+                                    title: 'Zoom to',
+                                    fun: onClickZoomToLayer
+                                });
+                                $newLayerListItem.find('.hmbrgr-div img').contextMenu('menu', contextMenu);
+                                $newLayerListItem.find('.hmbrgr-div img').contextMenu('refresh');
+                            }
                         }
                     }
                 }
@@ -2091,7 +2093,7 @@
         index = Number($lyrListItem.attr('data-layer-index'));
         resType = $lyrListItem.attr('data-res-type');
         if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
-            layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
+            layerExtent = map.getLayers().item(index).getSource().getFeatures()[0].getGeometry().getCoordinates();
         } else {
             layerExtent = map.getLayers().item(index).getExtent();
         }

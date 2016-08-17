@@ -185,6 +185,7 @@
             hsResId: resId,
             resType: resType,
             filename: publicFilename,
+            siteinfo: siteInfo,
             listOrder: 1
         };
 
@@ -1663,7 +1664,7 @@
             key,
             layerIndex,
             resDownloadDict = {},
-            disabled = true,
+            disabled,
             contextMenu,
             $newLayerListItem;
 
@@ -1688,9 +1689,11 @@
 
         for (i = 1; i <= numLayers; i++) {
             for (key in layers) {
+                disabled = true;
                 if (layers.hasOwnProperty(key)) {
                     if (layers[key].listOrder === i) {
                         if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
+                            disabled = false;
                             addLayerToMap({
                                 lyrExtents: layers[key].extents,
                                 url: fileProjectInfo.map.geoserverUrl + '/wms',
@@ -1724,11 +1727,12 @@
                                 layers[key].attributes, true,
                                 layers[key].displayName, layers[key].bandInfo,
                                 layers[key].hsResId, layers[key].filename, disabled);
-
-                            if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
-                                resDownloadDict[layers[key].hsResId].push(layers[key].filename);
-                            } else {
-                                resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                            if (layers[key].resType !== 'RefTimeSeriesResource') {
+                                if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
+                                    resDownloadDict[layers[key].hsResId].push(layers[key].filename);
+                                } else {
+                                    resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                                }
                             }
                         }
                         $newLayerListItem = $currentLayersList.find(':last-child');

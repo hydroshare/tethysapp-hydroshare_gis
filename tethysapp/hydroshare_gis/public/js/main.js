@@ -952,13 +952,13 @@
         var resTableHtml;
 
         resList = typeof resList === 'string' ? JSON.parse(resList) : resList;
-        resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><th>Size</th><th>Type</th><th>Owner</th></thead><tbody>';
+        resTableHtml = '<table id="tbl-resources"><thead><th></th><th>Title</th><!--<th>Size</th>--><th>Type</th><th>Owner</th></thead><tbody>';
 
         resList.forEach(function (resource) {
             resTableHtml += '<tr>' +
                 '<td><input type="radio" name="resource" class="rdo-res" value="' + resource.id + '"></td>' +
                 '<td class="res_title">' + resource.title + '</td>' +
-                '<td class="res_size">' + resource.size + '</td>' +
+                // '<td class="res_size">' + resource.size + '</td>' +
                 '<td class="res_type">' + resource.type + '</td>' +
                 '<td class="res_owner">' + resource.owner + '</td>' +
                 '</tr>';

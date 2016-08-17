@@ -270,9 +270,16 @@ def extract_site_info_from_hs_metadata(hs, res_id):
             site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage']['dcterms:point']['rdf:value'].split(';')
         else:
             site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
-        lon = float(site_info_list[0].split('=')[1])
-        lat = float(site_info_list[1].split('=')[1])
-        projection = site_info_list[2].split('=')[1] if len(site_info_list) == 3 else site_info_list[3].split('=')[1]
+        lon = None
+        lat = None
+        projection = None
+        for item in site_info_list:
+            if 'north' in item:
+                lat = float(item.split('=')[1])
+            elif 'east' in item:
+                lon = float(item.split('=')[1])
+            elif 'projection' in item:
+                projection = item.split('=')[1]
         site_info = {
             'lon': lon,
             'lat': lat,
@@ -920,24 +927,24 @@ def get_hs_res_list(hs):
     res_list = []
 
     try:
-        valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 'ScriptResource']
+        valid_res_types = ['GenericResource', 'GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 'ScriptResource']
         for res in hs.getResourceList(types=valid_res_types):
             res_id = res['resource_id']
-            res_size = 0
-            try:
-                for res_file in hs.getResourceFileList(res_id):
-                    res_size += res_file['size']
-
-            except hs_r.HydroShareNotAuthorized:
-                continue
-            except Exception as e:
-                print str(e)
+            # res_size = 0
+            # try:
+            #     for res_file in hs.getResourceFileList(res_id):
+            #         res_size += res_file['size']
+            #
+            # except hs_r.HydroShareNotAuthorized:
+            #     continue
+            # except Exception as e:
+            #     print str(e)
 
             res_list.append({
                 'title': res['resource_title'],
                 'type': res['resource_type'],
                 'id': res_id,
-                'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
+                # 'size': sizeof_fmt(res_size) if res_size != 0 else "N/A",
                 'owner': res['creator']
             })
 

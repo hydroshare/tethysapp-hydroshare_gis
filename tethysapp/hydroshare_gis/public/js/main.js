@@ -187,7 +187,8 @@
             filename: publicFilename,
             siteInfo: siteInfo,
             listOrder: 1,
-            index: layerIndex
+            index: layerIndex,
+            extents: layerExtents
         };
 
         createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, displayName, 'None', resId, publicFilename, disabled);
@@ -1718,8 +1719,8 @@
                                         geomType: 'None',
                                         resType: layers[key].resType,
                                         lyrExtents: layers[key].extents,
-                                        url: projectInfo.map.geoserverUrl + '/wms',
-                                        lyrId: 'None'
+                                        lyrId: 'None',
+                                        visible: layers[key].visible
                                     });
                                     layerIndex = layerCount.get();
                                     disabled = false;

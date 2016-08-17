@@ -1724,11 +1724,12 @@
                                 layers[key].attributes, true,
                                 layers[key].displayName, layers[key].bandInfo,
                                 layers[key].hsResId, layers[key].filename, disabled);
-
-                            if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
-                                resDownloadDict[layers[key].hsResId].push(layers[key].filename);
-                            } else {
-                                resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                            if (layers[key].resType !== 'RefTimeSeriesResource') {
+                                if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
+                                    resDownloadDict[layers[key].hsResId].push(layers[key].filename);
+                                } else {
+                                    resDownloadDict[layers[key].hsResId] = [layers[key].filename];
+                                }
                             }
                         }
                         $newLayerListItem = $currentLayersList.find(':last-child');

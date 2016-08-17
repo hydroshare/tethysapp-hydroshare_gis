@@ -262,14 +262,17 @@ def extract_site_info_from_time_series(sqlite_fpath):
     return site_info
 
 
-def extract_site_info_from_ref_time_series(hs, res_id):
+def extract_site_info_from_hs_metadata(hs, res_id):
     site_info = None
     try:
         md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
-        site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
+        if len(md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage']) == 1:
+            site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage']['dcterms:point']['rdf:value'].split(';')
+        else:
+            site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage'][0]['dcterms:point']['rdf:value'].split(';')
         lon = float(site_info_list[0].split('=')[1])
         lat = float(site_info_list[1].split('=')[1])
-        projection = site_info_list[2].split('=')[1]
+        projection = site_info_list[2].split('=')[1] if len(site_info_list) == 3 else site_info_list[3].split('=')[1]
         site_info = {
             'lon': lon,
             'lat': lat,
@@ -607,7 +610,7 @@ def process_res_by_type(hs, res_id, res_type):
     results = return_obj['results']
 
     if res_type == 'RefTimeSeriesResource':
-        site_info = extract_site_info_from_ref_time_series(hs, res_id)
+        site_info = extract_site_info_from_hs_metadata(hs, res_id)
         if not site_info:
             return_obj['message'] = 'Resource contains insufficient geospatial information.'
         else:
@@ -649,7 +652,8 @@ def process_res_by_type(hs, res_id, res_type):
                             result = {
                                 'res_type': res_type,
                                 'public_fname': public_fname,
-                                'layer_name': layer_name
+                                'layer_name': layer_name,
+                                'site_info': extract_site_info_from_hs_metadata(hs, res_id)
                             }
                             results.append(result)
                     elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
@@ -916,7 +920,7 @@ def get_hs_res_list(hs):
     res_list = []
 
     try:
-        valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource']
+        valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 'ScriptResource']
         for res in hs.getResourceList(types=valid_res_types):
             res_id = res['resource_id']
             res_size = 0

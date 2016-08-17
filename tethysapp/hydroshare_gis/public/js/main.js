@@ -2092,7 +2092,7 @@
         index = Number($lyrListItem.attr('data-layer-index'));
         resType = $lyrListItem.attr('data-res-type');
         if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
-            layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
+            layerExtent = map.getLayers().item(index).getSource().getFeatures()[0].getGeometry().getCoordinates();
         } else {
             layerExtent = map.getLayers().item(index).getExtent();
         }

@@ -185,7 +185,7 @@
             hsResId: resId,
             resType: resType,
             filename: publicFilename,
-            siteinfo: siteInfo,
+            siteInfo: siteInfo,
             listOrder: 1
         };
 

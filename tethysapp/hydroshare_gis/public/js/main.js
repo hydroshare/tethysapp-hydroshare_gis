@@ -155,25 +155,58 @@
 
     addGenericResToUI = function (results, isLastResource) {
         var $newLayerListItem;
-        var iDisplayName = results.layer_name;
+        var displayName = results.layer_name;
         var resId = results.res_id;
         var layerIndex = Math.floor(Math.random() * 1000) + 1000;
         var publicFilename = results.public_fname;
         var resType = results.res_type;
+        var siteInfo = results.site_info;
+        var layerExtents;
+        var disabled = true;
 
-        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, iDisplayName, 'None', resId, publicFilename, true);
-        $newLayerListItem = $currentLayersList.find('li:first-child');
-        addListenersToListItem($newLayerListItem, layerIndex);
-        addContextMenuToListItem($newLayerListItem, resType);
+        if (siteInfo) {
+            layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
+            addLayerToMap({
+                cssStyles: 'Default',
+                geomType: 'None',
+                resType: resType,
+                lyrExtents: layerExtents,
+                siteInfo: siteInfo,
+                url: projectInfo.map.geoserverUrl + '/wms',
+                lyrId: 'None'
+            });
+            layerIndex = layerCount.get();
+            disabled = false;
+        }
 
         // Add layer data to project info
-        projectInfo.map.layers[iDisplayName] = {
-            displayName: iDisplayName,
+        projectInfo.map.layers[displayName] = {
+            displayName: displayName,
             hsResId: resId,
             resType: resType,
             filename: publicFilename,
             listOrder: 1
         };
+
+        createLayerListItem('prepend', layerIndex, 'None', resType, 'None', 'None', true, displayName, 'None', resId, publicFilename, disabled);
+        $newLayerListItem = $currentLayersList.find('li:first-child');
+        addListenersToListItem($newLayerListItem, layerIndex);
+        addContextMenuToListItem($newLayerListItem, resType);
+
+        if (siteInfo) {
+            var contextMenu = layersContextMenuViewFile.slice();
+            contextMenu.splice(1, 0, {
+                name: 'Zoom to',
+                title: 'Zoom to',
+                fun: function (e) {
+                    onClickZoomToLayer(e);
+                }
+            });
+            $newLayerListItem.find('.hmbrgr-div img').contextMenu('menu', contextMenu);
+            $newLayerListItem.find('.hmbrgr-div img').contextMenu('refresh');
+            drawLayersInListOrder(); // Must be called after creating the new layer list item
+            zoomToLayer(layerExtents, map.getSize(), resType);
+        }
 
         (function () {
             var numLayers = $currentLayersList.children().length;
@@ -181,8 +214,8 @@
             var layer;
             for (i = 1; i <= numLayers; i++) {
                 layer = $currentLayersList.find('li:nth-child(' + i + ')');
-                iDisplayName = layer.find('.layer-name').text();
-                projectInfo.map.layers[iDisplayName].listOrder = i;
+                displayName = layer.find('.layer-name').text();
+                projectInfo.map.layers[displayName].listOrder = i;
             }
         }());
 
@@ -205,7 +238,7 @@
             publicFname = data.publicFname,
             hide255 = data.hide255;
 
-        if (resType.indexOf('TimeSeriesResource') > -1) {
+        if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
             newLayer = new ol.layer.Vector({
                 source: new ol.source.Vector({
                     features: [new ol.Feature(new ol.geom.Point(lyrExtents))]
@@ -271,7 +304,7 @@
             bandInfo,
             rawLayerExtents,
             resId,
-            tsSiteInfo,
+            siteInfo,
             $newLayerListItem;
 
         resId = results.res_id;
@@ -289,8 +322,8 @@
         rawLayerExtents = results.layer_extents;
 
         if (resType.indexOf('TimeSeriesResource') > -1) {
-            tsSiteInfo = results.site_info;
-            layerExtents = ol.proj.fromLonLat([tsSiteInfo.lon, tsSiteInfo.lat]);
+            siteInfo = results.site_info;
+            layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
         } else {
             layerExtents = reprojectExtents(rawLayerExtents);
         }
@@ -339,6 +372,7 @@
             attributes: layerAttributes,
             cssStyles: cssStyles,
             extents: layerExtents,
+            siteInfo: siteInfo,
             geomType: geomType,
             bandInfo: bandInfo,
             id: layerId,
@@ -1269,7 +1303,7 @@
                     featureProperties.forEach(function (property) {
                         attributeTableHTML += '<tr>';
                         layerAttributesList.forEach(function (attribute) {
-                            attributeText = property[attribute];
+                            attributeText = property[attribute].toString();
                             if (attributeText.indexOf('<') !== -1) {
                                 attributeText = 'None';
                             }
@@ -1629,6 +1663,8 @@
             key,
             layerIndex,
             resDownloadDict = {},
+            disabled = true,
+            contextMenu,
             $newLayerListItem;
 
         var downloadGenericFiles = function (resDownloadDict) {
@@ -1669,13 +1705,25 @@
                             createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
                                 layers[key].geomType, layers[key].attributes, layers[key].visible,
                                 layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
-                        } else if (layers[key].resType === 'GenericResource') {
+                        } else {
                             layerIndex = layers[key].index;
+                            if (layers[key].siteInfo) {
+                                addLayerToMap({
+                                    cssStyles: 'Default',
+                                    geomType: 'None',
+                                    resType: layers[key].resType,
+                                    lyrExtents: layers[key].extents,
+                                    url: projectInfo.map.geoserverUrl + '/wms',
+                                    lyrId: 'None'
+                                });
+                                layerIndex = layerCount.get();
+                                disabled = false;
+                            }
                             createLayerListItem('append', layerIndex, layers[key].id,
                                 layers[key].resType, layers[key].geomType,
                                 layers[key].attributes, true,
                                 layers[key].displayName, layers[key].bandInfo,
-                                layers[key].hsResId, layers[key].filename, true);
+                                layers[key].hsResId, layers[key].filename, disabled);
 
                             if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
                                 resDownloadDict[layers[key].hsResId].push(layers[key].filename);
@@ -1686,6 +1734,19 @@
                         $newLayerListItem = $currentLayersList.find(':last-child');
                         addListenersToListItem($newLayerListItem, layers[key].index);
                         addContextMenuToListItem($newLayerListItem, layers[key].resType);
+
+                        if (layers[key].siteInfo) {
+                            contextMenu = layersContextMenuViewFile.slice();
+                            contextMenu.splice(1, 0, {
+                                name: 'Zoom to',
+                                title: 'Zoom to',
+                                fun: function (e) {
+                                    onClickZoomToLayer(e);
+                                }
+                            });
+                            $newLayerListItem.find('.hmbrgr-div img').contextMenu('menu', contextMenu);
+                            $newLayerListItem.find('.hmbrgr-div img').contextMenu('refresh');
+                        }
                     }
                 }
             }
@@ -2025,7 +2086,7 @@
         $lyrListItem = $(clickedElement).parent().parent();
         index = Number($lyrListItem.attr('data-layer-index'));
         resType = $lyrListItem.attr('data-res-type');
-        if (resType.indexOf('TimeSeriesResource') > -1) {
+        if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
             layerExtent = map.getLayers().item(3).getSource().getFeatures()[0].getGeometry().getCoordinates();
         } else {
             layerExtent = map.getLayers().item(index).getExtent();
@@ -2442,7 +2503,7 @@
     };
 
     zoomToLayer = function (layerExtent, mapSize, resType) {
-        if (resType.indexOf('TimeSeriesResource') > -1) {
+        if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
             map.getView().setCenter(layerExtent);
             map.getView().setZoom(16);
         } else {

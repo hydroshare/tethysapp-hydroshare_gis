@@ -18,9 +18,9 @@
  *****************************************************************************/
 
 // Global directives for JSLint/JSHint
-// /*jslint
-//  browser, this, devel, multivar
-//  */
+/*jslint
+ browser, this, devel
+ */
 /*global
  document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
  pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor, jsPDF, MutationObserver
@@ -33,100 +33,102 @@
     /******************************************************
      ****************GLOBAL VARIABLES**********************
      ******************************************************/
-    var basemapLayers,
-        contextMenuDict,
-        dataTableLoadRes,
-        insetMap,
-        layersContextMenuBase,
-        layersContextMenuGeospatialBase,
-        layersContextMenuViewFile,
-        layersContextMenuRaster,
-        layersContextMenuVector,
-        layersContextMenuTimeSeries,
-        layerCount,
-        loadGenericFilesStatus,
-        map,
-        projectInfo,
-        //  *********FUNCTIONS***********
-        addContextMenuToListItem,
-        addGenericResToUI,
-        addLayerToMap,
-        addLayerToUI,
-        addListenersToListItem,
-        addDefaultBehaviorToAjax,
-        addLoadResSelEvnt,
-        addInitialEventListeners,
-        areValidFiles,
-        buildHSResTable,
-        changeBaseMap,
-        checkCsrfSafe,
-        checkURLForParameters,
-        closeLyrEdtInpt,
-        createExportCanvas,
-        createLayerListItem,
-        displaySymbologyModalError,
-        deletePublicTempfiles,
-        drawLayersInListOrder,
-        drawPointSymbologyPreview,
-        editLayerDisplayName,
-        generateAttributeTable,
-        generateResourceList,
-        getCookie,
-        getCssStyles,
-        getGeomType,
-        getGeoserverUrl,
-        getRandomColor,
-        hideMainLoadAnim,
-        initializeJqueryVariables,
-        initializeLayersContextMenus,
-        initializeMap,
-        loadProjectFile,
-        loadResource,
-        modifyDataTableDisplay,
-        onClickAddToExistingProject,
-        onClickAddToNewProject,
-        onClickDeleteLayer,
-        onClickModifySymbology,
-        onClickViewFile,
-        onClickOpenInHS,
-        onClickRenameLayer,
-        onClickSaveNewProject,
-        onClickShowAttrTable,
-        onClickViewLegend,
-        onClickZoomToLayer,
-        prepareFilesForAjax,
-        processAddHSResResults,
-        processSaveNewProjectResponse,
-        redrawDataTable,
-        reprojectExtents,
-        setupSymbologyLabelsState,
-        setupSymbologyModalState,
-        setupSymbologyPointState,
-        setupSymbologyPolygonState,
-        setupSymbologyPolylineState,
-        setupSymbologyRasterState,
-        setupSymbologyStrokeState,
-        showMainLoadAnim,
-        showResLoadingStatus,
-        updateSymbology,
-        uploadFileButtonHandler,
-        uploadResourceButtonHandler,
-        zoomToLayer,
-        //  **********Query Selectors************
-        $btnApplySymbology,
-        $btnShowModalSaveNewProject,
-        $btnSaveNewProject,
-        $btnSaveProject,
-        $currentLayersList,
-        $loadingAnimMain,
-        $modalAttrTbl,
-        $modalLegend,
-        $modalLoadFile,
-        $modalLoadRes,
-        $modalSaveNewProject,
-        $modalSymbology,
-        $modalViewFile,
-        $uploadBtn;
+    var basemapLayers;
+    var contextMenuDict;
+    var dataTableLoadRes;
+    var insetMap;
+    var layersContextMenuBase;
+    var layersContextMenuGeospatialBase;
+    var layersContextMenuViewFile;
+    var layersContextMenuRaster;
+    var layersContextMenuVector;
+    var layersContextMenuTimeSeries;
+    var layerCount;
+    var loadGenericFilesStatus;
+    var map;
+    var projectInfo;
+
+    //  *********FUNCTIONS***********
+    var addContextMenuToListItem;
+    var addGenericResToUI;
+    var addLayerToMap;
+    var addLayerToUI;
+    var addListenersToListItem;
+    var addDefaultBehaviorToAjax;
+    var addLoadResSelEvnt;
+    var addInitialEventListeners;
+    var areValidFiles;
+    var buildHSResTable;
+    var changeBaseMap;
+    var checkCsrfSafe;
+    var checkURLForParameters;
+    var closeLyrEdtInpt;
+    var createExportCanvas;
+    var createLayerListItem;
+    var displaySymbologyModalError;
+    var deletePublicTempfiles;
+    var drawLayersInListOrder;
+    var drawPointSymbologyPreview;
+    var editLayerDisplayName;
+    var generateAttributeTable;
+    var generateResourceList;
+    var getCookie;
+    var getCssStyles;
+    var getGeomType;
+    var getGeoserverUrl;
+    var getRandomColor;
+    var hideMainLoadAnim;
+    var initializeJqueryVariables;
+    var initializeLayersContextMenus;
+    var initializeMap;
+    var loadProjectFile;
+    var loadResource;
+    var modifyDataTableDisplay;
+    var onClickAddToExistingProject;
+    var onClickAddToNewProject;
+    var onClickDeleteLayer;
+    var onClickModifySymbology;
+    var onClickViewFile;
+    var onClickOpenInHS;
+    var onClickRenameLayer;
+    var onClickSaveNewProject;
+    var onClickShowAttrTable;
+    var onClickViewLegend;
+    var onClickZoomToLayer;
+    var prepareFilesForAjax;
+    var processAddHSResResults;
+    var processSaveNewProjectResponse;
+    var redrawDataTable;
+    var reprojectExtents;
+    var setupSymbologyLabelsState;
+    var setupSymbologyModalState;
+    var setupSymbologyPointState;
+    var setupSymbologyPolygonState;
+    var setupSymbologyPolylineState;
+    var setupSymbologyRasterState;
+    var setupSymbologyStrokeState;
+    var showMainLoadAnim;
+    var showResLoadingStatus;
+    var updateSymbology;
+    var uploadFileButtonHandler;
+    var uploadResourceButtonHandler;
+    var zoomToLayer;
+    var $btnApplySymbology;
+
+    //  **********Query Selectors************
+    var $btnShowModalSaveNewProject;
+    var $btnSaveNewProject;
+    var $btnSaveProject;
+    var $currentLayersList;
+    var $loadingAnimMain;
+    var $modalAttrTbl;
+    var $modalLegend;
+    var $modalLoadFile;
+    var $modalLoadRes;
+    var $modalSaveNewProject;
+    var $modalSymbology;
+    var $modalViewFile;
+    var $uploadBtn;
 
     /******************************************************
      **************FUNCTION DECLARATIONS*******************
@@ -211,16 +213,10 @@
             zoomToLayer(layerExtents, map.getSize(), resType);
         }
 
-        (function () {
-            var numLayers = $currentLayersList.children().length;
-            var i;
-            var layer;
-            for (i = 1; i <= numLayers; i++) {
-                layer = $currentLayersList.find('li:nth-child(' + i + ')');
-                displayName = layer.find('.layer-name').text();
-                projectInfo.map.layers[displayName].listOrder = i;
-            }
-        }());
+        $currentLayersList.children().each(function (i, elem) {
+            var layerName = $(elem).find('.layer-name').text();
+            projectInfo.map.layers[layerName].listOrder = i + 1;
+        });
 
         if (isLastResource) {
             hideMainLoadAnim();
@@ -229,17 +225,17 @@
     };
 
     addLayerToMap = function (data) {
-        var lyrParams,
-            newLayer = null,
-            sldString,
-            lyrExtents = data.lyrExtents,
-            lyrId = data.lyrId,
-            resType = data.resType,
-            geomType = data.geomType,
-            cssStyles = data.cssStyles,
-            visible = data.visible,
-            publicFname = data.publicFname,
-            hide255 = data.hide255;
+        var lyrParams;
+        var newLayer = null;
+        var sldString;
+        var lyrExtents = data.lyrExtents;
+        var lyrId = data.lyrId;
+        var resType = data.resType;
+        var geomType = data.geomType;
+        var cssStyles = data.cssStyles;
+        var visible = data.visible;
+        var publicFname = data.publicFname;
+        var hide255 = data.hide255;
 
         if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
             newLayer = new ol.layer.Vector({
@@ -257,7 +253,7 @@
                 visible: visible
             });
         } else {
-            if (publicFname && publicFname.indexOf('.kml') !== -1) {
+            if (publicFname && publicFname.indexOf('doc.kml') !== -1) {
                 (function () {
                     var url = window.location.protocol + '//' + window.location.host + '/static/hydroshare_gis/temp/' + publicFname;
                     newLayer = new ol.layer.Vector({
@@ -295,20 +291,20 @@
     };
 
     addLayerToUI = function (results, isLastResource) {
-        var geomType,
-            hide255 = false,
-            cssStyles,
-            layerAttributes,
-            layerExtents,
-            displayName,
-            layerId,
-            layerIndex,
-            resType,
-            bandInfo,
-            rawLayerExtents,
-            resId,
-            siteInfo,
-            $newLayerListItem;
+        var geomType;
+        var hide255 = false;
+        var cssStyles;
+        var layerAttributes;
+        var layerExtents;
+        var displayName;
+        var layerId;
+        var layerIndex;
+        var resType;
+        var bandInfo;
+        var rawLayerExtents;
+        var resId;
+        var siteInfo;
+        var $newLayerListItem;
 
         resId = results.res_id;
         resType = results.res_type;
@@ -319,7 +315,9 @@
             geomType = "None";
             layerAttributes = "None";
         }
-        bandInfo = (resType === 'RasterResource' && results.band_info) ? results.band_info : 'None';
+        bandInfo = (resType === 'RasterResource' && results.band_info)
+            ? results.band_info
+            : 'None';
         displayName = results.layer_name;
         layerId = results.layer_id || results.res_id;
         rawLayerExtents = results.layer_extents;
@@ -475,7 +473,7 @@
 
         $('#apply-opacity-to-colors').on('click', function () {
             var opacity = $('#raster-opacity').val();
-            $('input[id^=color]').each(function (i, o) {
+            $('input[id^=color]').each(function (ignore, o) {
                 var color = $(o).spectrum('get');
                 color.setAlpha(opacity);
                 $(o).spectrum('set', color);
@@ -639,8 +637,8 @@
         });
 
         $('#chkbx-include-outline').on('change', function () {
-            var outlineString,
-                color;
+            var outlineString;
+            var color;
 
             if ($(this).prop('checked') === true) {
                 $('#outline-options').removeClass('hidden');
@@ -679,9 +677,9 @@
             chooseText: "Choose",
             cancelText: "Cancel",
             change: function (color) {
-                var shape,
-                    size,
-                    geomType;
+                var shape;
+                var size;
+                var geomType;
 
                 if (color) {
                     color = color.toRgbString();
@@ -767,12 +765,12 @@
         });
 
         $('#slct-num-colors-in-gradient').on('change', function () {
-            var i,
-                inputSelector,
-                htmlString = '',
-                numColors = this.value,
-                prevNumColors,
-                createColorValPairHtml;
+            var i;
+            var inputSelector;
+            var htmlString = '';
+            var numColors = this.value;
+            var prevNumColors;
+            var createColorValPairHtml;
 
             createColorValPairHtml = function (j) {
                 return '<fieldset class="color-val-pair">' +
@@ -790,18 +788,18 @@
                 prevNumColors = 0;
                 $('#color-map-placeholder').html();
 
-                for (i = 0; i < numColors; i++) {
+                for (i = 0; i < numColors; i += 1) {
                     htmlString += createColorValPairHtml(i);
                 }
             } else if (prevNumColors > numColors) {
                 while (i > numColors) {
                     $('.color-val-pair').last().remove();
-                    i--;
+                    i -= 1;
                 }
             } else if (prevNumColors < numColors) {
                 while (i < numColors) {
                     htmlString += createColorValPairHtml(i);
-                    i++;
+                    i += 1;
                 }
             }
 
@@ -811,7 +809,7 @@
                 $('#color-map-placeholder').append(htmlString);
             }
 
-            for (i = prevNumColors; i < numColors; i++) {
+            for (i = prevNumColors; i < numColors; i += 1) {
                 inputSelector = '#color' + i;
                 $(inputSelector).spectrum({
                     showInput: true,
@@ -826,9 +824,9 @@
         });
 
         $('#slct-point-shape, #slct-point-size').on('change', function () {
-            var shape,
-                size,
-                color;
+            var shape;
+            var size;
+            var color;
 
             shape = $('#slct-point-shape').val();
             size = $('#slct-point-size').val();
@@ -899,7 +897,9 @@
         });
 
         (function () {
-            var target, observer, config;
+            var target;
+            var observer;
+            var config;
             // select the target node
             target = $('#app-content-wrapper')[0];
 
@@ -916,15 +916,14 @@
     };
 
     areValidFiles = function (files) {
-        var file,
-            fileCount = 0,
-            hasShp = false,
-            hasShx = false,
-            hasPrj = false,
-            hasDbf = false,
-            hasTif = false,
-            hasZip = false;
-
+        var file;
+        var fileCount = 0;
+        var hasShp = false;
+        var hasShx = false;
+        var hasPrj = false;
+        var hasDbf = false;
+        var hasTif = false;
+        var hasZip = false;
         for (file in files) {
             if (files.hasOwnProperty(file)) {
                 if (++fileCount > 4) {
@@ -1005,14 +1004,14 @@
     };
 
     checkURLForParameters = function () {
-        var transformToAssocArray,
-            getSearchParameters,
-            params;
+        var transformToAssocArray;
+        var getSearchParameters;
+        var params;
 
         transformToAssocArray = function (prmstr) {
-            var prms,
-                prmArr,
-                tmpArr;
+            var prms;
+            var prmArr;
+            var tmpArr;
 
             prmArr = prmstr.split("&");
             prms = {};
@@ -1048,8 +1047,16 @@
     };
 
     createExportCanvas = function (mapCanvas) {
-        var insetCanvas, exportCanvas, context, insetHeightOffset, $insetDiv, height, width,
-            $insetMap, divHeightOffset, divWidthOffset;
+        var insetCanvas;
+        var exportCanvas;
+        var context;
+        var insetHeightOffset;
+        var $insetDiv;
+        var height;
+        var width;
+        var $insetMap;
+        var divHeightOffset;
+        var divWidthOffset;
 
         exportCanvas = $('#export-canvas')[0];
         exportCanvas.width = mapCanvas.width;
@@ -1131,15 +1138,15 @@
     };
 
     drawLayersInListOrder = function () {
-        var i,
-            index,
-            layer,
-            displayName,
-            numLayers,
-            zIndex;
+        var i;
+        var index;
+        var layer;
+        var displayName;
+        var numLayers;
+        var zIndex;
 
         numLayers = $currentLayersList.children().length + 2;
-        for (i = 3; i <= numLayers; i++) {
+        for (i = 3; i <= numLayers; i += 1) {
             layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
             displayName = layer.find('.layer-name').text();
             index = Number(layer.attr('data-layer-index'));
@@ -1153,9 +1160,9 @@
     };
 
     drawPointSymbologyPreview = function (shape, size, color) {
-        var cssObj = {},
-            shapeStyleSheet = document.styleSheets[10],
-            cssRule;
+        var cssObj = {};
+        var shapeStyleSheet = document.styleSheets[10];
+        var cssRule;
 
         $('#symbology-preview').text('');
 
@@ -1286,12 +1293,12 @@
                 console.error('There was an error when performing the ajax request to \'generate_attribute_table\'');
             },
             success: function (response) {
-                var attributeTableHTML,
-                    featureProperties,
-                    layerAttributesList = [],
-                    dataTable,
-                    tableHeadingHTML = '',
-                    attributeText;
+                var attributeTableHTML;
+                var featureProperties;
+                var layerAttributesList = [];
+                var dataTable;
+                var tableHeadingHTML = '';
+                var attributeText;
 
                 if (response.hasOwnProperty('success')) {
                     featureProperties = JSON.parse(response.feature_properties);
@@ -1363,14 +1370,14 @@
     };
 
     getCookie = function (name) {
-        var cookie,
-            cookies,
-            cookieValue = null,
-            i;
+        var cookie;
+        var cookies;
+        var cookieValue = null;
+        var i;
 
         if (document.cookie && document.cookie !== '') {
             cookies = document.cookie.split(';');
-            for (i = 0; i < cookies.length; i++) {
+            for (i = 0; i < cookies.length; i += 1) {
                 cookie = $.trim(cookies[i]);
                 // Does this cookie string begin with the name we want?
                 if (cookie.substring(0, name.length + 1) === (name + '=')) {
@@ -1383,20 +1390,20 @@
     };
 
     getCssStyles = function (geomType) {
-        var color,
-            cssStyles = {};
+        var color;
+        var cssStyles = {};
 
         if (geomType === 'None') {
             cssStyles['color-map'] = {};
             (function () {
-                var numColors,
-                    i,
-                    colorSelector,
-                    opacity,
-                    quantitySelector;
+                var numColors;
+                var i;
+                var colorSelector;
+                var opacity;
+                var quantitySelector;
 
                 numColors = $('#color-map-placeholder').attr('data-num-colors');
-                for (i = 0; i < numColors; i++) {
+                for (i = 0; i < numColors; i += 1) {
                     colorSelector = '#color' + i;
                     quantitySelector = '#quantity' + i;
                     opacity = $(colorSelector).spectrum('get').getAlpha().toString();
@@ -1489,12 +1496,12 @@
     };
 
     getRandomColor = function () {
-        var hexOptions = '0123456789ABCDEF',
-            lettersList = hexOptions.split(''),
-            color = '#',
-            i;
+        var hexOptions = '0123456789ABCDEF';
+        var lettersList = hexOptions.split('');
+        var color = '#';
+        var i;
 
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < 6; i += 1) {
             color += lettersList[Math.floor(Math.random() * 16)];
         }
         return color;
@@ -1607,13 +1614,13 @@
 
     initializeMap = function () {
         var mousePositionControl = new ol.control.MousePosition({
-                coordinateFormat: ol.coordinate.createStringXY(4),
-                projection: 'EPSG:3857',
-                className: 'custom-mouse-position',
-                target: document.getElementById('mouse-position'),
-                undefinedHTML: ''
-            }),
-            fullScreenControl = new ol.control.FullScreen();
+            coordinateFormat: ol.coordinate.createStringXY(4),
+            projection: 'EPSG:3857',
+            className: 'custom-mouse-position',
+            target: document.getElementById('mouse-position'),
+            undefinedHTML: ''
+        });
+        var fullScreenControl = new ol.control.FullScreen();
 
         // Base Layer options
         basemapLayers = [
@@ -1660,15 +1667,15 @@
     };
 
     loadProjectFile = function (fileProjectInfo) {
-        var i,
-            layers = fileProjectInfo.map.layers,
-            numLayers = Object.keys(layers).length,
-            key,
-            layerIndex,
-            resDownloadDict = {},
-            disabled,
-            contextMenu,
-            $newLayerListItem;
+        var i;
+        var layers = fileProjectInfo.map.layers;
+        var numLayers = Object.keys(layers).length;
+        var key;
+        var layerIndex;
+        var resDownloadDict = {};
+        var disabled;
+        var contextMenu;
+        var $newLayerListItem;
 
         var downloadGenericFiles = function (resDownloadDict) {
             if (Object.keys(resDownloadDict).length !== 0) {
@@ -1689,69 +1696,68 @@
 
         $('.basemap-option[value="' + fileProjectInfo.map.baseMap + '"]').trigger('click');
 
-        for (i = 1; i <= numLayers; i++) {
+        for (i = 1; i <= numLayers; i += 1) {
             for (key in layers) {
                 if (layers.hasOwnProperty(key)) {
-                    disabled = true;
-                    if (layers.hasOwnProperty(key)) {
-                        if (layers[key].listOrder === i) {
-                            if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
-                                disabled = false;
+                    if (layers[key].listOrder === i) {
+                        disabled = true;
+
+                        if (layers[key].resType === 'RasterResource' || layers[key].resType === 'GeographicFeatureResource') {
+                            disabled = false;
+                            addLayerToMap({
+                                lyrExtents: layers[key].extents,
+                                url: fileProjectInfo.map.geoserverUrl + '/wms',
+                                lyrId: layers[key].id,
+                                resType: layers[key].resType,
+                                geomType: layers[key].geomType,
+                                cssStyles: layers[key].cssStyles,
+                                visible: layers[key].visible,
+                                hide255: layers[key].hide255
+                            });
+                            layerIndex = layerCount.get();
+                            createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
+                                layers[key].geomType, layers[key].attributes, layers[key].visible,
+                                layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
+                        } else {
+                            layerIndex = layers[key].index;
+                            if (layers[key].siteInfo) {
                                 addLayerToMap({
-                                    lyrExtents: layers[key].extents,
-                                    url: fileProjectInfo.map.geoserverUrl + '/wms',
-                                    lyrId: layers[key].id,
+                                    cssStyles: 'Default',
+                                    geomType: 'None',
                                     resType: layers[key].resType,
-                                    geomType: layers[key].geomType,
-                                    cssStyles: layers[key].cssStyles,
-                                    visible: layers[key].visible,
-                                    hide255: layers[key].hide255
+                                    lyrExtents: layers[key].extents,
+                                    lyrId: 'None',
+                                    visible: layers[key].visible
                                 });
                                 layerIndex = layerCount.get();
-                                createLayerListItem('append', layerIndex, layers[key].id, layers[key].resType,
-                                    layers[key].geomType, layers[key].attributes, layers[key].visible,
-                                    layers[key].displayName, layers[key].bandInfo, layers[key].hsResId);
-                            } else {
-                                layerIndex = layers[key].index;
-                                if (layers[key].siteInfo) {
-                                    addLayerToMap({
-                                        cssStyles: 'Default',
-                                        geomType: 'None',
-                                        resType: layers[key].resType,
-                                        lyrExtents: layers[key].extents,
-                                        lyrId: 'None',
-                                        visible: layers[key].visible
-                                    });
-                                    layerIndex = layerCount.get();
-                                    disabled = false;
-                                }
-                                createLayerListItem('append', layerIndex, layers[key].id,
-                                    layers[key].resType, layers[key].geomType,
-                                    layers[key].attributes, true,
-                                    layers[key].displayName, layers[key].bandInfo,
-                                    layers[key].hsResId, layers[key].filename, disabled);
-                                if (layers[key].resType !== 'RefTimeSeriesResource') {
-                                    if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
-                                        resDownloadDict[layers[key].hsResId].push(layers[key].filename);
-                                    } else {
-                                        resDownloadDict[layers[key].hsResId] = [layers[key].filename];
-                                    }
+                                disabled = false;
+                            }
+                            createLayerListItem('append', layerIndex, layers[key].id,
+                                layers[key].resType, layers[key].geomType,
+                                layers[key].attributes, true,
+                                layers[key].displayName, layers[key].bandInfo,
+                                layers[key].hsResId, layers[key].filename, disabled);
+                            if (layers[key].resType !== 'RefTimeSeriesResource') {
+                                if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
+                                    resDownloadDict[layers[key].hsResId].push(layers[key].filename);
+                                } else {
+                                    resDownloadDict[layers[key].hsResId] = [layers[key].filename];
                                 }
                             }
-                            $newLayerListItem = $currentLayersList.find(':last-child');
-                            addListenersToListItem($newLayerListItem, layers[key].index);
-                            addContextMenuToListItem($newLayerListItem, layers[key].resType);
+                        }
+                        $newLayerListItem = $currentLayersList.find(':last-child');
+                        addListenersToListItem($newLayerListItem, layers[key].index);
+                        addContextMenuToListItem($newLayerListItem, layers[key].resType);
 
-                            if (layers[key].siteInfo) {
-                                contextMenu = layersContextMenuViewFile.slice();
-                                contextMenu.splice(1, 0, {
-                                    name: 'Zoom to',
-                                    title: 'Zoom to',
-                                    fun: onClickZoomToLayer
-                                });
-                                $newLayerListItem.find('.hmbrgr-div img').contextMenu('menu', contextMenu);
-                                $newLayerListItem.find('.hmbrgr-div img').contextMenu('refresh');
-                            }
+                        if (layers[key].siteInfo) {
+                            contextMenu = layersContextMenuViewFile.slice();
+                            contextMenu.splice(1, 0, {
+                                name: 'Zoom to',
+                                title: 'Zoom to',
+                                fun: onClickZoomToLayer
+                            });
+                            $newLayerListItem.find('.hmbrgr-div img').contextMenu('menu', contextMenu);
+                            $newLayerListItem.find('.hmbrgr-div img').contextMenu('refresh');
                         }
                     }
                 }
@@ -1827,10 +1833,10 @@
     };
 
     onClickAddToExistingProject = function () {
-        var $rdoSelectedProj,
-            resId,
-            resTitle,
-            additionalResources;
+        var $rdoSelectedProj;
+        var resId;
+        var resTitle;
+        var additionalResources;
 
         showMainLoadAnim();
         $('#modalAddToProject').modal('hide');
@@ -1870,14 +1876,14 @@
     };
 
     onClickDeleteLayer = function (e) {
-        var clickedElement = e.trigger.context,
-            count,
-            $lyrListItem = $(clickedElement).parent().parent(),
-            displayName = $lyrListItem.find('.layer-name').text(),
-            deleteIndex = Number($lyrListItem.attr('data-layer-index')),
-            i,
-            index,
-            $layer;
+        var clickedElement = e.trigger.context;
+        var count;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var displayName = $lyrListItem.find('.layer-name').text();
+        var deleteIndex = Number($lyrListItem.attr('data-layer-index'));
+        var i;
+        var index;
+        var $layer;
 
         $lyrListItem.remove();
         delete projectInfo.map.layers[displayName];
@@ -1887,7 +1893,7 @@
         }
 
         count = $currentLayersList.children().length;
-        for (i = 1; i <= count; i++) {
+        for (i = 1; i <= count; i += 1) {
             $layer = $currentLayersList.find('li:nth-child(' + i + ')');
             displayName = $layer.find('.layer-name').text();
             index = Number($layer.attr('data-layer-index'));
@@ -1900,8 +1906,8 @@
     };
 
     onClickModifySymbology = function (e) {
-        var clickedElement = e.trigger.context,
-            $lyrListItem = $(clickedElement).parent().parent();
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
 
         setupSymbologyModalState($lyrListItem);
         $modalSymbology.modal('show');
@@ -1916,7 +1922,7 @@
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
         var validMovieTypes = ['mov', 'mp4', 'webm', 'ogg'];
-        var validTextTypes = ['txt', 'py', 'r', 'matlab', 'm', 'sh', 'xml', 'wml', 'gml'];
+        var validTextTypes = ['txt', 'py', 'r', 'matlab', 'm', 'sh', 'xml', 'wml', 'gml', 'kml'];
         var resId = $lyrListItem.attr('data-res-id');
         var $loading = $('#view-file-loading');
 
@@ -1989,10 +1995,10 @@
     };
 
     onClickRenameLayer = function (e) {
-        var clickedElement = e.trigger.context,
-            $lyrListItem = $(clickedElement).parent().parent(),
-            $layerNameInput = $lyrListItem.find('input[type=text]'),
-            $LayerNameSpan = $lyrListItem.find('span');
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var $layerNameInput = $lyrListItem.find('input[type=text]');
+        var $LayerNameSpan = $lyrListItem.find('span');
         // layerIndex = $lyrListItem.attr('data-layer-index');
 
         $LayerNameSpan.addClass('hidden');
@@ -2047,11 +2053,11 @@
 
     onClickShowAttrTable = function (e) {
         showMainLoadAnim();
-        var clickedElement = e.trigger.context,
-            $lyrListItem = $(clickedElement).parent().parent(),
-            layerName = $lyrListItem.text(),
-            layerId = $lyrListItem.attr('data-layer-id'),
-            layerAttributes = $lyrListItem.attr('data-layer-attributes');
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var layerName = $lyrListItem.text();
+        var layerId = $lyrListItem.attr('data-layer-id');
+        var layerAttributes = $lyrListItem.attr('data-layer-attributes');
 
         generateAttributeTable(layerId, layerAttributes, layerName);
     };
@@ -2082,11 +2088,11 @@
     };
 
     onClickZoomToLayer = function (e) {
-        var clickedElement,
-            index,
-            layerExtent,
-            resType,
-            $lyrListItem;
+        var clickedElement;
+        var index;
+        var layerExtent;
+        var resType;
+        var $lyrListItem;
 
         clickedElement = e.trigger.context;
         $lyrListItem = $(clickedElement).parent().parent();
@@ -2118,10 +2124,10 @@
         var numAdditionalResources;
         var resource;
         var j;
-        for (i = 0; i < numResults; i++) {
+        for (i = 0; i < numResults; i += 1) {
             if (additionalResources) {
                 numAdditionalResources = additionalResources.length;
-                for (j = 0; j < numAdditionalResources; j++) {
+                for (j = 0; j < numAdditionalResources; j += 1) {
                     resource = additionalResources[j];
                     loadResource(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
                 }
@@ -2177,15 +2183,15 @@
     };
 
     reprojectExtents = function (rawExtents) {
-        var crs,
-            currentProj,
-            extentMaxX,
-            extentMaxY,
-            extentMinX,
-            extentMinY,
-            extents,
-            tempCoord1,
-            tempCoord2;
+        var crs;
+        var currentProj;
+        var extentMaxX;
+        var extentMaxY;
+        var extentMinX;
+        var extentMinY;
+        var extents;
+        var tempCoord1;
+        var tempCoord2;
 
         if (typeof rawExtents === 'string') {
             rawExtents = JSON.parse(rawExtents);
@@ -2198,7 +2204,7 @@
         crs = rawExtents.crs;
         try {
             currentProj = proj4(crs);
-        } catch (e) {
+        } catch (ignore) {
             proj4.defs('new_projection', crs);
             currentProj = proj4('new_projection');
         }
@@ -2225,18 +2231,18 @@
     };
 
     setupSymbologyModalState = function ($lyrListItem) {
-        var geomType = $lyrListItem.attr('data-geom-type'),
-            layerId = $lyrListItem.attr('data-layer-id'),
-            displayName = $lyrListItem.find('.layer-name').text(),
-            layerIndex = $lyrListItem.attr('data-layer-index'),
-            labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(','),
-            bandInfo = {
-                'min': $lyrListItem.attr('data-band-min'),
-                'max': $lyrListItem.attr('data-band-max'),
-                'nd': $lyrListItem.attr('data-band-nd')
-            },
-            optionsHtmlString = '',
-            layerCssStyles;
+        var geomType = $lyrListItem.attr('data-geom-type');
+        var layerId = $lyrListItem.attr('data-layer-id');
+        var displayName = $lyrListItem.find('.layer-name').text();
+        var layerIndex = $lyrListItem.attr('data-layer-index');
+        var labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(',');
+        var bandInfo = {
+            'min': $lyrListItem.attr('data-band-min'),
+            'max': $lyrListItem.attr('data-band-max'),
+            'nd': $lyrListItem.attr('data-band-nd')
+        };
+        var optionsHtmlString = '';
+        var layerCssStyles;
 
         $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $lyrListItem.find('.layer-name').text());
         $modalSymbology.find('#btn-apply-symbology').attr({
@@ -2364,13 +2370,13 @@
     };
 
     setupSymbologyRasterState = function (layerCssStyles, bandInfo) {
-        var colorKeys,
-            color,
-            numKeys,
-            colorMapObj,
-            i,
-            quantitySelector,
-            colorSelector;
+        var colorKeys;
+        var color;
+        var numKeys;
+        var colorMapObj;
+        var i;
+        var quantitySelector;
+        var colorSelector;
 
         if (layerCssStyles === "Default") {
             $('#slct-num-colors-in-gradient').trigger('change');
@@ -2440,13 +2446,13 @@
     };
 
     updateSymbology = function ($this) {
-        var geomType = $this.attr('data-geom-type'),
-            layerId = $this.attr('data-layer-id'),
-            displayName = $this.attr('data-layer-name'),
-            layerIndex = $this.attr('data-layer-index'),
-            sldString,
-            cssStyles,
-            hide255 = projectInfo.map.layers[displayName].hide255;
+        var geomType = $this.attr('data-geom-type');
+        var layerId = $this.attr('data-layer-id');
+        var displayName = $this.attr('data-layer-name');
+        var layerIndex = $this.attr('data-layer-index');
+        var sldString;
+        var cssStyles;
+        var hide255 = projectInfo.map.layers[displayName].hide255;
 
         cssStyles = getCssStyles(geomType);
         if (cssStyles === null) {
@@ -2459,9 +2465,9 @@
     };
 
     uploadFileButtonHandler = function () {
-        var files = $('#input-files')[0].files,
-            data,
-            $footerInfoAddFile = $('#footer-info-addFile');
+        var files = $('#input-files')[0].files;
+        var data;
+        var $footerInfoAddFile = $('#footer-info-addFile');
 
         $footerInfoAddFile.removeClass('hidden');
         $uploadBtn.prop('disabled', true);
@@ -2476,7 +2482,7 @@
             dataType: 'json',
             processData: false,
             contentType: false,
-            error: function (ignore1, textStatus, ignore2) {
+            error: function (ignore, textStatus) {
                 $footerInfoAddFile.addClass('hidden');
                 showResLoadingStatus('error', textStatus);
             },
@@ -2499,10 +2505,10 @@
     uploadResourceButtonHandler = function () {
 
         $uploadBtn.prop('disabled', true);
-        var $rdoRes = $('.rdo-res:checked'),
-            resId = $rdoRes.val(),
-            resType = $rdoRes.parent().parent().find('.res_type').text(),
-            resTitle = $rdoRes.parent().parent().find('.res_title').text();
+        var $rdoRes = $('.rdo-res:checked');
+        var resId = $rdoRes.val();
+        var resType = $rdoRes.parent().parent().find('.res_type').text();
+        var resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
         showMainLoadAnim();
         loadResource(resId, resType, resTitle, true, null);

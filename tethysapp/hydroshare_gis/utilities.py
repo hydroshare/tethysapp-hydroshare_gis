@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from tethys_sdk.services import get_spatial_dataset_engine
 from django.core.exceptions import ObjectDoesNotExist
-from model import ResourceTifFilesCount
+from model import ResourceFilesCount
 
 import hs_restclient as hs_r
 from geoserver.catalog import FailedRequestError
@@ -28,7 +28,8 @@ public_tempdir = getfile(currentframe()).replace('utilities.py', 'public/temp/')
 workspace_id = None
 spatial_dataset_engine = None
 current_user = None
-tifFilesCount = ResourceTifFilesCount()
+tifFilesCount = ResourceFilesCount()
+shapeFilesCount = ResourceFilesCount()
 currently_testing = False
 
 def get_oauth_hs(request):
@@ -82,6 +83,9 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
             tifFilesCount.increase()
 
         elif res_type == 'GeographicFeatureResource':
+            if shapeFilesCount.get() != 0:
+                store_id = 'res_%s_%s' % (res_id, shapeFilesCount.get())
+                full_store_id = '%s:%s' % (get_workspace(), store_id)
             if is_zip is True:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_zip=res_file,
@@ -97,6 +101,8 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
                                                             shapefile_base=str(res_file),
                                                             overwrite=True,
                                                             debug=get_debug_val())
+            shapeFilesCount.increase()
+
         if response:
             if not response['success']:
                 try:
@@ -721,6 +727,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
     is_zip = False
     res_fpath = None
     tifFilesCount.reset()
+    shapeFilesCount.reset()
 
     if os.path.exists(res_contents_path):
         res_files_list = os.listdir(res_contents_path)
@@ -728,8 +735,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
         if res_type == 'GeographicFeatureResource':
             for f in res_files_list:
                 src = os.path.join(res_contents_path, f)
-                dst = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
-                os.rename(src, dst)
+                public_fpath = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
+                os.rename(src, public_fpath)
             res_fpath = os.path.join(res_contents_path, 'res_' + res_id)
             prj_path = res_fpath + '.prj'
             r = check_crs(res_type, prj_path)
@@ -805,28 +812,32 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     fpath = os.path.join(res_contents_path, fname)
 
                     if fname.endswith('.kml') or fname.endswith('.kmz'):
+                        shapeFilesCount.increase()
                         #Openlayers KML Implementation
-                        if not os.path.exists(public_tempdir):
-                            os.mkdir(public_tempdir)
                         if fname.endswith('.kmz'):
+                            if not os.path.exists(public_tempdir):
+                                os.mkdir(public_tempdir)
                             os.system('unzip -q -d %s %s' % (public_tempdir, fpath))
-                            dst = os.path.join(public_tempdir, 'doc.kml')
+                            public_fpath = os.path.join(public_tempdir, 'doc.kml')
+                            kml_path = public_fpath
                         else:
-                            shutil.move(fpath, dst)
-                        public_fpath = dst
-                        new_fpath = os.path.join(res_contents_path, res_id + '.shp')
-                        os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(new_fpath, dst))
-                        res_fpath = os.path.join(res_contents_path, res_id)
-                        res_type = 'GeographicFeatureResource'
+                            kml_path = fpath
+                            # dst = os.path.join(res_contents_path, fname)
+                            # shutil.move(fpath, dst)
+                        # public_fpath = dst
+                        print 'kml_fname: %s' % fname
+                        shp_fname = res_id + '%s.shp' % ('_' + str(shapeFilesCount.get())
+                                                         if shapeFilesCount.get() > 1
+                                                         else '')
+                        shp_output_path = os.path.join(res_contents_path, shp_fname)
 
-                        # GeoServer Implementation
-                        # if fname.endswith('.kmz'):
-                        #     os.system('unzip -q -d %s %s' % (res_contents_path, fpath))
-                        #     fpath = os.path.join(res_contents_path, 'doc.kml')
-                        # new_fpath = os.path.join(res_contents_path, res_id + '.shp')
-                        # os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(new_fpath, fpath))
-                        # res_fpath = os.path.join(res_contents_path, res_id)
-                        # res_type = 'GeographicFeatureResource'
+                        os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(shp_output_path, kml_path))
+                        if not os.path.exists(shp_output_path):
+                            generic_flag = True
+                            shapeFilesCount.decrease()
+                        else:
+                            res_fpath = os.path.splitext(shp_output_path)[0]
+                            res_type = 'GeographicFeatureResource'
 
                     elif fname.endswith('.shp'):
                         name = fname.split('.')[0]
@@ -834,6 +845,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         prj = '%s.prj' % name in res_files_list
                         shx = '%s.shx' % name in res_files_list
                         if dbf and prj and shx:
+                            shapeFilesCount.increase()
                             shp_path = os.path.join(public_tempdir, fname)
                             shutil.move(fpath, shp_path)
                             public_fpath = shp_path
@@ -885,9 +897,9 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         res_type = 'GenericResource'
                         if not os.path.exists(public_tempdir):
                             os.mkdir(public_tempdir)
-                        dst = os.path.join(public_tempdir, fname)
-                        shutil.move(fpath, dst)
-                        public_fpath = dst
+                        public_fpath = os.path.join(public_tempdir, fname)
+                        shutil.move(fpath, public_fpath)
+                        public_fpath = public_fpath
 
                     result = {
                         'public_fname': os.path.basename(public_fpath) if public_fpath else None,
@@ -912,6 +924,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     return_obj['results'] = new_results
 
         tifFilesCount.reset()
+        shapeFilesCount.reset()
         return_obj['success'] = True
 
     return return_obj
@@ -1022,71 +1035,71 @@ def check_crs(res_type, fpath):
         with open(fpath) as f:
             crs = f.read()
 
-    if 'AUTHORITY' in crs and 'EPSG' in crs:
-        return_obj['success'] = True
-    else:
-        endpoint = 'http://prj2epsg.org/search.json'
-        params = {
-            'mode': 'wkt',
-            'terms': crs
-        }
-        crs_is_unknown = True
-        try:
-            while crs_is_unknown:
-                r = requests.get(endpoint, params=params)
-                if r.status_code != 200:
-                    raise Exception
-                else:
-                    response = r.json()
-                    if 'errors' in response:
-                        errs = response['errors']
-                        if 'Invalid WKT syntax' in errs:
-                            err = errs.split(':')[2]
-                            if err and 'Parameter' in err:
-                                crs_param = err.split('"')[1]
-                                rm_indx_start = crs.find(crs_param)
-                                rm_indx_end = None
-                                sub_str = crs[rm_indx_start:]
-                                counter = 0
-                                check = False
-                                for i, c in enumerate(sub_str):
-                                    if c == '[':
-                                        counter += 1
-                                        check = True
-                                    elif c == ']':
-                                        counter -= 1
-                                        check = True
-                                    if check:
-                                        if counter == 0:
-                                            rm_indx_end = i + rm_indx_start + 1
-                                            break
-                                crs = crs[:rm_indx_start] + crs[rm_indx_end:]
-                                if ',' in crs[:-4]:
-                                    i = crs.rfind(',')
-                                    crs = crs[:i] + crs[i+1:]
-                                params['terms'] = crs
-                                return_obj['crsWasChanged'] = True
-                            else:
-                                break
+    endpoint = 'http://prj2epsg.org/search.json'
+    params = {
+        'mode': 'wkt',
+        'terms': crs
+    }
+    crs_is_unknown = True
+    try:
+        while crs_is_unknown:
+            r = requests.get(endpoint, params=params)
+            if r.status_code != 200:
+                raise Exception
+            else:
+                response = r.json()
+                if 'errors' in response:
+                    errs = response['errors']
+                    if 'Invalid WKT syntax' in errs:
+                        err = errs.split(':')[2]
+                        if err and 'Parameter' in err:
+                            crs_param = err.split('"')[1]
+                            rm_indx_start = crs.find(crs_param)
+                            rm_indx_end = None
+                            sub_str = crs[rm_indx_start:]
+                            counter = 0
+                            check = False
+                            for i, c in enumerate(sub_str):
+                                if c == '[':
+                                    counter += 1
+                                    check = True
+                                elif c == ']':
+                                    counter -= 1
+                                    check = True
+                                if check:
+                                    if counter == 0:
+                                        rm_indx_end = i + rm_indx_start + 1
+                                        break
+                            crs = crs[:rm_indx_start] + crs[rm_indx_end:]
+                            if ',' in crs[:-4]:
+                                i = crs.rfind(',')
+                                crs = crs[:i] + crs[i+1:]
+                            params['terms'] = crs
+                            return_obj['crsWasChanged'] = True
                         else:
                             break
                     else:
-                        crs_is_unknown = False
-                        if res_type == 'RasterResource':
-                            return_obj['code'] = 'EPSG:' + response['codes'][0]['code']
-                        else:
-                            r = requests.get(response['codes'][0]['url'])
-                            proj_json = r.json()
-                            raw_wkt = proj_json['wkt']
-                            tmp_list = []
-                            for seg in raw_wkt.split('\n'):
-                                tmp_list.append(seg.strip())
-                            return_obj['new_wkt'] = ''.join(tmp_list)
+                        break
+                else:
+                    crs_is_unknown = False
+                    if res_type == 'RasterResource':
+                        code = response['codes'][0]['code']
+                        if code not in crs:
+                            return_obj['crsWasChanged'] = True
+                        return_obj['code'] = 'EPSG:' + code
+                    else:
+                        r = requests.get(response['codes'][0]['url'])
+                        proj_json = r.json()
+                        raw_wkt = proj_json['wkt']
+                        tmp_list = []
+                        for seg in raw_wkt.split('\n'):
+                            tmp_list.append(seg.strip())
+                        return_obj['new_wkt'] = ''.join(tmp_list)
 
-                        return_obj['success'] = True
-        except Exception as e:
-            e.message = 'The prj2epsg.org API could not properly handle wkt projection string.'
-            raise
+                    return_obj['success'] = True
+    except Exception as e:
+        e.message = 'The prj2epsg.org API could not properly handle wkt projection string.'
+        raise
 
     return return_obj
 

@@ -1,9 +1,12 @@
-class ResourceTifFilesCount:
+class ResourceFilesCount:
     def __init__(self):
         self.tif_count = 0
 
     def increase(self):
         self.tif_count += 1
+
+    def decrease(self):
+        self.tif_count -= 1
 
     def reset(self):
         self.tif_count = 0

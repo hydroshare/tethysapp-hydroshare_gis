@@ -8,7 +8,7 @@ from datetime import timedelta
 def Test_All_Resources(request):
     try:
         start = time()
-        total_resources = 0
+        res_count = 0
         num_success = 0
         num_errors = 0
         error_resource_list = []
@@ -22,12 +22,18 @@ def Test_All_Resources(request):
 
         valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'GenericResource']
         resource_list = hs.getResourceList(types=valid_res_types)
+        num_resources = 0
+        for res in hs.getResourceList(types=valid_res_types):
+            if res['public']:
+                num_resources += 1
+
         for res in resource_list:
             res_id = None
             try:
                 if res['public']:
-                    total_resources += 1
+                    res_count += 1
                     res_id = res['resource_id']
+                    print "Currently testing resource %s of %s: %s" % (res_count, num_resources, res_id)
                     response = process_hs_res(hs, res_id)
                     if response['success']:
                         num_success += 1
@@ -53,6 +59,8 @@ def Test_All_Resources(request):
                 print 'RES_ID: %s' % res_id
                 print 'MESSAGE: %s' % str(e)
 
+            print "%d%% complete" % (res_count * 100 / num_resources)
+
         elapsed = str(timedelta(seconds=time()-start))
 
         results = '''
@@ -71,11 +79,11 @@ def Test_All_Resources(request):
         {7}
         '''.format(
             elapsed,
-            total_resources,
+            res_count,
             num_errors,
-            '%d%%' % (num_errors * 100 / total_resources),
+            '%d%%' % (num_errors * 100 / res_count),
             num_success,
-            '%d%%' % (num_success * 100 / total_resources),
+            '%d%%' % (num_success * 100 / res_count),
             'LIST OF FAILED RESOURCES:' if len(error_resource_list) != 0 else 'ALL TESTS PASSED!',
             '\n'.join(error_resource_list)
         )

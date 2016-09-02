@@ -1039,10 +1039,9 @@ def check_crs(res_type, fpath):
     try:
         while crs_is_unknown:
             r = requests.get(endpoint, params=params)
-            if r.status_code != 200:
-                params['mode'] = 'keywords'
-                continue
-            else:
+            if '50' in str(r.status_code):
+                raise Exception
+            elif r.status_code == 200:
                 response = r.json()
                 if 'errors' in response:
                     errs = response['errors']
@@ -1093,8 +1092,11 @@ def check_crs(res_type, fpath):
                         return_obj['new_wkt'] = ''.join(tmp_list)
 
                     return_obj['success'] = True
+            else:
+                params['mode'] = 'keywords'
+                continue
     except Exception as e:
-        e.message = 'The prj2epsg.org API could not properly handle wkt projection string.'
+        e.message = 'A service that HydroShare GIS depends on currently appears to be down. An app admin has been notified to further investigate.'
         raise
 
     return return_obj

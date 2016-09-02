@@ -766,11 +766,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                             return return_obj
                         else:
                             if r['crsWasChanged']:
-                                tif_path_mod = tmp_fpath.replace('.', '_reprojected.')
                                 code = r['code']
-                                os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tmp_fpath, tif_path_mod))
-                                os.remove(tmp_fpath)
-                                os.rename(tif_path_mod, tmp_fpath)
+                                os.system('gdal_edit.py -a_srs {0} {1}'.format(code, tmp_fpath))
                             res_fpath = tmp_fpath.replace('tif', 'zip')
                             zip_files(tmp_fpath, res_fpath)
                             break
@@ -881,11 +878,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                             return return_obj
                         else:
                             if r['crsWasChanged']:
-                                tif_path_mod = tmp_fpath.replace('.', '_reprojected.')
                                 code = r['code']
-                                os.system('gdal_translate -a_srs {0} {1} {2}'.format(code, tmp_fpath, tif_path_mod))
-                                os.remove(tmp_fpath)
-                                os.rename(tif_path_mod, tmp_fpath)
+                                os.system('gdal_edit.py -a_srs {0} {1}'.format(code, tmp_fpath))
                             res_fpath = tmp_fpath.replace('tif', 'zip')
                             zip_files(tmp_fpath, res_fpath)
                             tifFilesCount.increase()
@@ -943,6 +937,7 @@ def get_hs_res_list(hs):
         valid_res_types = ['GenericResource', 'GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 'ScriptResource']
         for res in hs.getResourceList(types=valid_res_types):
             res_id = res['resource_id']
+            # This code calculates the cummulative files size of each resource. Comment out to improve performance.
             # res_size = 0
             # try:
             #     for res_file in hs.getResourceFileList(res_id):
@@ -1045,7 +1040,8 @@ def check_crs(res_type, fpath):
         while crs_is_unknown:
             r = requests.get(endpoint, params=params)
             if r.status_code != 200:
-                raise Exception
+                params['mode'] = 'keywords'
+                continue
             else:
                 response = r.json()
                 if 'errors' in response:

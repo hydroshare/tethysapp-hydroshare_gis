@@ -92,7 +92,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">HydroShare GIS</h4>
+                    <h4 class="modal-title">Welcome, <span id="user" data-username="{{ user.username }}">{{ user.first_name|default:user.username }}</span>!</h4>
                 </div>
                 <div class="modal-body">
                     <p><b>If you opened this app from a HydroShare Resource page "Open with..." link, your resource is loading in the background.

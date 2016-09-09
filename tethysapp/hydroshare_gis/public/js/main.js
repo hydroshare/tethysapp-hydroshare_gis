@@ -25,6 +25,50 @@
  document, $, console, FormData, ol, window, setTimeout, reproject, proj4,
  pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor, jsPDF, MutationObserver
  */
+/*property
+    BingMaps, Circle, DataTable, Feature, Fill, FullScreen, GenericResource,
+    GeographicFeatureResource, KML, LAYERS, Map, MousePosition, OverviewMap,
+    Point, RasterResource, RefTimeSeriesResource, SLD_BODY, Style, TILED, Tile,
+    TileArcGISRest, TileWMS, TimeSeriesResource, Vector, View, ZoomSlider, a0,
+    a1, a2, a3, a4, a5, add, addClass, addControl, addImage, addLayer, adjust,
+    ajax, ajaxSetup, allowEmpty, append, async, attr, attributes, bandInfo,
+    band_info, baseMap, beforeSend, cancelText, canvas, ceil, center, change,
+    children, chooseText, className, clearInterval, collapsed, collapsible,
+    color, columnDefs, columns, concat, contentType, context, contextMenu,
+    control, cookie, coordinate, coordinateFormat, createStringXY, crossDomain,
+    crossOrigin, crs, css, cssStyles, currentTarget, data, dataType, decrease,
+    defs, deleteRule, disableSelection, displayAround, displayName, draw,
+    drawImage, each, empty, endsWith, error, extent, extents,
+    feature_properties, features, filename, files, fill, filter, find, fit,
+    fixedHeader, floor, footer, forEach, format, fromLonLat, fun, geom,
+    geomType, geom_type, geoserverUrl, geoserver_url, get, getAlpha, getCenter,
+    getContext, getCoordinates, getElementById, getExtent, getFeatures,
+    getGeometry, getLayers, getSize, getSldString, getSource, getView, getZoom,
+    hasClass, hasOwnProperty, header, height, hide255, host, hsResId, html, id,
+    image, imagerySet, increase, index, indexOf, innerHeight, insertRule, is,
+    item, key, keys, labels, last, lat, layer, layerAttributes, layerId,
+    layer_attributes, layer_extents, layer_id, layer_name, layers, left,
+    length, lineTo, listOrder, location, lon, lyrExtents, lyrId, map, max,
+    maxZoom, maxx, maxy, message, min, minZoom, minx, miny, modal, mouseClick,
+    moveTo, name, naturalHeight, nd, newResource, next, not, observe, off, on,
+    onClose, onOpen, onbeforeunload, once, one, opacity, open, order,
+    orderable, owner, params, parent, parse, pathname, placeholder, position,
+    prepend, processData, proj, projectInfo, project_info, projection, prop,
+    protocol, publicFname, public_fname, push, radius, random, remove,
+    removeAt, removeAttr, removeClass, removeControl, render, renderSync,
+    replace, resAbstract, resId, resKeywords, resTitle, resType,
+    res_dict_string, res_id, res_list, res_title, res_type, results, rules,
+    save, scrollCollapse, scrollLeft, scrollY, search, select, serverType, set,
+    setAlpha, setCenter, setError, setInterval, setLineDash, setPending,
+    setRequestHeader, setSuccess, setTimeout, setVisible, setZIndex, setZoom,
+    shift, showAlpha, showInput, showInset, showPalette, siteInfo, site_info,
+    slice, sort, sortable, source, spectrum, splice, split, stop,
+    stopPropagation, stringify, stroke, style, styleSheets, substr, substring,
+    success, target, targets, test, text, title, toDataURL, toHexString,
+    toLowerCase, toRgbString, toString, toggleClass, top, trigger, triggerOn,
+    trim, type, undefinedHTML, unshift, updateParams, updateSize, url, val,
+    value, view, visible, which, width, zoom, zoomLevel
+*/
 
 (function packageHydroShareGIS() {
 
@@ -152,7 +196,7 @@
                 }
             });
         contextMenuId = $('.iw-contextMenu:last-child').attr('id');
-        $listItem.attr('data-context-menu', contextMenuId);
+        $listItem.data('context-menu', contextMenuId);
     };
 
     addGenericResToUI = function (results, isLastResource) {
@@ -422,7 +466,7 @@
             var contextmenuId;
             var menuObj;
             var newStyle;
-            contextmenuId = $listItem.attr('data-context-menu');
+            contextmenuId = $listItem.data('context-menu');
             menuObj = $('#' + contextmenuId);
             if (menuObj.attr('style') !== undefined && menuObj.attr('style').indexOf('display: none;') === -1) {
                 window.setTimeout(function () {
@@ -624,7 +668,7 @@
 
         $(document).on('change', '.chkbx-layer', function () {
             var displayName = $(this).next().text();
-            var index = Number($(this).parent().attr('data-layer-index'));
+            var index = Number($(this).parent().data('layer-index'));
 
             map.getLayers().item(index).setVisible($(this).is(':checked'));
             projectInfo.map.layers[displayName].visible = $(this).is(':checked');
@@ -683,7 +727,7 @@
 
                 if (color) {
                     color = color.toRgbString();
-                    geomType = $btnApplySymbology.attr('data-geom-type');
+                    geomType = $btnApplySymbology.data('geom-type');
 
                     if (geomType === 'point') {
                         shape = $('#slct-point-shape').val();
@@ -803,7 +847,7 @@
                 }
             }
 
-            $('#color-map-placeholder').attr('data-num-colors', numColors);
+            $('#color-map-placeholder').data('num-colors', numColors);
 
             if (htmlString !== '') {
                 $('#color-map-placeholder').append(htmlString);
@@ -1149,7 +1193,7 @@
         for (i = 3; i <= numLayers; i += 1) {
             layer = $currentLayersList.find('li:nth-child(' + (i - 2) + ')');
             displayName = layer.find('.layer-name').text();
-            index = Number(layer.attr('data-layer-index'));
+            index = Number(layer.data('layer-index'));
             if (index < 1000) {
                 zIndex = numLayers - i;
                 map.getLayers().item(index).setZIndex(zIndex);
@@ -1402,7 +1446,7 @@
                 var opacity;
                 var quantitySelector;
 
-                numColors = $('#color-map-placeholder').attr('data-num-colors');
+                numColors = $('#color-map-placeholder').data('num-colors');
                 for (i = 0; i < numColors; i += 1) {
                     colorSelector = '#color' + i;
                     quantitySelector = '#quantity' + i;
@@ -1848,9 +1892,9 @@
         $('#ul-resources-to-add').find('li').each(function (ignore, li) {
             var $li = $(li);
             additionalResources.push({
-                'id': $li.attr('data-id'),
-                'type': $li.attr('data-type'),
-                'title': $li.attr('data-title')
+                'id': $li.data('id'),
+                'type': $li.data('type'),
+                'title': $li.data('title')
             });
         });
         loadResource(resId, 'GenericResource', resTitle, false, additionalResources);
@@ -1866,9 +1910,9 @@
         $('#ul-resources-to-add').find('li').each(function (ignore, li) {
             var $li = $(li);
             additionalResources.push({
-                'id': $li.attr('data-id'),
-                'type': $li.attr('data-type'),
-                'title': $li.attr('data-title')
+                'id': $li.data('id'),
+                'type': $li.data('type'),
+                'title': $li.data('title')
             });
         });
         firstResource = additionalResources.shift();
@@ -1880,7 +1924,7 @@
         var count;
         var $lyrListItem = $(clickedElement).parent().parent();
         var displayName = $lyrListItem.find('.layer-name').text();
-        var deleteIndex = Number($lyrListItem.attr('data-layer-index'));
+        var deleteIndex = Number($lyrListItem.data('layer-index'));
         var i;
         var index;
         var $layer;
@@ -1896,9 +1940,9 @@
         for (i = 1; i <= count; i += 1) {
             $layer = $currentLayersList.find('li:nth-child(' + i + ')');
             displayName = $layer.find('.layer-name').text();
-            index = Number($layer.attr('data-layer-index'));
+            index = Number($layer.data('layer-index'));
             if (deleteIndex < 1000 && (index > deleteIndex)) {
-                $layer.attr('data-layer-index', index - 1);
+                $layer.data('layer-index', index - 1);
                 projectInfo.map.layers[displayName].index = projectInfo.map.layers[displayName].index - 1;
             }
             projectInfo.map.layers[displayName].listOrder = i;
@@ -1916,14 +1960,14 @@
     onClickViewFile = function (e) {
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
-        var fName = $lyrListItem.attr('data-public-fname');
-        var resType = $lyrListItem.attr('data-res-type');
+        var fName = $lyrListItem.data('public-fname');
+        var resType = $lyrListItem.data('res-type');
         var url;
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
         var validMovieTypes = ['mov', 'mp4', 'webm', 'ogg'];
         var validTextTypes = ['txt', 'py', 'r', 'matlab', 'm', 'sh', 'xml', 'wml', 'gml', 'kml'];
-        var resId = $lyrListItem.attr('data-res-id');
+        var resId = $lyrListItem.data('res-id');
         var $loading = $('#view-file-loading');
 
         $('.view-file').addClass('hidden');
@@ -1947,24 +1991,21 @@
                     .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
                     .removeClass('hidden');
             } else {
+                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + $('#user').data('username') + '/' + fName;
                 if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#iframe-container')
                         .empty()
                         .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
                         .removeClass('hidden');
                 } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#img-viewer').attr('src', url).removeClass('hidden');
                 } else if (validMovieTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#iframe-container')
                         .empty()
                         .append('<video id="iframe-js-viewer" src="' + url + '" controls></video>')
                         .removeClass('hidden');
                 } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
                     url = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
-                    // url = 'https://appsdev.hydroshare.org/apps/script-viewer/?src=hydroshare&res_id=' + resId;
                     $loading.removeClass('hidden');
                     $('#iframe-container')
                         .empty()
@@ -1974,7 +2015,6 @@
                         $('#iframe-container').removeClass('hidden');
                     });
                 } else {
-                    url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + fName;
                     $('#link-download-file').attr('href', url);
                     $('#unviewable-file').attr('src', url).removeClass('hidden');
                 }
@@ -1987,7 +2027,7 @@
     onClickOpenInHS = function (e) {
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
-        var resId = $lyrListItem.attr('data-res-id');
+        var resId = $lyrListItem.data('res-id');
         var urlBase;
 
         urlBase = 'https://www.hydroshare.org/resource/';
@@ -1999,7 +2039,7 @@
         var $lyrListItem = $(clickedElement).parent().parent();
         var $layerNameInput = $lyrListItem.find('input[type=text]');
         var $LayerNameSpan = $lyrListItem.find('span');
-        // layerIndex = $lyrListItem.attr('data-layer-index');
+        // layerIndex = $lyrListItem.data('layer-index');
 
         $LayerNameSpan.addClass('hidden');
         $lyrListItem.find('input')
@@ -2056,8 +2096,8 @@
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
         var layerName = $lyrListItem.text();
-        var layerId = $lyrListItem.attr('data-layer-id');
-        var layerAttributes = $lyrListItem.attr('data-layer-attributes');
+        var layerId = $lyrListItem.data('layer-id');
+        var layerAttributes = $lyrListItem.data('layer-attributes');
 
         generateAttributeTable(layerId, layerAttributes, layerName);
     };
@@ -2065,8 +2105,8 @@
     onClickViewLegend = function (e) {
         var clickedElement = e.trigger.context;
         var $lyrListItem = $(clickedElement).parent().parent();
-        var geomType = $lyrListItem.attr('data-geom-type');
-        var layerId = $lyrListItem.attr('data-layer-id');
+        var geomType = $lyrListItem.data('geom-type');
+        var layerId = $lyrListItem.data('layer-id');
         var displayName = $lyrListItem.find('.layer-name').text();
         var layerName = $lyrListItem.text();
         var cssStyles = projectInfo.map.layers[displayName].cssStyles;
@@ -2096,8 +2136,8 @@
 
         clickedElement = e.trigger.context;
         $lyrListItem = $(clickedElement).parent().parent();
-        index = Number($lyrListItem.attr('data-layer-index'));
-        resType = $lyrListItem.attr('data-res-type');
+        index = Number($lyrListItem.data('layer-index'));
+        resType = $lyrListItem.data('res-type');
         if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
             layerExtent = map.getLayers().item(index).getSource().getFeatures()[0].getGeometry().getCoordinates();
         } else {
@@ -2231,25 +2271,25 @@
     };
 
     setupSymbologyModalState = function ($lyrListItem) {
-        var geomType = $lyrListItem.attr('data-geom-type');
-        var layerId = $lyrListItem.attr('data-layer-id');
+        var geomType = $lyrListItem.data('geom-type');
+        var layerId = $lyrListItem.data('layer-id');
         var displayName = $lyrListItem.find('.layer-name').text();
-        var layerIndex = $lyrListItem.attr('data-layer-index');
-        var labelFieldOptions = $lyrListItem.attr('data-layer-attributes').split(',');
+        var layerIndex = $lyrListItem.data('layer-index');
+        var labelFieldOptions = $lyrListItem.data('layer-attributes').split(',');
         var bandInfo = {
-            'min': $lyrListItem.attr('data-band-min'),
-            'max': $lyrListItem.attr('data-band-max'),
-            'nd': $lyrListItem.attr('data-band-nd')
+            'min': $lyrListItem.data('band-min'),
+            'max': $lyrListItem.data('band-max'),
+            'nd': $lyrListItem.data('band-nd')
         };
         var optionsHtmlString = '';
         var layerCssStyles;
 
         $modalSymbology.find('.modal-title').text('Modify Symbology for: ' + $lyrListItem.find('.layer-name').text());
-        $modalSymbology.find('#btn-apply-symbology').attr({
-            'data-geom-type': geomType,
-            'data-layer-id': layerId,
-            'data-layer-index': layerIndex,
-            'data-layer-name': displayName
+        $modalSymbology.find('#btn-apply-symbology').data({
+            'geom-type': geomType,
+            'layer-id': layerId,
+            'layer-index': layerIndex,
+            'layer-name': displayName
         });
 
         labelFieldOptions.forEach(function (option) {
@@ -2446,10 +2486,10 @@
     };
 
     updateSymbology = function ($this) {
-        var geomType = $this.attr('data-geom-type');
-        var layerId = $this.attr('data-layer-id');
-        var displayName = $this.attr('data-layer-name');
-        var layerIndex = $this.attr('data-layer-index');
+        var geomType = $this.data('geom-type');
+        var layerId = $this.data('layer-id');
+        var displayName = $this.data('layer-name');
+        var layerIndex = $this.data('layer-index');
         var sldString;
         var cssStyles;
         var hide255 = projectInfo.map.layers[displayName].hide255;

@@ -26,7 +26,8 @@ def add_hs_res(request):
             if hs is None:
                 return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
             else:
-                return_obj = process_hs_res(hs=hs, res_id=res_id, res_type=res_type, res_title=res_title)
+                return_obj = process_hs_res(hs=hs, res_id=res_id, res_type=res_type, res_title=res_title,
+                                            username=request.user.username)
 
     else:
         return_obj['message'] = 'This request can only be made through a "GET" AJAX call.'
@@ -47,7 +48,8 @@ def add_local_file(request):
         if hs is None:
             return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
         else:
-            return_obj = process_local_file(file_list, proj_id, hs)
+            return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs,
+                                            username=request.user.username)
     else:
         return_obj['message'] = 'This request can only be made through a "POST" AJAX call.'
 
@@ -104,7 +106,9 @@ def ajax_save_new_project(request):
         if hs is None:
             return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
         else:
-            return_obj = save_new_project(hs, project_info, res_title, res_abstract, res_keywords)
+            return_obj = save_new_project(hs=hs, project_info=project_info, res_title=res_title,
+                                          res_abstract=res_abstract, res_keywords=res_keywords,
+                                          username=request.user.username)
 
         return JsonResponse(return_obj)
 
@@ -132,7 +136,7 @@ def ajax_get_geoserver_url(request):
 
 def ajax_delete_public_tempfiles(request):
     if request.is_ajax and request.method == 'GET':
-        delete_public_tempfiles()
+        delete_public_tempfiles(username=request.user.username)
 
     return JsonResponse({'success': True})
 
@@ -149,6 +153,6 @@ def ajax_get_generic_files(request):
         if hs is None:
             return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
         else:
-            return_obj = get_generic_files(hs, res_dict_string)
+            return_obj = get_generic_files(hs=hs, res_dict_string=res_dict_string, username=request.user.username)
 
         return JsonResponse(return_obj)

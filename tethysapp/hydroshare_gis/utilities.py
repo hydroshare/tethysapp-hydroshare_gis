@@ -23,18 +23,15 @@ from socket import gethostname
 from subprocess import check_output
 from StringIO import StringIO
 
-hs_tempdir = '/tmp/hs_gis_files/'
-public_tempdir = getfile(currentframe()).replace('utilities.py', 'public/temp/')
 workspace_id = None
 spatial_dataset_engine = None
-current_user = None
 tifFilesCount = ResourceFilesCount()
 shapeFilesCount = ResourceFilesCount()
 currently_testing = False
 
 def get_oauth_hs(request):
     hs = None
-    hs_hostname = 'www.hydroshare.org'
+    hs_hostname = 'beta.hydroshare.org'
     try:
         client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
         client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
@@ -343,7 +340,7 @@ def get_geoserver_credentials():
     return (engine.username, engine.password)
 
 
-def process_local_file(file_list, proj_id, hs):
+def process_local_file(file_list, proj_id, hs, username):
     return_obj = {
         'success': False,
         'message': None,
@@ -362,13 +359,11 @@ def process_local_file(file_list, proj_id, hs):
         }
     }
     results = return_obj['results']
-
     res_type = None
     res_id = proj_id
     is_zip = False
     res_files = None
-
-    make_temp_dir()
+    hs_tempdir = get_hs_tempdir(username)
 
     for f in file_list:
         file_name = f.name
@@ -440,7 +435,7 @@ def process_local_file(file_list, proj_id, hs):
     return return_obj
 
 
-def process_hs_res(hs, res_id, res_type=None, res_title=None):
+def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
     global currently_testing
     return_obj = {
         'success': False,
@@ -465,6 +460,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
     '''
     results = return_obj['results']
     process_res = False
+    hs_tempdir = get_hs_tempdir(username)
+    public_tempdir = get_public_tempdir(username)
 
     try:
         if res_type is None or res_title is None:
@@ -500,7 +497,7 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
             process_res = True
 
         if process_res:
-            response = process_res_by_type(hs, res_id, res_type)
+            response = process_res_by_type(hs, res_id, res_type, hs_tempdir, public_tempdir)
             if not response['success']:
                 return_obj['message'] = response['message']
             else:
@@ -541,7 +538,7 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None):
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
 
-    os.system('rm -rf %s*' % hs_tempdir)
+    os.system('rm -rf %s' % hs_tempdir)
 
     return return_obj
 
@@ -570,7 +567,7 @@ def check_geoserver_for_res(res_id):
     return return_obj
 
 
-def download_res_from_hs(hs, res_id):
+def download_res_from_hs(hs, res_id, tempdir):
     return_obj = {
         'success': False,
         'message': None,
@@ -588,9 +585,8 @@ def download_res_from_hs(hs, res_id):
             break
 
     if not is_too_big:
-        make_temp_dir()
-        hs.getResource(res_id, destination=hs_tempdir, unzip=True)
-        res_contents_path = os.path.join(hs_tempdir, res_id, res_id, 'data', 'contents')
+        hs.getResource(res_id, destination=tempdir, unzip=True)
+        res_contents_path = os.path.join(tempdir, res_id, res_id, 'data', 'contents')
         return_obj['res_contents_path'] = res_contents_path
         return_obj['success'] = True
     else:
@@ -599,7 +595,7 @@ def download_res_from_hs(hs, res_id):
     return return_obj
 
 
-def process_res_by_type(hs, res_id, res_type):
+def process_res_by_type(hs, res_id, res_type, hs_tempdir, public_tempdir):
     return_obj = {
         'success': False,
         'message': None,
@@ -634,12 +630,12 @@ def process_res_by_type(hs, res_id, res_type):
             results.append(result)
             return_obj['success'] = True
     else:
-        response = download_res_from_hs(hs, res_id)
+        response = download_res_from_hs(hs, res_id, hs_tempdir)
         if not response['success']:
             return_obj['message'] = response['message']
         else:
             res_contents_path = response['res_contents_path']
-            response = get_info_from_res_files(res_id, res_type, res_contents_path)
+            response = get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
             if not response['success']:
                 return_obj['message'] = response['message']
             else:
@@ -708,7 +704,7 @@ def process_res_by_type(hs, res_id, res_type):
 
     return return_obj
 
-def get_info_from_res_files(res_id, res_type, res_contents_path):
+def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir):
     return_obj = {
         'success': False,
         'message': None,
@@ -776,7 +772,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     break
 
             if num_files > 2:
-                pyramid_dir_path = os.path.join(hs_tempdir, 'res_%s/' % res_id)
+                pyramid_dir_path = os.path.join(res_contents_path, 'res_%s/' % res_id)
                 res_fpath = '%s.zip' % pyramid_dir_path[:-1]
                 os.mkdir(pyramid_dir_path)
                 gdal_retile = 'gdal_retile.py -levels 9 -ps 2048 2048 -co "TILED=YES" -targetDir %s %s'
@@ -812,8 +808,6 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         shapeFilesCount.increase()
                         #Openlayers KML Implementation
                         if fname.endswith('.kmz'):
-                            if not os.path.exists(public_tempdir):
-                                os.mkdir(public_tempdir)
                             os.system('unzip -q -d %s %s' % (public_tempdir, fpath))
                             public_fpath = os.path.join(public_tempdir, 'doc.kml')
                             kml_path = public_fpath
@@ -981,6 +975,23 @@ def get_workspace():
     return workspace_id
 
 
+def get_hs_tempdir(username=None):
+    hs_tempdir = '/tmp/hs_gis_files/%s' % (('%s/' % username) if username else '')
+    if not os.path.exists(hs_tempdir):
+        os.makedirs(hs_tempdir)
+
+    return hs_tempdir
+
+def get_public_tempdir(username=None):
+    public_tempdir = os.path.join(getfile(currentframe()).replace('utilities.py', 'public/temp/'),
+                                  username if username else '')
+
+    if not os.path.exists(public_tempdir):
+        os.makedirs(public_tempdir)
+
+    return public_tempdir
+
+
 def email_admin(subject, traceback=None, custom_msg=None):
     if traceback is None and custom_msg is None:
         return -1
@@ -1039,6 +1050,7 @@ def check_crs(res_type, fpath):
     try:
         while crs_is_unknown:
             r = requests.get(endpoint, params=params)
+            print r.url
             if '50' in str(r.status_code):
                 raise Exception
             elif r.status_code == 200:
@@ -1102,18 +1114,21 @@ def check_crs(res_type, fpath):
     return return_obj
 
 
-def delete_public_tempfiles():
+def delete_public_tempfiles(username):
+    public_tempdir = get_public_tempdir(username)
     if os.path.exists(public_tempdir):
         shutil.rmtree(public_tempdir)
 
 
-def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
+def save_new_project(hs, project_info, res_title, res_abstract, res_keywords, username):
     return_obj = {
         'success': False,
         'message': None,
         'res_id': None
     }
     res_id = None
+    hs_tempdir = get_hs_tempdir(username)
+
     try:
         res_type = 'GenericResource'
         fname = 'mapProject.json'
@@ -1139,7 +1154,7 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords):
             hs.addResourceFile(pid=res_id, resource_file=f, resource_filename=fname)
 
         if orig_id:
-            r = download_res_from_hs(hs, orig_id)
+            r = download_res_from_hs(hs, orig_id, hs_tempdir)
             if not r['success']:
                 return_obj['message'] = r['message']
             else:
@@ -1183,11 +1198,6 @@ def zip_folder(folder_path, output_path):
                 absolute_path = os.path.join(root, file_name)
                 relative_path = absolute_path.replace(parent_folder + '/', '')
                 zip_file.write(absolute_path, relative_path)
-
-
-def make_temp_dir():
-    if not os.path.exists(hs_tempdir):
-        os.mkdir(hs_tempdir)
 
 
 def save_project(hs, res_id, project_info):

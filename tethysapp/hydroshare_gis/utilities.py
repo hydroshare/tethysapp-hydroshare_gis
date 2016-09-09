@@ -1254,14 +1254,13 @@ def generate_attribute_table(layer_id, layer_attributes):
     return return_obj
 
 
-def get_generic_files(hs, res_dict_string):
+def get_generic_files(hs, res_dict_string, username):
     return_obj = {
         'success': False,
         'message': None,
     }
     res_dict = loads(res_dict_string)
-    if not os.path.exists(public_tempdir):
-        os.mkdir(public_tempdir)
+    public_tempdir = get_public_tempdir(username)
     for res in res_dict:
         for res_file in res_dict[res]:
             hs.getResourceFile(res, res_file, destination=public_tempdir)

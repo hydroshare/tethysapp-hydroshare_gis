@@ -51,7 +51,7 @@ def Test_All_Resources(request):
                             print 'ERROR ENCOUNTERED:'
                             print 'RES_ID: %s' % res_id
                             print 'MESSAGE: %s' % response['message']
-                    delete_public_tempfiles()
+                    delete_public_tempfiles(username=request.user.username)
             except Exception as e:
                 num_errors += 1
                 error_resource_list.append('https://www.hydroshare.org/resource/%s' % res_id)

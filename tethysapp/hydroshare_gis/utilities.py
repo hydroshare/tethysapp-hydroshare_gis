@@ -304,9 +304,8 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def request_wfs_info(params):
-    geoserver_url = get_geoserver_url()
-    geoserver_url += '/wfs'
+def make_geoserver_request(web_service, params):
+    geoserver_url = get_geoserver_url() + '/%s' % web_service
 
     r = requests.get(geoserver_url, params=params, auth=get_geoserver_credentials())
 
@@ -1243,7 +1242,7 @@ def generate_attribute_table(layer_id, layer_attributes):
             'outputFormat': 'application/json'
         }
 
-        r = request_wfs_info(params)
+        r = make_geoserver_request('wfs', params)
         json = r.json()
 
         feature_properties = []
@@ -1277,3 +1276,9 @@ def get_generic_files(hs, res_dict_string, username):
 def set_currently_testing(val):
     global currently_testing
     currently_testing = val
+
+
+def get_features_on_click(params_str):
+    params = loads(params_str)
+    r = make_geoserver_request('wms', params)
+    return r.json()

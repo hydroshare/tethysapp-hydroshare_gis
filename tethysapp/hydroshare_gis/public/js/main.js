@@ -1996,8 +1996,10 @@
 
             $.ajax({
                 type: 'GET',
-                url: projectInfo.map.geoserverUrl + '/wms',
-                data: params,
+                url: '/apps/hydroshare-gis/get-features-on-click',
+                data: {
+                    params: JSON.stringify(params)
+                },
                 success: function (response) {
                     if (response.hasOwnProperty('features')) {
                         if (response.features.length > 0) {

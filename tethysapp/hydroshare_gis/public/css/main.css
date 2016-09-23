@@ -565,4 +565,10 @@ label {
 a.ol-zoomslider-handle:hover {
     background-color: rgba(134, 186, 251, 0.7);
 }
+#close-map-popup {
+    position: absolute;
+    top: 0;
+    right: 2px;
+    cursor: pointer;
+}
 /****************************************************/

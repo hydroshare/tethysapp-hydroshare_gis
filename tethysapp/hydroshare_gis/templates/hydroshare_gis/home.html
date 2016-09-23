@@ -4,6 +4,7 @@
 
 {% block app_content %}
     <div id="map"></div>
+    <div id="map-popup"></div>
     <div id="mouse-position"></div>
 {% endblock %}
 
@@ -231,7 +232,19 @@
                             <button type="button" id="apply-opacity-to-colors">Apply to all colors</button>
                             <span>(Where 0=Invisible and 1=Visible)</span>
                             <br>
-                            <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
+                            <div>
+                                <label>Rendering method:</label>
+                                <br>
+                                <span style="margin-left:10px;">Hover over options for an explanation</span>
+                                <br>
+                                <input type="radio" style="margin-left:10px;" name="rast-symb-method" id="rast-ramp" value="ramp" checked>
+                                <label for="rast-ramp" title="Colors are interpolated for values between the color/value entries">Ramp</label>
+                                <input type="radio" name="rast-symb-method" id="rast-interval" value="intervals">
+                                <label for="rast-intervals" title="Each interval defined by two color/value entries is rendered using the color of the first (lowest-value) entry">Interval</label>
+                                <input type="radio" name="rast-symb-method" id="rast-values" value="values">
+                                <label for="rast-values" title="Only pixels with the specified entry quantity values are rendered">Values</label>
+                            </div>
+                            <label for="slct-num-colors-in-gradient">Number of color/value definitions:</label>
                             <select id="slct-num-colors-in-gradient">
                                 {% for val in num_gradient_colors_options %}
                                     <option value="{{ val }}">{{ val }}</option>

@@ -49,7 +49,7 @@
  item, key, keys, labels, last, lat, layer, layerAttributes, layerId,
  layer_attributes, layer_extents, layer_id, layer_name, layers, left,
  length, lineTo, listOrder, location, lon, lyrExtents, lyrId, map, max,
- maxZoom, maxx, maxy, message, min, minZoom, minx, miny, modal, mouseClick,
+ maxZoom, maxx, maxy, message, method, min, minZoom, minx, miny, modal, mouseClick,
  moveTo, name, naturalHeight, nd, newResource, next, not, observe, off, on,
  onClose, onOpen, onbeforeunload, once, one, opacity, open, order,
  orderable, owner, params, parent, parse, pathname, placeholder, position,
@@ -90,6 +90,7 @@
     var layerCount;
     var loadGenericFilesStatus;
     var map;
+    var mapPopup;
     var projectInfo;
 
     //  *********FUNCTIONS***********
@@ -131,6 +132,7 @@
     var onClickAddToExistingProject;
     var onClickAddToNewProject;
     var onClickDeleteLayer;
+    var onClickViewGetPixelVal;
     var onClickModifySymbology;
     var onClickViewFile;
     var onClickOpenInHS;
@@ -165,6 +167,7 @@
     var $btnSaveProject;
     var $currentLayersList;
     var $loadingAnimMain;
+    var $mapPopup;
     var $modalAttrTbl;
     var $modalLegend;
     var $modalLoadFile;
@@ -377,6 +380,7 @@
             cssStyles = 'Default';
         } else {
             cssStyles = {'color-map': {}};
+            cssStyles.method = 'ramp';
             if (bandInfo.nd || bandInfo.nd === 0) {
                 cssStyles['color-map'][bandInfo.nd] = {
                     color: '#000000',
@@ -1440,6 +1444,7 @@
         var cssStyles = {};
 
         if (geomType === 'None') {
+            cssStyles.method = $('[name=rast-symb-method]:checked').val();
             cssStyles['color-map'] = {};
             (function () {
                 var numColors;
@@ -1565,6 +1570,7 @@
         $btnSaveProject = $('#btn-save-project');
         $currentLayersList = $('#current-layers-list');
         $loadingAnimMain = $('#div-loading');
+        $mapPopup = $('#map-popup');
         $modalAttrTbl = $('#modalAttrTbl');
         $modalLegend = $('#modalLegend');
         $modalLoadFile = $('#modalLoadFile');
@@ -1628,6 +1634,12 @@
             title: 'View legend',
             fun: function (e) {
                 onClickViewLegend(e);
+            }
+        }, {
+            name: 'Get pixel value on click',
+            title: 'Get pixel value on click',
+            fun: function (e) {
+                onClickViewGetPixelVal(e);
             }
         });
 
@@ -1710,6 +1722,14 @@
         map.addControl(new ol.control.ZoomSlider());
         map.addControl(mousePositionControl);
         map.addControl(fullScreenControl);
+
+        mapPopup = new ol.Overlay({
+            element: $mapPopup[0],
+            positioning: 'bottom-center',
+            stopEvent: true
+        });
+
+        map.addOverlay(mapPopup);
     };
 
     loadProjectFile = function (fileProjectInfo) {
@@ -1949,6 +1969,54 @@
             }
             projectInfo.map.layers[displayName].listOrder = i;
         }
+    };
+
+    onClickViewGetPixelVal = function (e) {
+        var clickedElement = e.trigger.context;
+        var $lyrListItem = $(clickedElement).parent().parent();
+        var lyrId = $lyrListItem.data('layer-id');
+        map.once('click', function (evt) {
+            var origCoords = evt.coordinate;
+            var minCoords = ol.proj.toLonLat(origCoords, 'EPSG:3857');
+            var maxCoords = ol.proj.toLonLat([origCoords[0] + 5, origCoords[1] + 5], 'EPSG:3857');
+            var params = {
+                'request': 'GetFeatureInfo',
+                'service': 'WMS',
+                'version': '1.1.1',
+                'layers': lyrId,
+                'srs': 'EPSG:4326',
+                'bbox': minCoords[0] + ',' + minCoords[1] + ',' + maxCoords[0] + ',' + maxCoords[1],
+                'width': 10,
+                'height': 10,
+                'query_layers': lyrId,
+                'info_format': 'application/json',
+                'x': 0,
+                'y': 0
+            };
+
+            $.ajax({
+                type: 'GET',
+                url: projectInfo.map.geoserverUrl + '/wms',
+                data: params,
+                success: function (response) {
+                    if (response.hasOwnProperty('features')) {
+                        if (response.features.length > 0) {
+                            $mapPopup.popover({
+                                'placement': 'top',
+                                'html': true,
+                                'content': '<div id="close-map-popup">X</div><p>' + response.features[0].properties.GRAY_INDEX + '</p>'
+                            });
+                            mapPopup.setPosition(origCoords);
+                            $mapPopup.popover('show');
+
+                            $('#close-map-popup').one('click', function () {
+                                $mapPopup.popover('destroy');
+                            });
+                        }
+                    }
+                }
+            });
+        });
     };
 
     onClickModifySymbology = function (e) {
@@ -2425,10 +2493,13 @@
         var i;
         var quantitySelector;
         var colorSelector;
+        var method;
 
         if (layerCssStyles === "Default") {
             $('#slct-num-colors-in-gradient').trigger('change');
         } else {
+            method = layerCssStyles.method;
+            $('#rast-' + method).prop('checked', true);
             colorMapObj = layerCssStyles['color-map'];
             colorKeys = Object.keys(colorMapObj).sort(function (a, b) {return Number(a) - Number(b); });
             numKeys = colorKeys.length;

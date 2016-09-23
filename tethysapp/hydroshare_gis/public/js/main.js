@@ -26,49 +26,49 @@
  pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor, jsPDF, MutationObserver
  */
 /*property
-    BingMaps, Circle, DataTable, Feature, Fill, FullScreen, GenericResource,
-    GeographicFeatureResource, KML, LAYERS, Map, MousePosition, OverviewMap,
-    Point, RasterResource, RefTimeSeriesResource, SLD_BODY, Style, TILED, Tile,
-    TileArcGISRest, TileWMS, TimeSeriesResource, Vector, View, ZoomSlider, a0,
-    a1, a2, a3, a4, a5, add, addClass, addControl, addImage, addLayer, adjust,
-    ajax, ajaxSetup, allowEmpty, append, async, attr, attributes, bandInfo,
-    band_info, baseMap, beforeSend, cancelText, canvas, ceil, center, change,
-    children, chooseText, className, clearInterval, collapsed, collapsible,
-    color, columnDefs, columns, concat, contentType, context, contextMenu,
-    control, cookie, coordinate, coordinateFormat, createStringXY, crossDomain,
-    crossOrigin, crs, css, cssStyles, currentTarget, data, dataType, decrease,
-    defs, deleteRule, disableSelection, displayAround, displayName, draw,
-    drawImage, each, empty, endsWith, error, extent, extents,
-    feature_properties, features, filename, files, fill, filter, find, fit,
-    fixedHeader, floor, footer, forEach, format, fromLonLat, fun, geom,
-    geomType, geom_type, geoserverUrl, geoserver_url, get, getAlpha, getCenter,
-    getContext, getCoordinates, getElementById, getExtent, getFeatures,
-    getGeometry, getLayers, getSize, getSldString, getSource, getView, getZoom,
-    hasClass, hasOwnProperty, header, height, hide255, host, hsResId, html, id,
-    image, imagerySet, increase, index, indexOf, innerHeight, insertRule, is,
-    item, key, keys, labels, last, lat, layer, layerAttributes, layerId,
-    layer_attributes, layer_extents, layer_id, layer_name, layers, left,
-    length, lineTo, listOrder, location, lon, lyrExtents, lyrId, map, max,
-    maxZoom, maxx, maxy, message, min, minZoom, minx, miny, modal, mouseClick,
-    moveTo, name, naturalHeight, nd, newResource, next, not, observe, off, on,
-    onClose, onOpen, onbeforeunload, once, one, opacity, open, order,
-    orderable, owner, params, parent, parse, pathname, placeholder, position,
-    prepend, processData, proj, projectInfo, project_info, projection, prop,
-    protocol, publicFname, public_fname, push, radius, random, remove,
-    removeAt, removeAttr, removeClass, removeControl, render, renderSync,
-    replace, resAbstract, resId, resKeywords, resTitle, resType,
-    res_dict_string, res_id, res_list, res_title, res_type, results, rules,
-    save, scrollCollapse, scrollLeft, scrollY, search, select, serverType, set,
-    setAlpha, setCenter, setError, setInterval, setLineDash, setPending,
-    setRequestHeader, setSuccess, setTimeout, setVisible, setZIndex, setZoom,
-    shift, showAlpha, showInput, showInset, showPalette, siteInfo, site_info,
-    slice, sort, sortable, source, spectrum, splice, split, stop,
-    stopPropagation, stringify, stroke, style, styleSheets, substr, substring,
-    success, target, targets, test, text, title, toDataURL, toHexString,
-    toLowerCase, toRgbString, toString, toggleClass, top, trigger, triggerOn,
-    trim, type, undefinedHTML, unshift, updateParams, updateSize, url, val,
-    value, view, visible, which, width, zoom, zoomLevel
-*/
+ BingMaps, Circle, DataTable, Feature, Fill, FullScreen, GenericResource,
+ GeographicFeatureResource, KML, LAYERS, Map, MousePosition, OverviewMap,
+ Point, RasterResource, RefTimeSeriesResource, SLD_BODY, Style, TILED, Tile,
+ TileArcGISRest, TileWMS, TimeSeriesResource, Vector, View, ZoomSlider, a0,
+ a1, a2, a3, a4, a5, add, addClass, addControl, addImage, addLayer, adjust,
+ ajax, ajaxSetup, allowEmpty, append, async, attr, attributes, bandInfo,
+ band_info, baseMap, beforeSend, cancelText, canvas, ceil, center, change,
+ children, chooseText, className, clearInterval, collapsed, collapsible,
+ color, columnDefs, columns, concat, contentType, context, contextMenu,
+ control, cookie, coordinate, coordinateFormat, createStringXY, crossDomain,
+ crossOrigin, crs, css, cssStyles, currentTarget, data, dataType, decrease,
+ defs, deleteRule, disableSelection, displayAround, displayName, draw,
+ drawImage, each, empty, endsWith, error, extent, extents,
+ feature_properties, features, filename, files, fill, filter, find, fit,
+ fixedHeader, floor, footer, forEach, format, fromLonLat, fun, geom,
+ geomType, geom_type, geoserverUrl, geoserver_url, get, getAlpha, getCenter,
+ getContext, getCoordinates, getElementById, getExtent, getFeatures,
+ getGeometry, getLayers, getSize, getSldString, getSource, getView, getZoom,
+ hasClass, hasOwnProperty, header, height, hide255, host, hsResId, html, id,
+ image, imagerySet, increase, index, indexOf, innerHeight, insertRule, is,
+ item, key, keys, labels, last, lat, layer, layerAttributes, layerId,
+ layer_attributes, layer_extents, layer_id, layer_name, layers, left,
+ length, lineTo, listOrder, location, lon, lyrExtents, lyrId, map, max,
+ maxZoom, maxx, maxy, message, min, minZoom, minx, miny, modal, mouseClick,
+ moveTo, name, naturalHeight, nd, newResource, next, not, observe, off, on,
+ onClose, onOpen, onbeforeunload, once, one, opacity, open, order,
+ orderable, owner, params, parent, parse, pathname, placeholder, position,
+ prepend, processData, proj, projectInfo, project_info, projection, prop,
+ protocol, publicFname, public_fname, push, radius, random, remove,
+ removeAt, removeAttr, removeClass, removeControl, render, renderSync,
+ replace, resAbstract, resId, resKeywords, resTitle, resType,
+ res_dict_string, res_id, res_list, res_title, res_type, results, rules,
+ save, scrollCollapse, scrollLeft, scrollY, search, select, serverType, set,
+ setAlpha, setCenter, setError, setInterval, setLineDash, setPending,
+ setRequestHeader, setSuccess, setTimeout, setVisible, setZIndex, setZoom,
+ shift, showAlpha, showInput, showInset, showPalette, siteInfo, site_info,
+ slice, sort, sortable, source, spectrum, splice, split, stop,
+ stopPropagation, stringify, stroke, style, styleSheets, substr, substring,
+ success, target, targets, test, text, title, toDataURL, toHexString,
+ toLowerCase, toRgbString, toString, toggleClass, top, trigger, triggerOn,
+ trim, type, undefinedHTML, units, unshift, updateParams, updateSize, url, val,
+ value, variable, view, visible, which, width, zoom, zoomLevel
+ */
 
 (function packageHydroShareGIS() {
 
@@ -1145,6 +1145,8 @@
             'data-geom-type="' + geomType + '" ' +
             'data-public-fname="' + publicFilename + '" ' +
             'data-layer-attributes="' + layerAttributes + '" ' +
+            'data-band-variable="' + (bandInfo ? bandInfo.variable : undefined) + '" ' +
+            'data-band-units="' + (bandInfo ? bandInfo.units : undefined) + '" ' +
             'data-band-min="' + (bandInfo ? bandInfo.min : undefined) + '" ' +
             'data-band-max="' + (bandInfo ? bandInfo.max : undefined) + '" ' +
             'data-band-nd="' + (bandInfo ? bandInfo.nd : undefined) + '">' +
@@ -2109,6 +2111,8 @@
         var layerId = $lyrListItem.data('layer-id');
         var displayName = $lyrListItem.find('.layer-name').text();
         var layerName = $lyrListItem.text();
+        var variable = $lyrListItem.data('band-variable');
+        var units = $lyrListItem.data('band-units');
         var cssStyles = projectInfo.map.layers[displayName].cssStyles;
         var geoserverUrl = projectInfo.map.geoserverUrl;
         var imageUrl =  geoserverUrl + '/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=75&HEIGHT=75&LAYER=' + layerId;
@@ -2119,6 +2123,8 @@
             imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255, true));
         }
         $('#img-legend').attr('src', imageUrl);
+        $('#legend-var').text(variable);
+        $('#legend-units').text(units);
 
         if (layerName.length >= 11) {
             layerName = layerName.slice(0, 11) + '...';
@@ -2279,7 +2285,9 @@
         var bandInfo = {
             'min': $lyrListItem.data('band-min'),
             'max': $lyrListItem.data('band-max'),
-            'nd': $lyrListItem.data('band-nd')
+            'nd': $lyrListItem.data('band-nd'),
+            'variable': $lyrListItem.data('band-variable'),
+            'units': $lyrListItem.data('band-units')
         };
         var optionsHtmlString = '';
         var layerCssStyles;
@@ -2443,6 +2451,8 @@
         $('#rast-min-val').text(bandInfo.min);
         $('#rast-max-val').text(bandInfo.max);
         $('#rast-nd-val').text(bandInfo.nd);
+        $('#rast-variable').text(bandInfo.variable);
+        $('#rast-units').text(bandInfo.units);
         $('.raster').removeClass('hidden');
     };
 

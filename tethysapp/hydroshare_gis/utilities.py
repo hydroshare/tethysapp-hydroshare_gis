@@ -31,7 +31,7 @@ currently_testing = False
 
 def get_oauth_hs(request):
     hs = None
-    hs_hostname = 'beta.hydroshare.org'
+    hs_hostname = 'www.hydroshare.org'
     try:
         client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
         client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')

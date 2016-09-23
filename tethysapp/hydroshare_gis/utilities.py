@@ -326,6 +326,11 @@ def get_band_info(hs, res_id, res_type):
                 band_info['max'] = float(band_info_raw['hsterms:maximumValue'])
             if 'hsterms:noDataValue' in band_info_raw:
                 band_info['nd'] = float(band_info_raw['hsterms:noDataValue'])
+            if 'hsterms:variableName' in band_info_raw:
+                band_info['variable'] = str(band_info_raw['hsterms:variableName'])
+            if 'hsterms:variableUnit' in band_info_raw:
+                band_info['units'] = str(band_info_raw['hsterms:variableUnit'])
+
         except KeyError:
             pass
         except Exception as e:

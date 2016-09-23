@@ -220,9 +220,11 @@
                         </fieldset>
                         <fieldset id="raster-options" class="hidden raster">
                             <div>
-                                <p>Min value: <span id="rast-min-val"></span></p>
-                                <p>Max value: <span id="rast-max-val"></span></p>
-                                <p>No Data value: <span id="rast-nd-val"></span></p>
+                                <p><b>Variable:</b> <span id="rast-variable"></span></p>
+                                <p><b>Units:</b> <span id="rast-units"></span></p>
+                                <p><b>Min value:</b> <span id="rast-min-val"></span></p>
+                                <p><b>Max value:</b> <span id="rast-max-val"></span></p>
+                                <p><b>No Data value:</b> <span id="rast-nd-val"></span></p>
                             </div>
                             <label for="raster-opacity">Raster Opacity:</label>
                             <input id="raster-opacity" type="number" min="0" max="1" step="0.1" value="1">
@@ -432,7 +434,11 @@
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
                     <h4 class="modal-title"></h4>
                 </div>
-                <div class="modal-body flex-container-row">
+                <div class="modal-body flex-container-col">
+                    <div>
+                        <p><b>Variable:</b> <span id="legend-var"></span></p>
+                        <p><b>Units:</b> <span id="legend-units"></span></p>
+                    </div>
                     <img id="img-legend" src="">
                 </div>
                 <div class="modal-footer">

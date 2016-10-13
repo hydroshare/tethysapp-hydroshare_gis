@@ -4,7 +4,6 @@
 
 {% block app_content %}
     <div id="map"></div>
-    <div id="map-popup"></div>
     <div id="mouse-position"></div>
 {% endblock %}
 
@@ -221,30 +220,16 @@
                         </fieldset>
                         <fieldset id="raster-options" class="hidden raster">
                             <div>
-                                <p><b>Variable:</b> <span id="rast-variable"></span></p>
-                                <p><b>Units:</b> <span id="rast-units"></span></p>
-                                <p><b>Min value:</b> <span id="rast-min-val"></span></p>
-                                <p><b>Max value:</b> <span id="rast-max-val"></span></p>
-                                <p><b>No Data value:</b> <span id="rast-nd-val"></span></p>
+                                <p>Min value: <span id="rast-min-val"></span></p>
+                                <p>Max value: <span id="rast-max-val"></span></p>
+                                <p>No Data value: <span id="rast-nd-val"></span></p>
                             </div>
                             <label for="raster-opacity">Raster Opacity:</label>
                             <input id="raster-opacity" type="number" min="0" max="1" step="0.1" value="1">
                             <button type="button" id="apply-opacity-to-colors">Apply to all colors</button>
                             <span>(Where 0=Invisible and 1=Visible)</span>
                             <br>
-                            <div>
-                                <label>Rendering method:</label>
-                                <br>
-                                <span style="margin-left:10px;">Hover over options for an explanation</span>
-                                <br>
-                                <input type="radio" style="margin-left:10px;" name="rast-symb-method" id="rast-ramp" value="ramp" checked>
-                                <label for="rast-ramp" title="Colors are interpolated for values between the color/value entries">Ramp</label>
-                                <input type="radio" name="rast-symb-method" id="rast-interval" value="intervals">
-                                <label for="rast-intervals" title="Each interval defined by two color/value entries is rendered using the color of the first (lowest-value) entry">Interval</label>
-                                <input type="radio" name="rast-symb-method" id="rast-values" value="values">
-                                <label for="rast-values" title="Only pixels with the specified entry quantity values are rendered">Values</label>
-                            </div>
-                            <label for="slct-num-colors-in-gradient">Number of color/value definitions:</label>
+                            <label for="slct-num-colors-in-gradient">Number of colors in gradient:</label>
                             <select id="slct-num-colors-in-gradient">
                                 {% for val in num_gradient_colors_options %}
                                     <option value="{{ val }}">{{ val }}</option>
@@ -447,11 +432,7 @@
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
                     <h4 class="modal-title"></h4>
                 </div>
-                <div class="modal-body flex-container-col">
-                    <div>
-                        <p><b>Variable:</b> <span id="legend-var"></span></p>
-                        <p><b>Units:</b> <span id="legend-units"></span></p>
-                    </div>
+                <div class="modal-body flex-container-row">
                     <img id="img-legend" src="">
                 </div>
                 <div class="modal-footer">

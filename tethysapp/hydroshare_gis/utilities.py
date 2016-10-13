@@ -304,8 +304,9 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def make_geoserver_request(web_service, params):
-    geoserver_url = get_geoserver_url() + '/%s' % web_service
+def request_wfs_info(params):
+    geoserver_url = get_geoserver_url()
+    geoserver_url += '/wfs'
 
     r = requests.get(geoserver_url, params=params, auth=get_geoserver_credentials())
 
@@ -325,11 +326,6 @@ def get_band_info(hs, res_id, res_type):
                 band_info['max'] = float(band_info_raw['hsterms:maximumValue'])
             if 'hsterms:noDataValue' in band_info_raw:
                 band_info['nd'] = float(band_info_raw['hsterms:noDataValue'])
-            if 'hsterms:variableName' in band_info_raw:
-                band_info['variable'] = str(band_info_raw['hsterms:variableName'])
-            if 'hsterms:variableUnit' in band_info_raw:
-                band_info['units'] = str(band_info_raw['hsterms:variableUnit'])
-
         except KeyError:
             pass
         except Exception as e:
@@ -1242,7 +1238,7 @@ def generate_attribute_table(layer_id, layer_attributes):
             'outputFormat': 'application/json'
         }
 
-        r = make_geoserver_request('wfs', params)
+        r = request_wfs_info(params)
         json = r.json()
 
         feature_properties = []
@@ -1276,9 +1272,3 @@ def get_generic_files(hs, res_dict_string, username):
 def set_currently_testing(val):
     global currently_testing
     currently_testing = val
-
-
-def get_features_on_click(params_str):
-    params = loads(params_str)
-    r = make_geoserver_request('wms', params)
-    return r.json()

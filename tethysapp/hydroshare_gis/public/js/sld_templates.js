@@ -72,7 +72,7 @@ var SLD_TEMPLATES = (function () {
     raster =
         header +
         '<RasterSymbolizer>' +
-        '<ColorMap type="{{method}}">' +
+        '<ColorMap>' +
         '{{color-map}}' +
         '</ColorMap>' +
         '</RasterSymbolizer>' +

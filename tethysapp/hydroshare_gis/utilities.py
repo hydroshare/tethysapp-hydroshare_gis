@@ -25,8 +25,7 @@ from StringIO import StringIO
 
 workspace_id = None
 spatial_dataset_engine = None
-tifFilesCount = ResourceFilesCount()
-shapeFilesCount = ResourceFilesCount()
+resFilesCount = ResourceFilesCount()
 currently_testing = False
 
 def get_oauth_hs(request):
@@ -66,23 +65,28 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
 
     try:
         if res_type == 'RasterResource':
+            print "About to create layer from:"
+            print res_file
             coverage_type = 'imagepyramid' if is_zip else 'geotiff'
             coverage_name = store_id if is_zip else None
-            if tifFilesCount.get() != 0:
-                store_id = 'res_%s_%s' % (res_id, tifFilesCount.get())
+
+            if resFilesCount.get() != 0:
+                store_id = 'res_%s_%s' % (res_id, resFilesCount.get())
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
+
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
                                                        coverage_type=coverage_type,
                                                        coverage_name=coverage_name,
                                                        overwrite=True,
                                                        debug=get_debug_val())
-            tifFilesCount.increase()
+            resFilesCount.increase()
 
         elif res_type == 'GeographicFeatureResource':
-            if shapeFilesCount.get() != 0:
-                store_id = 'res_%s_%s' % (res_id, shapeFilesCount.get())
+            if resFilesCount.get() != 0:
+                store_id = 'res_%s_%s' % (res_id, resFilesCount.get())
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
+
             if is_zip is True:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_zip=res_file,
@@ -98,7 +102,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
                                                             shapefile_base=str(res_file),
                                                             overwrite=True,
                                                             debug=get_debug_val())
-            shapeFilesCount.increase()
+            resFilesCount.increase()
 
         if response:
             if not response['success']:
@@ -722,8 +726,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
     results = return_obj['results']
     is_zip = False
     res_fpath = None
-    tifFilesCount.reset()
-    shapeFilesCount.reset()
+    resFilesCount.reset()
 
     if os.path.exists(res_contents_path):
         res_files_list = os.listdir(res_contents_path)
@@ -750,10 +753,10 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
             num_files = len(res_files_list)
             vrt_path = None
             res_fpath = None
-            for fname in res_files_list:
-                fpath = os.path.join(res_contents_path, fname)
+            for res_fname in res_files_list:
+                fpath = os.path.join(res_contents_path, res_fname)
                 if num_files == 2:
-                    if fname.endswith('.tif'):
+                    if res_fname.endswith('.tif'):
                         tmp_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
                         os.rename(fpath, tmp_fpath)
                         r = check_crs(res_type, tmp_fpath)
@@ -767,7 +770,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                             res_fpath = tmp_fpath.replace('tif', 'zip')
                             zip_files(tmp_fpath, res_fpath)
                             break
-                elif fname.endswith('.vrt'):
+                elif res_fname.endswith('.vrt'):
                     vrt_path = fpath
                     break
 
@@ -796,75 +799,102 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                 }
                 results.append(result)
             else:
-                public_fpath = None
-                remove_files_flag = False
-                remove_files_name = None
+                req_shp_file_exts = ['.shp', '.prj', '.shx', '.dbf']
+                all_shp_file_exts = req_shp_file_exts + ['.sbn', '.sbx', '.cpg', '.xml']
+                kml_exts = ['.kml', '.kmz']
+                tif_exts = ['.tif', '.vrt']
+                files_processed_list = []
 
-                for fname in res_files_list:
-                    generic_flag = False
-                    fpath = os.path.join(res_contents_path, fname)
+                for res_fname in res_files_list:
+                    generic_flag = False  # Assume file is not Generic
+                    public_fpath = None  # Dito
+                    is_zip = False  # Assumes the files are not a zipped raster pyramid or zipped shapefiles
+                    fpath = os.path.join(res_contents_path, res_fname)
+                    fname_and_ext = os.path.splitext(res_fname)
+                    fname = fname_and_ext[0]
+                    fext = fname_and_ext[1]
 
-                    if fname.endswith('.kml') or fname.endswith('.kmz'):
-                        shapeFilesCount.increase()
+                    if files_processed_list:
+                        if res_fname in files_processed_list:
+                            print "Skipping %s" % res_fname
+                            continue
+
+                    if fext in kml_exts:
+                        resFilesCount.increase()
                         #Openlayers KML Implementation
-                        if fname.endswith('.kmz'):
+                        if fext == '.kmz':
                             os.system('unzip -q -d %s %s' % (public_tempdir, fpath))
                             public_fpath = os.path.join(public_tempdir, 'doc.kml')
                             kml_path = public_fpath
                         else:
                             kml_path = fpath
-                            # dst = os.path.join(res_contents_path, fname)
+                            # dst = os.path.join(res_contents_path, res_fname)
                             # shutil.move(fpath, dst)
                         # public_fpath = dst
-                        print 'kml_fname: %s' % fname
-                        shp_fname = res_id + '%s.shp' % ('_' + str(shapeFilesCount.get())
-                                                         if shapeFilesCount.get() > 1
+
+                        shp_fname = res_id + '%s.shp' % ('_' + str(resFilesCount.get())
+                                                         if resFilesCount.get() > 1
                                                          else '')
                         shp_output_path = os.path.join(res_contents_path, shp_fname)
 
                         os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(shp_output_path, kml_path))
+
                         if not os.path.exists(shp_output_path):
                             generic_flag = True
-                            shapeFilesCount.decrease()
+                            resFilesCount.decrease()
                         else:
                             res_fpath = os.path.splitext(shp_output_path)[0]
                             res_type = 'GeographicFeatureResource'
 
-                    elif fname.endswith('.shp'):
-                        name = fname.split('.')[0]
-                        dbf = '%s.dbf' % name in res_files_list
-                        prj = '%s.prj' % name in res_files_list
-                        shx = '%s.shx' % name in res_files_list
-                        if dbf and prj and shx:
-                            shapeFilesCount.increase()
-                            shp_path = os.path.join(public_tempdir, fname)
-                            shutil.move(fpath, shp_path)
-                            public_fpath = shp_path
-                            dbf_path = os.path.join(public_tempdir, '%s.dbf' % name) \
-                                if os.path.exists(os.path.join(public_tempdir, '%s.dbf' % name)) \
-                                else os.path.join(res_contents_path, '%s.dbf' % name)
-                            prj_path = os.path.join(public_tempdir, '%s.prj' % name) \
-                                if os.path.exists(os.path.join(public_tempdir, '%s.prj' % name)) \
-                                else os.path.join(res_contents_path, '%s.prj' % name)
-                            shx_path = os.path.join(public_tempdir, '%s.shx' % name) \
-                                if os.path.exists(os.path.join(public_tempdir, '%s.shx' % name)) \
-                                else os.path.join(res_contents_path, '%s.shx' % name)
-                            shp_files = [shp_path, dbf_path, prj_path, shx_path]
-                            res_fpath = os.path.join(res_contents_path, res_id + '.zip')
-                            zip_files(shp_files, res_fpath)
+                    elif fext in all_shp_file_exts:
+                        hasShp = '%s.shp' % fname in res_files_list
+                        hasDbf = '%s.dbf' % fname in res_files_list
+                        hasPrj = '%s.prj' % fname in res_files_list
+                        hasShx = '%s.shx' % fname in res_files_list
+
+                        if hasShp and hasDbf and hasPrj and hasShx:
+                            shp_file_paths = []
+
+                            for ext in req_shp_file_exts:
+                                path = os.path.join(res_contents_path, '%s%s' % (fname, ext))
+                                # Rename files to res_id base
+                                if resFilesCount.get() != 0:
+                                    tmp_fpath = os.path.join(res_contents_path,
+                                                              '%s_%s%s' % (res_id, resFilesCount.get(), ext))
+                                else:
+                                    tmp_fpath = os.path.join(res_contents_path, '%s%s' % (res_id, ext))
+                                os.rename(path, tmp_fpath)
+                                shp_file_paths.append(tmp_fpath)
+
+                            # Rename zip to res_id base just to be safe
+                            if resFilesCount.get() != 0:
+                                res_fpath = os.path.join(res_contents_path,
+                                                         '%s_%s%s' % (res_id, resFilesCount.get(), '.zip'))
+                            else:
+                                res_fpath = os.path.join(res_contents_path, '%s%s' % (res_id, '.zip'))
+
+                            zip_files(shp_file_paths, res_fpath)
                             is_zip = True
+                            res_fname = '%s.shp' % fname
                             res_type = 'GeographicFeatureResource'
-                            remove_files_flag = True
-                            remove_files_name = name
+                            resFilesCount.increase()
+
+                            for ext in all_shp_file_exts:  # Add all associated shapefiles to files_processed_list
+                                f1 = "%s%s" % (fname, ext)
+                                f2 = "%s%s" % (res_fname, ext)  # This is to catch the .shp.xml file if it exists
+                                if f1 in res_files_list:
+                                    files_processed_list.append(f1)
+                                elif f2 in res_files_list:
+                                    files_processed_list.append(f2)
                         else:
                             generic_flag = True
 
-                    elif fname.endswith('.tif'):
+                    elif fext in tif_exts:
                         res_type = 'RasterResource'
-                        if tifFilesCount.get() != 0:
-                            tmp_fpath = os.path.join(res_contents_path, 'res_%s_%s.tif' % (res_id, tifFilesCount.get()))
+                        if resFilesCount.get() != 0:
+                            tmp_fpath = os.path.join(res_contents_path, '%s_%s.tif' % (res_id, resFilesCount.get()))
                         else:
-                            tmp_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
+                            tmp_fpath = os.path.join(res_contents_path, '%s.tif' % res_id)
                         os.rename(fpath, tmp_fpath)
                         r = check_crs(res_type, tmp_fpath)
                         if not r['success']:
@@ -876,43 +906,28 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                                 os.system('gdal_edit.py -a_srs {0} {1}'.format(code, tmp_fpath))
                             res_fpath = tmp_fpath.replace('tif', 'zip')
                             zip_files(tmp_fpath, res_fpath)
-                            tifFilesCount.increase()
+                            resFilesCount.increase()
 
                     else:
                         generic_flag = True
 
                     if generic_flag:
                         res_type = 'GenericResource'
-                        if not os.path.exists(public_tempdir):
-                            os.mkdir(public_tempdir)
-                        public_fpath = os.path.join(public_tempdir, fname)
+                        public_fpath = os.path.join(public_tempdir, res_fname)
                         shutil.move(fpath, public_fpath)
-                        public_fpath = public_fpath
+                        res_fpath = None  # Generic resource files rely on public_fpath, not res_fpath
 
                     result = {
                         'public_fname': os.path.basename(public_fpath) if public_fpath else None,
                         'res_filepath': res_fpath,
                         'res_type': res_type,
-                        'layer_name': fname,
+                        'layer_name': res_fname,
                         'is_zip': is_zip
                     }
                     results.append(result)
-                if remove_files_flag:
-                    remove_file_exts = ['.sbn', '.prj', '.shx', '.sbx', '.cpg', '.dbf', '.shp.xml']
-                    new_results = []
-                    for result in results:
-                        keep_flag = True
-                        for ext in remove_file_exts:
-                            if '%s%s' %(remove_files_name, ext) in result['public_fname']:
-                                keep_flag = False
-                                break
-                        if keep_flag:
-                            new_results.append(result)
 
-                    return_obj['results'] = new_results
-
-        tifFilesCount.reset()
-        shapeFilesCount.reset()
+        resFilesCount.reset()
+        resFilesCount.reset()
         return_obj['success'] = True
 
     return return_obj
@@ -1050,7 +1065,6 @@ def check_crs(res_type, fpath):
     try:
         while crs_is_unknown:
             r = requests.get(endpoint, params=params)
-            print r.url
             if '50' in str(r.status_code):
                 raise Exception
             elif r.status_code == 200:

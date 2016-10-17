@@ -26,53 +26,53 @@
  pageX, pageY, clearInterval, SLD_TEMPLATES, alert, tinycolor, jsPDF, MutationObserver
  */
 /*property
-    BingMaps, Circle, DataTable, Feature, Fill, FullScreen, GRAY_INDEX,
-    GenericResource, GeographicFeatureResource, KML, LAYERS, Map,
-    MousePosition, Overlay, OverviewMap, Point, RasterResource,
-    RefTimeSeriesResource, SLD_BODY, Style, TILED, Tile, TileArcGISRest,
-    TileWMS, TimeSeriesResource, Vector, View, ZoomSlider, a0, a1, a2, a3, a4,
-    a5, add, addClass, addControl, addImage, addLayer, addOverlay, adjust,
-    ajax, ajaxSetup, allowEmpty, append, async, attr, attributes, bandInfo,
-    band_info, baseMap, bbox, beforeSend, cancelText, canvas, ceil, center,
-    change, children, chooseText, className, clearInterval, collapsed,
-    collapsible, color, columnDefs, columns, concat, content, contentType,
-    context, contextMenu, control, cookie, coordinate, coordinateFormat,
-    createStringXY, crossDomain, crossOrigin, crs, css, cssStyles,
-    currentTarget, data, dataType, decrease, defs, deleteRule,
-    disableSelection, displayAround, displayName, draw, drawImage, each,
-    element, empty, endsWith, error, extent, extents, feature_properties,
-    features, filename, files, fill, filter, find, fit, fixedHeader, floor,
-    footer, forEach, format, fromLonLat, fun, geom, geomType, geom_type,
-    geoserverUrl, geoserver_url, get, getAlpha, getCenter, getContext,
-    getCoordinates, getElementById, getExtent, getFeatures, getGeometry,
-    getLayers, getSize, getSldString, getSource, getView, getZoom, hasClass,
-    hasOwnProperty, header, height, hide255, host, hsResId, html, id, image,
-    imagerySet, increase, index, indexOf, info_format, innerHeight, insertRule,
-    is, item, key, keys, labels, last, lat, layer, layerAttributes, layerId,
-    layer_attributes, layer_extents, layer_id, layer_name, layers, left,
-    length, lineTo, listOrder, location, lon, lyrExtents, lyrId, map, max,
-    maxZoom, maxx, maxy, message, method, min, minZoom, minx, miny, modal,
-    mouseClick, moveTo, name, naturalHeight, nd, newResource, next, not,
-    observe, off, on, onClose, onOpen, onbeforeunload, once, one, opacity,
-    open, order, orderable, owner, params, parent, parse, pathname,
-    placeholder, placement, popover, position, positioning, prepend,
-    processData, proj, projectInfo, project_info, projection, prop, properties,
-    protocol, publicFname, public_fname, push, query_layers, radius, random,
-    remove, removeAt, removeAttr, removeClass, removeControl, render,
-    renderSync, replace, request, resAbstract, resId, resKeywords, resTitle,
-    resType, res_dict_string, res_id, res_list, res_title, res_type, results,
-    rules, save, scrollCollapse, scrollLeft, scrollY, search, select,
-    serverType, service, set, setAlpha, setCenter, setError, setInterval,
-    setLineDash, setPending, setPosition, setRequestHeader, setSuccess,
-    setTimeout, setVisible, setZIndex, setZoom, shift, showAlpha, showInput,
-    showInset, showPalette, siteInfo, site_info, slice, sort, sortable, source,
-    spectrum, splice, split, srs, stop, stopEvent, stopPropagation, stringify,
-    stroke, style, styleSheets, substr, substring, success, target, targets,
-    test, text, title, toDataURL, toHexString, toLonLat, toLowerCase,
-    toRgbString, toString, toggleClass, top, trigger, triggerOn, trim, type,
-    undefinedHTML, units, unshift, updateParams, updateSize, url, val, value,
-    variable, version, view, visible, which, width, x, y, zoom, zoomLevel
-*/
+ BingMaps, Circle, DataTable, Feature, Fill, FullScreen, GRAY_INDEX,
+ GenericResource, GeographicFeatureResource, KML, LAYERS, Map,
+ MousePosition, Overlay, OverviewMap, Point, RasterResource,
+ RefTimeSeriesResource, SLD_BODY, Style, TILED, Tile, TileArcGISRest,
+ TileWMS, TimeSeriesResource, Vector, View, ZoomSlider, a0, a1, a2, a3, a4,
+ a5, add, addClass, addControl, addImage, addLayer, addOverlay, adjust,
+ ajax, ajaxSetup, allowEmpty, append, async, attr, attributes, bandInfo,
+ band_info, baseMap, bbox, beforeSend, cancelText, canvas, ceil, center,
+ change, children, chooseText, className, clearInterval, collapsed,
+ collapsible, color, columnDefs, columns, concat, content, contentType,
+ context, contextMenu, control, cookie, coordinate, coordinateFormat,
+ createStringXY, crossDomain, crossOrigin, crs, css, cssStyles,
+ currentTarget, data, dataType, decrease, defs, deleteRule,
+ disableSelection, displayAround, displayName, draw, drawImage, each,
+ element, empty, endsWith, error, extent, extents, feature_properties,
+ features, filename, files, fill, filter, find, fit, fixedHeader, floor,
+ footer, forEach, format, fromLonLat, fun, geom, geomType, geom_type,
+ geoserverUrl, geoserver_url, get, getAlpha, getCenter, getContext,
+ getCoordinates, getElementById, getExtent, getFeatures, getGeometry,
+ getLayers, getSize, getSldString, getSource, getView, getZoom, hasClass,
+ hasOwnProperty, header, height, hide255, host, hsResId, html, id, image,
+ imagerySet, increase, index, indexOf, info_format, innerHeight, insertRule,
+ is, item, key, keys, labels, last, lat, layer, layerAttributes, layerId,
+ layer_attributes, layer_extents, layer_id, layer_name, layers, left,
+ length, lineTo, listOrder, location, lon, lyrExtents, lyrId, map, max,
+ maxZoom, maxx, maxy, message, method, min, minZoom, minx, miny, modal,
+ mouseClick, moveTo, name, naturalHeight, nd, newResource, next, not,
+ observe, off, on, onClose, onOpen, onbeforeunload, once, one, opacity,
+ open, order, orderable, owner, params, parent, parse, pathname,
+ placeholder, placement, popover, position, positioning, prepend,
+ processData, proj, projectInfo, project_info, projection, prop, properties,
+ protocol, publicFname, public_fname, push, query_layers, radius, random,
+ remove, removeAt, removeAttr, removeClass, removeControl, render,
+ renderSync, replace, request, resAbstract, resId, resKeywords, resTitle,
+ resType, res_dict_string, res_id, res_list, res_title, res_type, results,
+ rules, save, scrollCollapse, scrollLeft, scrollY, search, select,
+ serverType, service, set, setAlpha, setCenter, setError, setInterval,
+ setLineDash, setPending, setPosition, setRequestHeader, setSuccess,
+ setTimeout, setVisible, setZIndex, setZoom, shift, showAlpha, showInput,
+ showInset, showPalette, siteInfo, site_info, slice, sort, sortable, source,
+ spectrum, splice, split, srs, stop, stopEvent, stopPropagation, stringify,
+ stroke, style, styleSheets, substr, substring, success, target, targets,
+ test, text, title, toDataURL, toHexString, toLonLat, toLowerCase,
+ toRgbString, toString, toggleClass, top, trigger, triggerOn, trim, type,
+ undefinedHTML, units, unshift, updateParams, updateSize, url, val, value,
+ variable, version, view, visible, which, width, x, y, zoom, zoomLevel
+ */
 
 (function packageHydroShareGIS() {
 
@@ -366,9 +366,18 @@
             geomType = "None";
             layerAttributes = "None";
         }
-        bandInfo = (resType === 'RasterResource' && results.band_info)
-            ? results.band_info
-            : 'None';
+        if (resType === 'RasterResource' && results.band_info) {
+            if (typeof bandInfo === "string") {
+                try {
+                    bandInfo = JSON.parse(bandInfo);
+                } catch (e) {
+                    console.error(e);
+                    bandInfo = "None";
+                }
+            }
+        } else {
+            bandInfo = "None";
+        }
         displayName = results.layer_name;
         layerId = results.layer_id || results.res_id;
         rawLayerExtents = results.layer_extents;
@@ -2256,7 +2265,7 @@
             result = results[i];
 
             if (result.res_type === 'GenericResource') {
-                if (result.project_info !== null) {
+                if (result.project_info) {
                     loadProjectFile(JSON.parse(result.project_info));
                     showResLoadingStatus(true, 'Project loaded successfully!');
                     hideMainLoadAnim();

@@ -34,7 +34,7 @@ def Test_All_Resources(request):
                     res_count += 1
                     res_id = res['resource_id']
                     print "Currently testing resource %s of %s: %s" % (res_count, num_resources, res_id)
-                    response = process_hs_res(hs, res_id)
+                    response = get_hs_res_object(hs, res_id)
                     if response['success']:
                         num_success += 1
                     else:

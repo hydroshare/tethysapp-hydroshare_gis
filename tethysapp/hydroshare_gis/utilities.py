@@ -3,17 +3,19 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from tethys_sdk.services import get_spatial_dataset_engine
 from django.core.exceptions import ObjectDoesNotExist
-from model import ResourceFilesCount
+from model import ResourceLayersCount, Layer
 
 import hs_restclient as hs_r
 from geoserver.catalog import FailedRequestError
 
 import requests
+# from requests import auth
 import zipfile
 import os
 import sqlite3
 import xmltodict
 import shutil
+from datetime import datetime
 from tempfile import TemporaryFile
 from json import dumps, loads
 from inspect import getfile, currentframe
@@ -25,7 +27,7 @@ from StringIO import StringIO
 
 workspace_id = None
 spatial_dataset_engine = None
-resFilesCount = ResourceFilesCount()
+resLayersCount = ResourceLayersCount()
 currently_testing = False
 
 def get_oauth_hs(request):
@@ -65,14 +67,28 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
 
     try:
         if res_type == 'RasterResource':
-            print "About to create layer from:"
-            print res_file
             coverage_type = 'imagepyramid' if is_zip else 'geotiff'
             coverage_name = store_id if is_zip else None
 
-            if resFilesCount.get() != 0:
-                store_id = 'res_%s_%s' % (res_id, resFilesCount.get())
+            if resLayersCount.get() != 0:
+                store_id = 'res_%s_%s' % (res_id, resLayersCount.get())
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
+
+            # Creates a resource from a file stored directly on the GeoServer
+            # url = '{0}/rest/workspaces/{1}/coveragestores/{2}/external.{3}'.format(get_geoserver_url(), get_workspace(), res_id,
+            #                                                               coverage_type)
+            # data = 'file:///var/lib/geoserver/data/data/{workspace}/test/utah_ned301.tif'.format(workspace=get_workspace())
+            #
+            # headers = {
+            #     "Content-type": 'text/plain'
+            # }
+            #
+            # r = requests.put(url=url,
+            #         files=None,
+            #         data=data,
+            #         headers=headers,
+            #         auth=auth.HTTPBasicAuth(username=get_geoserver_credentials()[0],
+            #                            password=get_geoserver_credentials()[1]))
 
             response = engine.create_coverage_resource(store_id=full_store_id,
                                                        coverage_file=res_file,
@@ -80,11 +96,10 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
                                                        coverage_name=coverage_name,
                                                        overwrite=True,
                                                        debug=get_debug_val())
-            resFilesCount.increase()
 
         elif res_type == 'GeographicFeatureResource':
-            if resFilesCount.get() != 0:
-                store_id = 'res_%s_%s' % (res_id, resFilesCount.get())
+            if resLayersCount.get() != 0:
+                store_id = 'res_%s_%s' % (res_id, resLayersCount.get())
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
 
             if is_zip is True:
@@ -102,7 +117,6 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
                                                             shapefile_base=str(res_file),
                                                             overwrite=True,
                                                             debug=get_debug_val())
-            resFilesCount.increase()
 
         if response:
             if not response['success']:
@@ -128,6 +142,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip):
                 results['layer_id'] = '%s:%s' % (get_workspace(), layer_name)
                 results['store_id'] = store_id
                 return_obj['success'] = True
+                resLayersCount.increase()
         else:
             raise Exception
     except AttributeError:
@@ -218,6 +233,7 @@ def get_layer_md_from_geoserver(store_id, layer_name, res_type):
         else:
             extents = json['coverage']['latLonBoundingBox']
             attributes_string = ','
+
         response_obj = {
             'success': True,
             'attributes': attributes_string[:-1],
@@ -443,6 +459,66 @@ def process_local_file(file_list, proj_id, hs, username):
     return return_obj
 
 
+def get_hs_res_object(hs, res_id, res_type=None, res_title=None, username=None):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': []
+    }
+
+    '''
+        Each result in results has these options
+        {
+                'res_id': res_id,
+                'res_type': res_type,
+                'layer_name': res_title,
+                'layer_id': None,
+                'layer_extents': None,
+                'layer_attributes': None,
+                'geom_type': None,
+                'band_info': None,
+                'site_info': None,
+                'project_info': None,
+                'public_fname': None
+        }
+    '''
+
+    results = return_obj['results']
+
+    res_layers = Layer.get_layers_by_associated_res_id(res_id)
+
+    if res_layers:
+        for res_layer in res_layers:
+            flag_reload_layer = res_has_been_updated(res_layer.res_mod_date, get_res_mod_date(hs, res_id))
+            if flag_reload_layer:
+                Layer.remove_layer_by_res_id(res_id)
+                return_obj = process_hs_res(hs, res_id, res_type, res_title, username)
+                break
+            else:
+                # if res_layer.associated_res_type == "GenericResource":
+                #     public_tempdir = get_public_tempdir(username)
+                #     hs.getResourceFile(res_layer.associated_res_id, res_layer.associated_file_name, destination=public_tempdir)
+                result = {
+                    'res_id': res_id,
+                    'res_type': res_layer.associated_res_type,
+                    'layer_name': res_layer.name,
+                    'layer_id': res_layer.layer_id,
+                    'layer_extents': loads(res_layer.extents) if res_layer.extents else None,
+                    'layer_attributes': res_layer.attributes,
+                    'geom_type': res_layer.geom_type,
+                    'band_info': loads(res_layer.band_info) if res_layer.band_info else None,
+                    'site_info': loads(res_layer.site_info) if res_layer.site_info else None,
+                    'public_fname':res_layer.associated_file_name
+                }
+                results.append(result)
+        return_obj['success'] = True
+
+    else:
+        return_obj = process_hs_res(hs, res_id, res_type, res_title, username)
+
+    return return_obj
+
+
 def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
     global currently_testing
     return_obj = {
@@ -450,24 +526,9 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
         'message': None,
         'results': []
     }
-    '''
-    Each result in results has these options
-    {
-            'res_id': res_id,
-            'res_type': res_type,
-            'layer_name': res_title,
-            'layer_id': None,
-            'layer_extents': None,
-            'layer_attributes': None,
-            'geom_type': None,
-            'band_info': None,
-            'site_info': None,
-            'project_info': None,
-            'public_fname': None
-    }
-    '''
+
     results = return_obj['results']
-    process_res = False
+    # process_res = False
     hs_tempdir = get_hs_tempdir(username)
     public_tempdir = get_public_tempdir(username)
 
@@ -477,54 +538,30 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
             res_type = md['resource_type']
             res_title = md['resource_title']
 
-        if res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
-            check_res = check_geoserver_for_res(res_id)
-            if check_res['isOnGeoserver']:
-                layer_name = check_res['layer_name']
-                store_id = 'res_%s' % res_id
-                response = get_layer_md_from_geoserver(store_id=store_id, layer_name=layer_name,
-                                                       res_type=res_type)
-                if not response['success']:
-                    return_obj['message'] = response['message']
-                else:
-                    result = {
-                        'res_id': res_id,
-                        'res_type': res_type,
-                        'layer_name': res_title,
-                        'layer_id': '%s:%s' % (get_workspace(), layer_name),
-                        'layer_extents': response['extents'],
-                        'layer_attributes': response['attributes'],
-                        'geom_type': response['geom_type'],
-                        'band_info': get_band_info(hs, res_id, res_type)
-                    }
-                    results.append(result)
-                    return_obj['success'] = True
-            else:
-                process_res = True
+        response = process_res_by_type(hs, res_id, res_type, hs_tempdir, public_tempdir)
+        if not response['success']:
+            return_obj['message'] = response['message']
         else:
-            process_res = True
+            for r in response['results']:
+                result = {
+                    'res_id': res_id,
+                    'res_type': r['res_type'] if 'res_type' in r else res_type,
+                    'layer_name': r['layer_name'] if ('layer_name' in r and r['layer_name'] is not None) else res_title,
+                    'layer_id': r['layer_id'] if 'layer_id' in r else None,
+                    'layer_extents': r['layer_extents'] if 'layer_extents' in r else None,
+                    'layer_attributes': r['layer_attributes'] if 'layer_attributes' in r else None,
+                    'geom_type': r['geom_type'] if 'geom_type' in r else None,
+                    'band_info': r['band_info'] if 'band_info' in r else None,
+                    'site_info': r['site_info'] if 'site_info' in r else None,
+                    'project_info': r['project_info'] if 'project_info' in r else None,
+                    'public_fname': r['public_fname'] if 'public_fname' in r else None,
+                    'res_mod_date': get_res_mod_date(hs, res_id)
+                }
+                results.append(result)
 
-        if process_res:
-            response = process_res_by_type(hs, res_id, res_type, hs_tempdir, public_tempdir)
-            if not response['success']:
-                return_obj['message'] = response['message']
-            else:
-                for r in response['results']:
-                    result = {
-                        'res_id': res_id,
-                        'res_type': r['res_type'] if 'res_type' in r else res_type,
-                        'layer_name': r['layer_name'] if ('layer_name' in r and r['layer_name'] is not None) else res_title,
-                        'layer_id': r['layer_id'] if 'layer_id' in r else None,
-                        'layer_extents': r['layer_extents'] if 'layer_extents' in r else None,
-                        'layer_attributes': r['layer_attributes'] if 'layer_attributes' in r else None,
-                        'geom_type': r['geom_type'] if 'geom_type' in r else None,
-                        'band_info': r['band_info'] if 'band_info' in r else None,
-                        'site_info': r['site_info'] if 'site_info' in r else None,
-                        'project_info': r['project_info'] if 'project_info' in r else None,
-                        'public_fname': r['public_fname'] if 'public_fname' in r else None
-                    }
-                    results.append(result)
-                return_obj['success'] = True
+                param_obj = prepare_result_for_layer_db(result)
+                Layer.add_layer_to_database(**param_obj)
+            return_obj['success'] = True
 
     except hs_r.HydroShareHTTPException:
         return_obj['message'] = 'The HydroShare server appears to be down.'
@@ -730,7 +767,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
     results = return_obj['results']
     is_zip = False
     res_fpath = None
-    resFilesCount.reset()
+    resLayersCount.reset()
 
     if os.path.exists(res_contents_path):
         res_files_list = os.listdir(res_contents_path)
@@ -820,11 +857,10 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
 
                     if files_processed_list:
                         if res_fname in files_processed_list:
-                            print "Skipping %s" % res_fname
                             continue
 
                     if fext in kml_exts:
-                        resFilesCount.increase()
+                        resLayersCount.increase()
                         #Openlayers KML Implementation
                         if fext == '.kmz':
                             os.system('unzip -q -d %s %s' % (public_tempdir, fpath))
@@ -836,8 +872,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                             # shutil.move(fpath, dst)
                         # public_fpath = dst
 
-                        shp_fname = res_id + '%s.shp' % ('_' + str(resFilesCount.get())
-                                                         if resFilesCount.get() > 1
+                        shp_fname = res_id + '%s.shp' % ('_' + str(resLayersCount.get())
+                                                         if resLayersCount.get() != 0
                                                          else '')
                         shp_output_path = os.path.join(res_contents_path, shp_fname)
 
@@ -845,7 +881,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
 
                         if not os.path.exists(shp_output_path):
                             generic_flag = True
-                            resFilesCount.decrease()
+                            resLayersCount.decrease()
                         else:
                             res_fpath = os.path.splitext(shp_output_path)[0]
                             res_type = 'GeographicFeatureResource'
@@ -862,18 +898,18 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                             for ext in req_shp_file_exts:
                                 path = os.path.join(res_contents_path, '%s%s' % (fname, ext))
                                 # Rename files to res_id base
-                                if resFilesCount.get() != 0:
+                                if resLayersCount.get() != 0:
                                     tmp_fpath = os.path.join(res_contents_path,
-                                                              '%s_%s%s' % (res_id, resFilesCount.get(), ext))
+                                                             '%s_%s%s' % (res_id, resLayersCount.get(), ext))
                                 else:
                                     tmp_fpath = os.path.join(res_contents_path, '%s%s' % (res_id, ext))
                                 os.rename(path, tmp_fpath)
                                 shp_file_paths.append(tmp_fpath)
 
                             # Rename zip to res_id base just to be safe
-                            if resFilesCount.get() != 0:
+                            if resLayersCount.get() != 0:
                                 res_fpath = os.path.join(res_contents_path,
-                                                         '%s_%s%s' % (res_id, resFilesCount.get(), '.zip'))
+                                                         '%s_%s%s' % (res_id, resLayersCount.get(), '.zip'))
                             else:
                                 res_fpath = os.path.join(res_contents_path, '%s%s' % (res_id, '.zip'))
 
@@ -881,7 +917,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                             is_zip = True
                             res_fname = '%s.shp' % fname
                             res_type = 'GeographicFeatureResource'
-                            resFilesCount.increase()
+                            resLayersCount.increase()
 
                             for ext in all_shp_file_exts:  # Add all associated shapefiles to files_processed_list
                                 f1 = "%s%s" % (fname, ext)
@@ -895,8 +931,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
 
                     elif fext in tif_exts:
                         res_type = 'RasterResource'
-                        if resFilesCount.get() != 0:
-                            tmp_fpath = os.path.join(res_contents_path, '%s_%s.tif' % (res_id, resFilesCount.get()))
+                        if resLayersCount.get() != 0:
+                            tmp_fpath = os.path.join(res_contents_path, '%s_%s.tif' % (res_id, resLayersCount.get()))
                         else:
                             tmp_fpath = os.path.join(res_contents_path, '%s.tif' % res_id)
                         os.rename(fpath, tmp_fpath)
@@ -910,7 +946,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                                 os.system('gdal_edit.py -a_srs {0} {1}'.format(code, tmp_fpath))
                             res_fpath = tmp_fpath.replace('tif', 'zip')
                             zip_files(tmp_fpath, res_fpath)
-                            resFilesCount.increase()
+                            resLayersCount.increase()
 
                     else:
                         generic_flag = True
@@ -930,9 +966,9 @@ def get_info_from_res_files(res_id, res_type, res_contents_path, public_tempdir)
                     }
                     results.append(result)
 
-        resFilesCount.reset()
-        resFilesCount.reset()
         return_obj['success'] = True
+
+        resLayersCount.reset()
 
     return return_obj
 
@@ -1296,3 +1332,38 @@ def get_features_on_click(params_str):
     params = loads(params_str)
     r = make_geoserver_request('wms', params)
     return r.json()
+
+
+def prepare_result_for_layer_db(result):
+
+    result.pop('project_info', None)  # parameter "project_info" not expected in following call
+
+    # The values of the following keys, if they are not None, are python object that must converted to strings
+    result['layer_extents'] = dumps(result['layer_extents']) if result['layer_extents'] else None
+    result['band_info'] = dumps(result['band_info']) if result['band_info'] else None
+    result['site_info'] = dumps(result['site_info']) if result['site_info'] else None
+
+    return result
+
+
+def get_res_mod_date(hs, res_id):
+    date_modified = None
+    md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
+
+    try:
+        for date_obj in md_dict['rdf:RDF']['rdf:Description'][0]['dc:date']:
+            if 'dcterms:modified' in date_obj:
+                date_modified = date_obj['dcterms:modified']['rdf:value']
+    except Exception as e:
+        print str(e)
+
+    return date_modified
+
+
+def res_has_been_updated(db_date, res_date):
+    db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%X.%f')
+    res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%X.%f')
+    if db_date_obj < res_date_obj:
+        return True
+
+    return False

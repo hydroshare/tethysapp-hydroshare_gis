@@ -1357,7 +1357,7 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                         layer_extents = response['extents']
                         geom_type = response['geom_type']
 
-                        band_info_tif_path = os.path.join(hs_tempdir, '%s_%s.tif' % res_id, file_index)
+                        band_info_tif_path = os.path.join(hs_tempdir, '%s_%s.tif'.format(res_id, file_index))
                         band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
             results = {

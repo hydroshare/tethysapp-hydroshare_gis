@@ -1315,69 +1315,91 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
     site_info = None
     project_info = None
 
-    response = get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_index)
-    if not response['success']:
-        return_obj['message'] = response['message']
-    else:
-        results = response['results']
-        res_filepath = results['res_filepath'] if 'res_filepath' in results else None
-        res_type = results['res_type'] if 'res_type' in results else None
-        layer_name = results['layer_name'] if 'layer_name' in results else None
-        public_fname = results['public_fname'] if 'public_fname' in results else None
+    try:
 
-        if res_type == 'GenericResource':
+        response = get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_index)
+        if not response['success']:
+            return_obj['message'] = response['message']
+        else:
+            results = response['results']
+            res_filepath = results['res_filepath'] if 'res_filepath' in results else None
+            res_type = results['res_type'] if 'res_type' in results else None
+            layer_name = results['layer_name'] if 'layer_name' in results else None
+            public_fname = results['public_fname'] if 'public_fname' in results else None
 
-            if res_filepath and res_filepath.endswith('mapProject.json'):
-                with open(res_filepath) as project_file:
-                    project_info = project_file.read()
-            else:
+            if res_type == 'GenericResource':
+
+                if res_filepath and res_filepath.endswith('mapProject.json'):
+                    with open(res_filepath) as project_file:
+                        project_info = project_file.read()
+                else:
                     site_info = extract_site_info_from_hs_metadata(hs, res_id)
 
-        elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
+            elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
 
-            check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, file_index)
+                check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, file_index)
 
-            if not check_res['success']:
-                return_obj['message'] = check_res['message']
-            else:
-                response = check_res['results']
-                geoserver_layer_name = response['layer_name']
-                layer_id = response['layer_id']
-                store_id = response['store_id']
-
-                response = get_layer_md_from_geoserver(store_id=store_id, layer_name=geoserver_layer_name,
-                                                       res_type=res_type)
-                if not response['success']:
-                    return_obj['message'] = response['message']
+                if not check_res['success']:
+                    return_obj['message'] = check_res['message']
                 else:
-                    layer_attributes = response['attributes']
-                    layer_extents = response['extents']
-                    geom_type = response['geom_type']
+                    response = check_res['results']
+                    geoserver_layer_name = response['layer_name']
+                    layer_id = response['layer_id']
+                    store_id = response['store_id']
 
-                    band_info_tif_path = os.path.join(hs_tempdir, res_file_name)
-                    band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
+                    response = get_layer_md_from_geoserver(store_id=store_id, layer_name=geoserver_layer_name,
+                                                           res_type=res_type)
+                    if not response['success']:
+                        return_obj['message'] = response['message']
+                    else:
+                        layer_attributes = response['attributes']
+                        layer_extents = response['extents']
+                        geom_type = response['geom_type']
 
-        results = {
-            'res_id': res_id,
-            'res_type': res_type,
-            'layer_name': layer_name,
-            'layer_id': layer_id,
-            'layer_extents': layer_extents,
-            'layer_attributes': layer_attributes,
-            'geom_type': geom_type,
-            'band_info': band_info,
-            'site_info': site_info,
-            'project_info': project_info,
-            'public_fname': public_fname,
-            'res_mod_date': get_res_mod_date(hs, res_id)
-        }
+                        band_info_tif_path = os.path.join(hs_tempdir, res_file_name)
+                        band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
-        param_obj = prepare_result_for_layer_db(results)
-        Layer.add_layer_to_database(**param_obj)
-        return_obj['results'] = results
-        return_obj['success'] = True
+            results = {
+                'res_id': res_id,
+                'res_type': res_type,
+                'layer_name': layer_name,
+                'layer_id': layer_id,
+                'layer_extents': layer_extents,
+                'layer_attributes': layer_attributes,
+                'geom_type': geom_type,
+                'band_info': band_info,
+                'site_info': site_info,
+                'project_info': project_info,
+                'public_fname': public_fname,
+                'res_mod_date': get_res_mod_date(hs, res_id)
+            }
 
-        # os.system('rm -rf %s' % hs_tempdir)
+            param_obj = prepare_result_for_layer_db(results)
+            Layer.add_layer_to_database(**param_obj)
+            return_obj['results'] = results
+            return_obj['success'] = True
+
+    except hs_r.HydroShareHTTPException:
+        return_obj['message'] = 'The HydroShare server appears to be down.'
+    except hs_r.HydroShareNotFound:
+        return_obj['message'] = 'This resource was not found on www.hydroshare.org'
+    except hs_r.HydroShareNotAuthorized:
+        return_obj['message'] = 'You are not authorized to access this resource.'
+    except Exception as e:
+        if gethostname() == 'ubuntu':
+            exc_type, exc_value, exc_traceback = exc_info()
+            msg = e.message if e.message else str(e)
+            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
+            print msg
+            return_obj['message'] = 'An unexpected error ocurred: %s' % msg
+        else:
+            return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
+            if not currently_testing:
+                msg = e.message if e.message else ''
+                msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+                email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
+
+                # os.system('rm -rf %s' % hs_tempdir)
 
     return return_obj
 
@@ -1534,7 +1556,7 @@ def extract_band_info_from_file(raster_fpath):
                 'nd': band.GetNoDataValue(),
                 'max': maximum,
                 'min': minimum,
-                }
+            }
     else:
         band_info = None
 

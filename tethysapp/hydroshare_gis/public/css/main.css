@@ -494,6 +494,11 @@ input[type="radio"] {
     -ms-flex-pack: center;
     justify-content: center;
 }
+#div-loading, #div-loading-mask {
+    position: absolute;
+    top: 20px;
+    background-color: rgba(217, 217, 219, 0.6);
+}
 #res-load-status {
     z-index: 2000;
     pointer-events: none;

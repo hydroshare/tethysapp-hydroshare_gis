@@ -41,8 +41,8 @@
  currentTarget, data, dataType, decrease, defs, deleteRule,
  disableSelection, displayAround, displayName, draw, drawImage, each,
  element, empty, endsWith, error, extent, extents, feature_properties,
- features, filename, files, fill, filter, find, fit, fixedHeader, floor,
- footer, forEach, format, fromLonLat, fun, geom, geomType, geom_type,
+ features, file_index, filename, files, fill, filter, find, fit, fixedHeader, floor,
+ footer, forEach, format, fromLonLat, fun, generic_res_files_list, geom, geomType, geom_type,
  geoserverUrl, geoserver_url, get, getAlpha, getCenter, getContext,
  getCoordinates, getElementById, getExtent, getFeatures, getGeometry,
  getLayers, getSize, getSldString, getSource, getView, getZoom, hasClass,
@@ -60,7 +60,7 @@
  protocol, publicFname, public_fname, push, query_layers, radius, random,
  remove, removeAt, removeAttr, removeClass, removeControl, render,
  renderSync, replace, request, resAbstract, resId, resKeywords, resTitle,
- resType, res_dict_string, res_id, res_list, res_title, res_type, results,
+ resType, res_dict_string, res_file_name, res_id, res_layers_obj_list, res_list, res_title, res_type, results,
  rules, save, scrollCollapse, scrollLeft, scrollY, search, select,
  serverType, service, set, setAlpha, setCenter, setError, setInterval,
  setLineDash, setPending, setPosition, setRequestHeader, setSuccess,
@@ -115,7 +115,7 @@
     var createExportCanvas;
     var createLayerListItem;
     var displaySymbologyModalError;
-    var deletePublicTempfiles;
+    // var deletePublicTempfiles;
     var drawLayersInListOrder;
     var drawPointSymbologyPreview;
     var editLayerDisplayName;
@@ -131,8 +131,11 @@
     var initializeLayersContextMenus;
     var initializeMap;
     var loadProjectFile;
-    var loadResource;
+    var loadNonGenericResource;
+    var loadGenericResFile;
+    var loadGenericResource;
     var modifyDataTableDisplay;
+    var onClickAddHSRes;
     var onClickAddToExistingProject;
     var onClickAddToNewProject;
     var onClickDeleteLayer;
@@ -147,6 +150,7 @@
     var onClickZoomToLayer;
     var prepareFilesForAjax;
     var processAddHSResResults;
+    var processGenericResFiles;
     var processSaveNewProjectResponse;
     var redrawDataTable;
     var reprojectExtents;
@@ -161,16 +165,16 @@
     var showResLoadingStatus;
     var updateSymbology;
     var uploadFileButtonHandler;
-    var uploadResourceButtonHandler;
     var zoomToLayer;
     var $btnApplySymbology;
 
     //  **********Query Selectors************
+    var $btnAddRes;
     var $btnShowModalSaveNewProject;
     var $btnSaveNewProject;
     var $btnSaveProject;
     var $currentLayersList;
-    var $loadingAnimMain;
+    var $footerInfoAddRes;
     var $mapPopup;
     var $modalAttrTbl;
     var $modalLegend;
@@ -272,6 +276,8 @@
         if (isLastResource) {
             hideMainLoadAnim();
             showResLoadingStatus(true, 'Resource(s) added successfully!');
+            $footerInfoAddRes.addClass('hidden');
+            $btnAddRes.prop('disabled', false);
         }
     };
 
@@ -455,6 +461,8 @@
         if (isLastResource) {
             hideMainLoadAnim();
             showResLoadingStatus(true, 'Resource(s) added successfully!');
+            $footerInfoAddRes.addClass('hidden');
+            $btnAddRes.prop('disabled', false);
         }
     };
 
@@ -508,7 +516,7 @@
 
     addLoadResSelEvnt = function () {
         $modalLoadRes.find('tbody tr').on('click', function () {
-            $('#btn-upload-res').prop('disabled', false);
+            $btnAddRes.prop('disabled', false);
             $(this)
                 .css({
                     'background-color': '#1abc9c',
@@ -657,7 +665,7 @@
             $('#res-title').val('');
         });
 
-        $('#btn-upload-res').on('click', uploadResourceButtonHandler);
+        $btnAddRes.on('click', onClickAddHSRes);
 
         $('#btn-upload-file').on('click', uploadFileButtonHandler);
 
@@ -1092,9 +1100,13 @@
 
         params = getSearchParameters();
 
-        if (!(params.res_id === undefined || params.res_id === null)) {
+        if (params.res_id) {
             showMainLoadAnim();
-            loadResource(params.res_id, null, null, true, null);
+            if (params.res_type === "GenericResource") {
+                loadGenericResource(params.res_id);
+            } else {
+                loadNonGenericResource(params.res_id, params.res_type, null, true, null);
+            }
         }
     };
 
@@ -1193,12 +1205,12 @@
         }, 7000);
     };
 
-    deletePublicTempfiles = function () {
-        $.ajax({
-            url: '/apps/hydroshare-gis/delete-public-tempfiles',
-            async: true
-        });
-    };
+    // deletePublicTempfiles = function () {
+    //     $.ajax({
+    //         url: '/apps/hydroshare-gis/delete-public-tempfiles',
+    //         async: true
+    //     });
+    // };
 
     drawLayersInListOrder = function () {
         var i;
@@ -1425,7 +1437,7 @@
                         if (response.hasOwnProperty('res_list')) {
                             buildHSResTable(response.res_list);
                         }
-                        $('#btn-upload-res').add('#div-chkbx-res-auto-close').removeClass('hidden');
+                        $btnAddRes.add('#div-chkbx-res-auto-close').removeClass('hidden');
                     }
                 }
             }
@@ -1572,17 +1584,17 @@
     };
 
     hideMainLoadAnim = function () {
-        $('#app-content-wrapper').removeAttr('style');
-        $loadingAnimMain.addClass('hidden');
+        $('#div-loading').addClass('hidden');
     };
 
     initializeJqueryVariables = function () {
+        $btnAddRes = $('#btn-upload-res');
         $btnShowModalSaveNewProject = $('#btn-show-modal-save-new-project');
         $btnApplySymbology = $('#btn-apply-symbology');
         $btnSaveNewProject = $('#btn-save-new-project');
         $btnSaveProject = $('#btn-save-project');
         $currentLayersList = $('#current-layers-list');
-        $loadingAnimMain = $('#div-loading');
+        $footerInfoAddRes = $('#footer-info-addRes');
         $mapPopup = $('#map-popup');
         $modalAttrTbl = $('#modalAttrTbl');
         $modalLegend = $('#modalLegend');
@@ -1756,20 +1768,20 @@
         var contextMenu;
         var $newLayerListItem;
 
-        var downloadGenericFiles = function (resDownloadDict) {
-            if (Object.keys(resDownloadDict).length !== 0) {
-                loadGenericFilesStatus.setPending();
-                $.ajax({
-                    type: 'GET',
-                    url: '/apps/hydroshare-gis/get-generic-files',
-                    data: {
-                        res_dict_string: JSON.stringify(resDownloadDict)
-                    },
-                    error: loadGenericFilesStatus.setError,
-                    success: loadGenericFilesStatus.setSuccess
-                });
-            }
-        };
+        // var downloadGenericFiles = function (resDownloadDict) {
+        //     if (Object.keys(resDownloadDict).length !== 0) {
+        //         loadGenericFilesStatus.setPending();
+        //         $.ajax({
+        //             type: 'GET',
+        //             url: '/apps/hydroshare-gis/get-generic-files',
+        //             data: {
+        //                 res_dict_string: JSON.stringify(resDownloadDict)
+        //             },
+        //             error: loadGenericFilesStatus.setError,
+        //             success: loadGenericFilesStatus.setSuccess
+        //         });
+        //     }
+        // };
 
         projectInfo = fileProjectInfo;
 
@@ -1853,11 +1865,10 @@
             $btnSaveProject.prop('disabled', true);
         }, 100);
 
-        downloadGenericFiles(resDownloadDict);
+        // downloadGenericFiles(resDownloadDict);
     };
 
-    loadResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
-        var $footerInfoAddRes = $('#footer-info-addRes');
+    loadNonGenericResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
         var data = {'res_id': resId};
 
         if (resType) {
@@ -1876,8 +1887,7 @@
             data: data,
             error: function () {
                 $footerInfoAddRes.addClass('hidden');
-                $('#btn-upload-res').prop('disabled', false);
-                console.error('Failure!');
+                $btnAddRes.prop('disabled', false);
             },
             success: function (response) {
                 if (response.hasOwnProperty('success')) {
@@ -1893,8 +1903,80 @@
                         }
                     }
                 }
+            }
+        });
+    };
+
+    loadGenericResFile = function (resId, resFileName, index, isLastFile){
+        var data = {
+            'res_id': resId,
+            'res_file_name': resFileName,
+            'file_index': index
+        };
+        $.ajax({
+            url: '/apps/hydroshare-gis/add-generic-res-file',
+            type: 'GET',
+            data: data,
+            dataType: 'json',
+            contentType: 'json',
+            success: function (response) {
+                if (response.hasOwnProperty('success')) {
+                    if (!response.success) {
+                        showResLoadingStatus(false, response.message);
+                        hideMainLoadAnim();
+                    } else {
+                        if (response.hasOwnProperty('results')) {
+                            if (response.results.res_type === 'GenericResource') {
+                                if (response.results.project_info) {
+                                    loadProjectFile(JSON.parse(response.results.project_info));
+                                    showResLoadingStatus(true, 'Project loaded successfully!');
+                                    hideMainLoadAnim();
+                                } else if (response.results.public_fname !== null) {
+                                    addGenericResToUI(response.results, isLastFile);
+                                }
+                            } else {
+                                addLayerToUI(response.results, isLastFile);
+                            }
+                        }
+                    }
+                }
+            },
+            error: function (error) {
+                console.error(error);
+            }
+        });
+    };
+
+    loadGenericResource = function (resId) {
+        var data = {'res_id': resId};
+
+        $footerInfoAddRes.removeClass('hidden');
+
+        $.ajax({
+            url: '/apps/hydroshare-gis/get-generic-res-files-list',
+            type: 'GET',
+            data: data,
+            dataType: 'json',
+            contentType: 'json',
+            success: function (response) {
+                if (response.hasOwnProperty('success')) {
+                    if (!response.success) {
+                        showResLoadingStatus(false, response.message);
+                        hideMainLoadAnim();
+                    } else {
+                        if (response.hasOwnProperty('results')) {
+                            if (response.results.hasOwnProperty('res_layers_obj_list')) {
+                                processAddHSResResults(response.results.res_layers_obj_list, true, null);
+                            } else if (response.results.hasOwnProperty('generic_res_files_list')) {
+                                processGenericResFiles(resId, response.results.generic_res_files_list);
+                            }
+                        }
+                    }
+                }
+            },
+            error: function () {
                 $footerInfoAddRes.addClass('hidden');
-                $('#btn-upload-res').prop('disabled', false);
+                $btnAddRes.prop('disabled', false);
             }
         });
     };
@@ -1909,6 +1991,22 @@
         });
 
         redrawDataTable(dataTable, $modal);
+    };
+
+    onClickAddHSRes = function () {
+
+        $uploadBtn.prop('disabled', true);
+        var $rdoRes = $('.rdo-res:checked');
+        var resId = $rdoRes.val();
+        var resType = $rdoRes.parent().parent().find('.res_type').text();
+        var resTitle = $rdoRes.parent().parent().find('.res_title').text();
+
+        showMainLoadAnim();
+        if (resType === "GenericResource") {
+            loadGenericResource(resId);
+        } else {
+            loadNonGenericResource(resId, resType, resTitle, true, null);
+        }
     };
 
     onClickAddToExistingProject = function () {
@@ -1932,7 +2030,7 @@
                 'title': $li.data('title')
             });
         });
-        loadResource(resId, 'GenericResource', resTitle, false, additionalResources);
+        loadNonGenericResource(resId, 'GenericResource', resTitle, false, additionalResources);
     };
 
     onClickAddToNewProject = function () {
@@ -1951,7 +2049,7 @@
             });
         });
         firstResource = additionalResources.shift();
-        loadResource(firstResource.id, firstResource.type, firstResource.title, (additionalResources.length === 0), additionalResources);
+        loadNonGenericResource(firstResource.id, firstResource.type, firstResource.title, (additionalResources.length === 0), additionalResources);
     };
 
     onClickDeleteLayer = function (e) {
@@ -2258,7 +2356,7 @@
                 numAdditionalResources = additionalResources.length;
                 for (j = 0; j < numAdditionalResources; j += 1) {
                     resource = additionalResources[j];
-                    loadResource(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
+                    loadNonGenericResource(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
                 }
             }
 
@@ -2277,6 +2375,23 @@
             }
         }
         $btnSaveProject.prop('disabled', false);
+    };
+
+    processGenericResFiles = function (resId, resFilesList) {
+        if (typeof resFilesList === 'string') {
+            resFilesList = resFilesList.split(',');
+        }
+
+        var numFiles = resFilesList.length;
+        var i;
+        var isLastFile = false;
+
+        for (i = 0; i < numFiles; i += 1) {
+            if (i === numFiles - 1) {
+                isLastFile = true;
+            }
+            loadGenericResFile(resId, resFilesList[i], i, isLastFile);
+        }
     };
 
     processSaveNewProjectResponse = function (response) {
@@ -2555,16 +2670,7 @@
     };
 
     showMainLoadAnim = function () {
-        $('#app-content-wrapper').css({
-            '-webkit-filter': 'blur(1px)',
-            '-moz-filter': 'blur(1px)',
-            '-o-filter': 'blur(1px)',
-            '-ms-filter': 'blur(1px)',
-            'filter': 'blur(1px)',
-            'opacity': '0.5'
-        });
-        $loadingAnimMain.removeClass('hidden');
-
+        $('#div-loading').removeClass('hidden');
     };
 
     showResLoadingStatus = function (success, message) {
@@ -2638,18 +2744,6 @@
         });
     };
 
-    uploadResourceButtonHandler = function () {
-
-        $uploadBtn.prop('disabled', true);
-        var $rdoRes = $('.rdo-res:checked');
-        var resId = $rdoRes.val();
-        var resType = $rdoRes.parent().parent().find('.res_type').text();
-        var resTitle = $rdoRes.parent().parent().find('.res_title').text();
-
-        showMainLoadAnim();
-        loadResource(resId, resType, resTitle, true, null);
-    };
-
     zoomToLayer = function (layerExtent, mapSize, resType) {
         if (resType.indexOf('TimeSeriesResource') > -1 || resType === 'GenericResource') {
             map.getView().setCenter(layerExtent);
@@ -2681,8 +2775,6 @@
 
         if (window.location.pathname.indexOf('add-to-project') > -1) {
             $('#modalAddToProject').modal('show');
-        } else {
-            $('#modalWelcome').modal('show');
         }
 
         $currentLayersList.sortable({
@@ -2745,5 +2837,5 @@
         };
     }());
 
-    window.onbeforeunload = deletePublicTempfiles;
+    // window.onbeforeunload = deletePublicTempfiles;
 }());

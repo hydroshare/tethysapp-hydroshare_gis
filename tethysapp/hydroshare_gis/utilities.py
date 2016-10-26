@@ -67,7 +67,8 @@ def upload_file_to_geoserver(res_id, res_type, res_file, file_index=None):
 
     try:
         if res_type == 'RasterResource':
-            coverage_type = 'imagepyramid' if is_zip else 'geotiff'
+            is_image_pyramid = check_if_image_pyramid(res_file)
+            coverage_type = 'imagepyramid' if is_image_pyramid else 'geotiff'
             coverage_name = store_id if is_zip else None
             if file_index:
                 store_id = '%s_%s' % (res_id, file_index)
@@ -1561,3 +1562,12 @@ def extract_band_info_from_file(raster_fpath):
         band_info = None
 
     return band_info
+
+def check_if_image_pyramid(fpath):
+    is_image_pyramid = False
+    with zipfile.ZipFile(fpath, 'r') as z:
+        for fname in z.namelist():
+            if fname.endswith('/'):
+                is_image_pyramid = True
+
+    return is_image_pyramid

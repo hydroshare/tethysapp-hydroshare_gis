@@ -355,7 +355,7 @@ def get_band_info(hs, res_id, res_type, raster_fpath=None):
             print 'Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id
             print str(e)
 
-        if not band_info and raster_fpath:
+        if not band_info and raster_fpath and os.path.exists(raster_fpath):
             band_info = extract_band_info_from_file(raster_fpath)
 
     return band_info
@@ -1357,7 +1357,7 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                         layer_extents = response['extents']
                         geom_type = response['geom_type']
 
-                        band_info_tif_path = os.path.join(hs_tempdir, res_file_name)
+                        band_info_tif_path = os.path.join(hs_tempdir, '%s_%s.tif' % res_id, file_index)
                         band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
             results = {

@@ -355,7 +355,7 @@ def get_band_info(hs, res_id, res_type, raster_fpath=None):
             print 'Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id
             print str(e)
 
-        if not band_info and raster_fpath and os.path.exists(raster_fpath):
+        if band_info is None and raster_fpath and os.path.exists(raster_fpath):
             band_info = extract_band_info_from_file(raster_fpath)
 
     return band_info

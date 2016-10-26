@@ -49,7 +49,7 @@ def get_json_response(response_type, message):
     return JsonResponse({response_type: message})
 
 
-def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index):
+def upload_file_to_geoserver(res_id, res_type, res_file, file_index=None):
     return_obj = {
         'success': False,
         'message': None,
@@ -61,16 +61,16 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index):
     response = None
     results = return_obj['results']
     engine = return_spatial_dataset_engine()
-    store_id = 'res_%s' % res_id
+    store_id = res_id
     full_store_id = '%s:%s' % (get_workspace(), store_id)
+    is_zip = zipfile.is_zipfile(res_file)
 
     try:
         if res_type == 'RasterResource':
             coverage_type = 'imagepyramid' if is_zip else 'geotiff'
             coverage_name = store_id if is_zip else None
-
-            if file_index != 0:
-                store_id = 'res_%s_%s' % (res_id, file_index)
+            if file_index:
+                store_id = '%s_%s' % (res_id, file_index)
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
 
             # Creates a resource from a file stored directly on the GeoServer
@@ -97,8 +97,8 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index):
                                                        debug=get_debug_val())
 
         elif res_type == 'GeographicFeatureResource':
-            if file_index != 0:
-                store_id = 'res_%s_%s' % (res_id, file_index)
+            if file_index:
+                store_id = '%s_%s' % (res_id, file_index)
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
 
             if is_zip is True:
@@ -126,7 +126,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index):
                     if not result['success']:
                         raise Exception
                     else:
-                        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index)
+                        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, file_index)
                 except Exception as e:
                     e.message = response['error']
                     raise
@@ -148,7 +148,7 @@ def upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index):
         engine.create_workspace(workspace_id=get_workspace(),
                                 uri='tethys_app-%s' % get_workspace(),
                                 debug=get_debug_val())
-        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, is_zip, file_index)
+        return_obj = upload_file_to_geoserver(res_id, res_type, res_file, file_index)
 
     return return_obj
 
@@ -330,7 +330,7 @@ def make_geoserver_request(web_service, params):
     return r
 
 
-def get_band_info(hs, res_id, res_type):
+def get_band_info(hs, res_id, res_type, raster_fpath=None):
     band_info = None
     if res_type == 'RasterResource':
         try:
@@ -353,6 +353,9 @@ def get_band_info(hs, res_id, res_type):
         except Exception as e:
             print 'Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id
             print str(e)
+
+        if not band_info and raster_fpath:
+            band_info = extract_band_info_from_file(raster_fpath)
 
     return band_info
 
@@ -383,7 +386,6 @@ def process_local_file(file_list, proj_id, hs, username):
     results = return_obj['results']
     res_type = None
     res_id = proj_id
-    is_zip = False
     res_files = None
     hs_tempdir = get_hs_tempdir(username)
 
@@ -401,7 +403,6 @@ def process_local_file(file_list, proj_id, hs, username):
             zip_files(f, res_files)
             break
         elif file_name.endswith('.zip'):
-            is_zip = True
             res_zip = os.path.join(hs_tempdir, res_id, file_name)
             if not os.path.exists(res_zip):
                 if not os.path.exists(os.path.dirname(res_zip)):
@@ -422,7 +423,7 @@ def process_local_file(file_list, proj_id, hs, username):
     if res_type is not None:
         results['res_type'] = res_type
 
-        check_res = upload_file_to_geoserver(res_id, res_type, res_files, is_zip, 0)
+        check_res = upload_file_to_geoserver(res_id, res_type, res_files)
         if not check_res['success']:
             return_obj['message'] = check_res['message']
         else:
@@ -559,28 +560,28 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
     return return_obj
 
 
-def check_geoserver_for_res(res_id):
-    return_obj = {'isOnGeoserver': False}
-    engine = None
-    store_id = 'res_%s' % res_id
-    try:
-        engine = return_spatial_dataset_engine()
-        response = engine.list_resources(store=store_id, workspace=get_workspace())
-        if response['success']:
-            results = response['result']
-            assert len(results) == 1
-            layer_name = response['result'][0]
-            return_obj = {
-                'isOnGeoserver': True,
-                'layer_name': layer_name,
-            }
-    except AssertionError:
-        if engine is not None:
-            engine.delete_store(store_id=store_id, purge=True, recurse=True)
-    except FailedRequestError:
-        pass
-
-    return return_obj
+# def check_geoserver_for_res(res_id):
+#     return_obj = {'isOnGeoserver': False}
+#     engine = None
+#     store_id = res_id
+#     try:
+#         engine = return_spatial_dataset_engine()
+#         response = engine.list_resources(store=store_id, workspace=get_workspace())
+#         if response['success']:
+#             results = response['result']
+#             assert len(results) == 1
+#             layer_name = response['result'][0]
+#             return_obj = {
+#                 'isOnGeoserver': True,
+#                 'layer_name': layer_name,
+#             }
+#     except AssertionError:
+#         if engine is not None:
+#             engine.delete_store(store_id=store_id, purge=True, recurse=True)
+#     except FailedRequestError:
+#         pass
+#
+#     return return_obj
 
 
 def download_res_from_hs(hs, res_id, tempdir):
@@ -658,7 +659,6 @@ def process_res_by_type(hs, res_id, res_type, hs_tempdir):
                 error_occurred = False
                 for r in response['results']:
                     res_filepath = r['res_filepath'] if 'res_filepath' in r else None
-                    is_zip = r['is_zip'] if 'is_zip' in r else None
                     res_type = r['res_type'] if 'res_type' in r else None
                     layer_name = r['layer_name'] if 'layer_name' in r else None
                     public_fname = r['public_fname'] if 'public_fname' in r else None
@@ -682,7 +682,7 @@ def process_res_by_type(hs, res_id, res_type, hs_tempdir):
                             }
                             results.append(result)
                     elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
-                        check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, is_zip, 0)
+                        check_res = upload_file_to_geoserver(res_id, res_type, res_filepath)
                         if not check_res['success']:
                             error_occurred = True
                             return_obj['message'] = check_res['message']
@@ -731,12 +731,10 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
     {
             'res_filepath': None,
             'res_type': res_type,
-            'is_zip': False,
             'layer_name': None
     }
     '''
     results = return_obj['results']
-    is_zip = False
 
     if os.path.exists(res_contents_path):
         res_files_list = os.listdir(res_contents_path)
@@ -744,9 +742,9 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
         if res_type == 'GeographicFeatureResource':
             for f in res_files_list:
                 src = os.path.join(res_contents_path, f)
-                public_fpath = os.path.join(res_contents_path, 'res_' + res_id + os.path.splitext(f)[1])
+                public_fpath = os.path.join(res_contents_path, res_id + os.path.splitext(f)[1])
                 os.rename(src, public_fpath)
-            res_fpath = os.path.join(res_contents_path, 'res_' + res_id)
+            res_fpath = os.path.join(res_contents_path, res_id)
             prj_path = res_fpath + '.prj'
             r = check_crs(res_type, prj_path)
             if r['success'] and r['crsWasChanged']:
@@ -767,7 +765,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                 fpath = os.path.join(res_contents_path, res_fname)
                 if num_files == 2:
                     if res_fname.endswith('.tif'):
-                        tmp_fpath = os.path.join(res_contents_path, 'res_%s.tif' % res_id)
+                        tmp_fpath = os.path.join(res_contents_path, '%s.tif' % res_id)
                         os.rename(fpath, tmp_fpath)
                         r = check_crs(res_type, tmp_fpath)
                         if not r['success']:
@@ -785,18 +783,16 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     break
 
             if num_files > 2:
-                pyramid_dir_path = os.path.join(res_contents_path, 'res_%s/' % res_id)
+                pyramid_dir_path = os.path.join(res_contents_path, '%s/' % res_id)
                 res_fpath = '%s.zip' % pyramid_dir_path[:-1]
                 os.mkdir(pyramid_dir_path)
                 gdal_retile = 'gdal_retile.py -levels 9 -ps 2048 2048 -co "TILED=YES" -targetDir %s %s'
                 os.system(gdal_retile % (pyramid_dir_path, vrt_path))
-                is_zip = True
                 zip_folder(pyramid_dir_path, res_fpath)
 
             result = {
                 'res_filepath': res_fpath,
                 'res_type': res_type,
-                'is_zip': is_zip
             }
             results.append(result)
 
@@ -1325,7 +1321,6 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
     else:
         results = response['results']
         res_filepath = results['res_filepath'] if 'res_filepath' in results else None
-        is_zip = results['is_zip'] if 'is_zip' in results else None
         res_type = results['res_type'] if 'res_type' in results else None
         layer_name = results['layer_name'] if 'layer_name' in results else None
         public_fname = results['public_fname'] if 'public_fname' in results else None
@@ -1340,7 +1335,7 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
 
         elif res_type == 'GeographicFeatureResource' or res_type == 'RasterResource':
 
-            check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, is_zip, file_index)
+            check_res = upload_file_to_geoserver(res_id, res_type, res_filepath, file_index)
 
             if not check_res['success']:
                 return_obj['message'] = check_res['message']
@@ -1358,7 +1353,9 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                     layer_attributes = response['attributes']
                     layer_extents = response['extents']
                     geom_type = response['geom_type']
-                    band_info = get_band_info(hs, res_id, res_type)
+
+                    band_info_tif_path = os.path.join(hs_tempdir, res_file_name)
+                    band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
         results = {
             'res_id': res_id,
@@ -1396,7 +1393,6 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
     {
             'res_filepath': None,
             'res_type': res_type,
-            'is_zip': False,
             'layer_name': None
     }
     '''
@@ -1408,7 +1404,6 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
         results = {
             'res_filepath': res_fpath,
             'res_type': res_type,
-            'is_zip': False,
             'layer_name': None
         }
     else:
@@ -1417,7 +1412,6 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
         tif_exts = ['.tif', '.vrt']
         is_full_generic = False
         public_fpath = None  # Dito
-        is_zip = False  # Assumes the files are not a zipped raster pyramid or zipped shapefiles
         fpath = os.path.join(hs_tempdir, res_file_name)
         fname_and_ext = os.path.splitext(res_file_name)
         fname = fname_and_ext[0]
@@ -1457,24 +1451,16 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
                 for ext in req_shp_file_exts:
                     path = os.path.join(hs_tempdir, '%s%s' % (fname, ext))
                     # Rename files to res_id base
-                    if file_index != 0:
-                        tmp_fpath = os.path.join(hs_tempdir,
-                                                 '%s_%s%s' % (res_id, file_index, ext))
-                    else:
-                        tmp_fpath = os.path.join(hs_tempdir, '%s%s' % (res_id, ext))
-
+                    tmp_fpath = os.path.join(hs_tempdir,
+                                             '%s_%s%s' % (res_id, file_index, ext))
                     os.rename(path, tmp_fpath)
                     shp_file_paths.append(tmp_fpath)
 
                 # Rename zip to res_id base just to be safe
-                if file_index != 0:
-                    res_fpath = os.path.join(hs_tempdir,
-                                             '%s_%s%s' % (res_id, file_index, '.zip'))
-                else:
-                    res_fpath = os.path.join(hs_tempdir, '%s%s' % (res_id, '.zip'))
+                res_fpath = os.path.join(hs_tempdir,
+                                         '%s_%s.zip' % (res_id, file_index))
 
                 zip_files(shp_file_paths, res_fpath)
-                is_zip = True
                 res_type = 'GeographicFeatureResource'
 
             else:
@@ -1483,10 +1469,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
         elif fext in tif_exts:
             hs.getResourceFile(res_id, res_file_name, destination=hs_tempdir)
             res_type = 'RasterResource'
-            if file_index != 0:
-                tmp_fpath = os.path.join(hs_tempdir, '%s_%s.tif' % (res_id, file_index))
-            else:
-                tmp_fpath = os.path.join(hs_tempdir, '%s.tif' % res_id)
+            tmp_fpath = os.path.join(hs_tempdir, '%s_%s.tif' % (res_id, file_index))
             os.rename(fpath, tmp_fpath)
             r = check_crs(res_type, tmp_fpath)
             if not r['success']:
@@ -1510,10 +1493,49 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             'res_filepath': res_fpath,
             'res_type': res_type,
             'layer_name': res_file_name,
-            'is_zip': is_zip
         }
 
     return_obj['results'] = results
     return_obj['success'] = True
 
     return return_obj
+
+
+def extract_band_info_from_file(raster_fpath):
+    from gdal import Open
+    from gdalconst import GA_ReadOnly
+    from numpy import allclose as numpy_allclose
+
+    raster_dataset = Open(raster_fpath, GA_ReadOnly)
+
+    # get raster band count
+    if raster_dataset:
+        band_info = {}
+        band_count = raster_dataset.RasterCount
+
+        if band_count == 1:
+            band = raster_dataset.GetRasterBand(1)
+            minimum, maximum, _, _ = band.ComputeStatistics(False)
+            no_data = band.GetNoDataValue()
+            new_no_data = None
+
+            if no_data and numpy_allclose(minimum, no_data):
+                new_no_data = minimum
+            elif no_data and numpy_allclose(maximum, no_data):
+                new_no_data = maximum
+
+            if new_no_data is not None:
+                band.SetNoDataValue(new_no_data)
+                minimum, maximum, _, _ = band.ComputeStatistics(False)
+
+            band_info = {
+                'variable': '',
+                'units': band.GetUnitType(),
+                'nd': band.GetNoDataValue(),
+                'max': maximum,
+                'min': minimum,
+                }
+    else:
+        band_info = None
+
+    return band_info

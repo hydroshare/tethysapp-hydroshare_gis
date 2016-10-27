@@ -21,14 +21,14 @@ class Layer(Base):
     layer_id = Column(String(100))
     associated_res_id = Column(String(50))
     res_mod_date = Column(String(50), nullable=True)
-    name = Column(String(200), nullable=True)
-    associated_file_name = Column(String(150), nullable=True)
+    name = Column(String(300), nullable=True)
+    associated_file_name = Column(String(300), nullable=True)
     associated_res_type = Column(String(50), nullable=True)
     extents = Column(Text, nullable=True)
-    attributes = Column(String(500), nullable=True)
+    attributes = Column(String(1000), nullable=True)
     geom_type = Column(String(50), nullable=True)
     band_info = Column(String(300), nullable=True)
-    site_info = Column(String(300), nullable=True)
+    site_info = Column(String(1000), nullable=True)
 
     def __init__(self, layer_id, res_id, res_mod_date, layer_name, file_name, res_type, extents, attributes, geom_type,
                  band_info, site_info):

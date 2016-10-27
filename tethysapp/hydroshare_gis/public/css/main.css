@@ -174,7 +174,7 @@
     position: fixed;
     top: 70px;
     bottom: 65px;
-    right: 0;
+    right: 1px;
     left: 0;
     overflow-y: auto;
 }
@@ -339,11 +339,7 @@ input[type="radio"] {
     max-width: 800px;
     width: auto;
 }
-#modalSymbology .modal-content {
-    position: static;
-}
 #modalSymbology .modal-body {
-    position: static;
     display: -webkit-box;
     display: -webkit-flex;
     display: -ms-flexbox;
@@ -355,9 +351,6 @@ input[type="radio"] {
     -webkit-justify-content: space-between;
     -ms-flex-pack: justify;
     justify-content: space-between;
-}
-#modalSymbology .modal-footer {
-    position: static;
 }
 #symbology-preview-container {
     margin-right: 50px;
@@ -501,6 +494,11 @@ input[type="radio"] {
     -ms-flex-pack: center;
     justify-content: center;
 }
+#div-loading, #div-loading-mask {
+    position: absolute;
+    top: 20px;
+    background-color: rgba(217, 217, 219, 0.6);
+}
 #res-load-status {
     z-index: 2000;
     pointer-events: none;
@@ -571,5 +569,11 @@ label {
 }
 a.ol-zoomslider-handle:hover {
     background-color: rgba(134, 186, 251, 0.7);
+}
+#close-map-popup {
+    position: absolute;
+    top: 0;
+    right: 2px;
+    cursor: pointer;
 }
 /****************************************************/

@@ -1,8 +1,18 @@
 from django.http import JsonResponse
 
-from utilities import process_hs_res, get_oauth_hs, get_hs_res_list, get_geoserver_url, delete_public_tempfiles, \
-    process_local_file, save_new_project, save_project, generate_attribute_table, get_generic_files
+from utilities import get_hs_res_object, get_oauth_hs, get_hs_res_list, get_geoserver_url, \
+    process_local_file, save_new_project, save_project, generate_attribute_table, delete_tempfiles, \
+    get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file
 
+from model import ResourceLayersCount
+
+generic_geoserver_layers_count = ResourceLayersCount()
+
+message_oauth_failed = 'You must be signed in with your HydroShare account. ' \
+                       'If you thought you had already done so, your login likely timed out. ' \
+                       'In that case, please log in again'
+message_template_wrong_req_method = 'This request can only be made through a "{method}" AJAX call.'
+message_template_param_unfilled = 'The required "{param}" parameter was not fulfilled.'
 
 def add_hs_res(request):
     return_obj = {
@@ -12,7 +22,7 @@ def add_hs_res(request):
     }
     if request.is_ajax() and request.method == 'GET':
         if not request.GET.get('res_id'):
-            return_obj['message'] = 'The required res_id parameter was not fulfilled.'
+            return_obj['message'] = message_template_param_unfilled.format(param='res_id')
         else:
             res_id = request.GET['res_id']
             res_type = None
@@ -24,13 +34,18 @@ def add_hs_res(request):
 
             hs = get_oauth_hs(request)
             if hs is None:
-                return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+                return_obj['message'] = message_oauth_failed
             else:
-                return_obj = process_hs_res(hs=hs, res_id=res_id, res_type=res_type, res_title=res_title,
-                                            username=request.user.username)
+                res_layers_obj_list = get_res_layers_from_db(hs, res_id, res_type, res_title, request.user.username)
+                if res_layers_obj_list:
+                    return_obj['results'] = res_layers_obj_list
+                    return_obj['success'] = True
+                else:
+                    return_obj = get_hs_res_object(hs=hs, res_id=res_id, res_type=res_type, res_title=res_title,
+                                                   username=request.user.username)
 
     else:
-        return_obj['message'] = 'This request can only be made through a "GET" AJAX call.'
+        return_obj['message'] = message_template_wrong_req_method.format(method="GET")
 
     return JsonResponse(return_obj)
 
@@ -46,12 +61,12 @@ def add_local_file(request):
         proj_id = request.POST['proj_id']
         hs = get_oauth_hs(request)
         if hs is None:
-            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+            return_obj['message'] = message_oauth_failed
         else:
             return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs,
                                             username=request.user.username)
     else:
-        return_obj['message'] = 'This request can only be made through a "POST" AJAX call.'
+        return_obj['message'] = message_template_wrong_req_method.format(method="POST")
 
     return JsonResponse(return_obj)
 
@@ -66,7 +81,7 @@ def ajax_get_hs_res_list(request):
     if request.is_ajax() and request.method == 'GET':
         hs = get_oauth_hs(request)
         if hs is None:
-            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+            return_obj['message'] = message_oauth_failed
         else:
             response = get_hs_res_list(hs)
             if not response['success']:
@@ -75,7 +90,7 @@ def ajax_get_hs_res_list(request):
                 return_obj['res_list'] = response['res_list']
                 return_obj['success'] = True
     else:
-        return_obj['error'] = 'This request can only be made through a "GET" AJAX call.'
+        return_obj['error'] = message_template_wrong_req_method.format(method="GET")
 
     return JsonResponse(return_obj)
 
@@ -104,7 +119,7 @@ def ajax_save_new_project(request):
 
         hs = get_oauth_hs(request)
         if hs is None:
-            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+            return_obj['message'] = message_oauth_failed
         else:
             return_obj = save_new_project(hs=hs, project_info=project_info, res_title=res_title,
                                           res_abstract=res_abstract, res_keywords=res_keywords,
@@ -123,7 +138,7 @@ def ajax_save_project(request):
 
         hs = get_oauth_hs(request)
         if hs is None:
-            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
+            return_obj['message'] = message_oauth_failed
         else:
             return_obj = save_project(hs, res_id, project_info)
 
@@ -134,25 +149,90 @@ def ajax_get_geoserver_url(request):
     return get_geoserver_url(request)
 
 
-def ajax_delete_public_tempfiles(request):
+def ajax_delete_tempfiles(request):
     if request.is_ajax and request.method == 'GET':
-        delete_public_tempfiles(username=request.user.username)
+        delete_tempfiles(username=request.user.username)
 
     return JsonResponse({'success': True})
 
 
-def ajax_get_generic_files(request):
-    return_obj = {
-        'success': False,
-        'message': None
-    }
+# def ajax_get_generic_files(request):
+#     return_obj = {
+#         'success': False,
+#         'message': None
+#     }
+#
+#     if request.is_ajax and request.method == 'GET':
+#         res_dict_string = request.GET['res_dict_string']
+#         hs = get_oauth_hs(request)
+#         if hs is None:
+#             return_obj['message'] = message_oauth_failed
+#         else:
+#             return_obj = get_generic_files(hs=hs, res_dict_string=res_dict_string, username=request.user.username)
+#
+#         return JsonResponse(return_obj)
 
+
+def ajax_get_features_on_click(request):
     if request.is_ajax and request.method == 'GET':
-        res_dict_string = request.GET['res_dict_string']
-        hs = get_oauth_hs(request)
-        if hs is None:
-            return_obj['message'] = 'Login timed out! Please re-sign in with your HydroShare account.'
-        else:
-            return_obj = get_generic_files(hs=hs, res_dict_string=res_dict_string, username=request.user.username)
+        params_str = request.GET['params']
+        return_obj = get_features_on_click(params_str)
 
         return JsonResponse(return_obj)
+
+
+def ajax_get_generic_res_files_list(request):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {}
+    }
+    if request.is_ajax() and request.method == 'GET':
+        if not request.GET.get('res_id'):
+            return_obj['message'] = message_template_param_unfilled.format(param='res_id')
+        else:
+            res_id = request.GET['res_id']
+            hs = get_oauth_hs(request)
+            if hs is None:
+                return_obj['message'] = message_oauth_failed
+            else:
+                res_layers_obj_list = get_res_layers_from_db(hs, res_id, 'GenericResource', None, request.user.username)
+                if res_layers_obj_list:
+                    return_obj['results']['res_layers_obj_list'] = res_layers_obj_list
+                    return_obj['success'] = True
+                else:
+                    return_obj = get_res_files_list(hs=hs, res_id=res_id)
+    else:
+        return_obj['message'] = message_template_wrong_req_method.format(method="GET")
+
+    return JsonResponse(return_obj)
+
+
+def ajax_add_generic_res_file(request):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {}
+    }
+    if request.is_ajax() and request.method == 'GET':
+        if not request.GET.get('res_id'):
+            return_obj['message'] = message_template_param_unfilled.format(param='res_id')
+        else:
+            res_id = request.GET['res_id']
+            if not request.GET.get('res_file_name'):
+                return_obj['message'] = message_template_param_unfilled.format(param='res_file_name')
+            else:
+                res_file_name = request.GET['res_file_name']
+                file_index = int(request.GET['file_index'])
+
+                hs = get_oauth_hs(request)
+
+                if hs is None:
+                    return_obj['message'] = message_oauth_failed
+                else:
+                    return_obj = get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, request.user.username,
+                                                                     file_index)
+    else:
+        return_obj['message'] = message_template_wrong_req_method.format(method="GET")
+
+    return JsonResponse(return_obj)

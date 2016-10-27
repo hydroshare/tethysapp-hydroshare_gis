@@ -18,7 +18,7 @@ import xmltodict
 from datetime import datetime
 from tempfile import TemporaryFile
 from json import dumps, loads
-# from inspect import getfile, currentframe
+from inspect import getfile, currentframe
 from sys import exc_info
 from traceback import format_exception
 from socket import gethostname
@@ -869,14 +869,14 @@ def get_hs_tempdir(username=None, file_index=None):
 
     return hs_tempdir
 
-# def get_public_tempdir(username=None):
-#     public_tempdir = os.path.join(getfile(currentframe()).replace('utilities.py', 'public/temp/'),
-#                                   username if username else '')
-# 
-#     if not os.path.exists(public_tempdir):
-#         os.makedirs(public_tempdir)
-# 
-#     return public_tempdir
+def get_public_tempdir(username=None):
+    public_tempdir = os.path.join(getfile(currentframe()).replace('utilities.py', 'public/temp/'),
+                                  username if username else '')
+
+    if not os.path.exists(public_tempdir):
+        os.makedirs(public_tempdir)
+
+    return public_tempdir
 
 
 def email_admin(subject, traceback=None, custom_msg=None):
@@ -1405,8 +1405,10 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                 'res_mod_date': get_res_mod_date(hs, res_id)
             }
 
-            param_obj = prepare_result_for_layer_db(results)
-            Layer.add_layer_to_database(**param_obj)
+            if not project_info:
+                param_obj = prepare_result_for_layer_db(results)
+                Layer.add_layer_to_database(**param_obj)
+            
             return_obj['results'] = results
             return_obj['success'] = True
 
@@ -1463,7 +1465,6 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
         kml_exts = ['.kml', '.kmz']
         tif_exts = ['.tif', '.vrt']
         is_full_generic = False
-        public_fpath = None  # Dito
         fpath = os.path.join(hs_tempdir, res_file_name)
         fname_and_ext = os.path.splitext(res_file_name)
         fname = fname_and_ext[0]
@@ -1535,11 +1536,12 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             is_full_generic = True
 
         if is_full_generic:
-            public_fpath = res_file_name
+            public_tempdir = get_public_tempdir(username=os.path.basename(os.path.normpath(hs_tempdir)))
+            hs.getResourceFile(res_id, res_file_name, destination=public_tempdir)
             res_fpath = None  # Generic resource files rely on public_fpath, not res_fpath
 
         results = {
-            'public_fname': public_fpath,
+            'public_fname': res_file_name,
             'res_filepath': res_fpath,
             'res_type': res_type,
             'layer_name': res_file_name,

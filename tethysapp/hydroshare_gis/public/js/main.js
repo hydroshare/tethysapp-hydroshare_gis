@@ -1896,6 +1896,7 @@
                     if (!response.success) {
                         showResLoadingStatus(false, response.message);
                         hideMainLoadAnim();
+                        $footerInfoAddRes.addClass('hidden');
                     } else {
                         if (response.hasOwnProperty('results')) {
                             processAddHSResResults(response.results, isLastResource, additionalResources);
@@ -1923,6 +1924,7 @@
                     if (!response.success) {
                         showResLoadingStatus(false, response.message);
                         hideMainLoadAnim();
+                        $footerInfoAddRes.addClass('hidden');
                     } else {
                         if (response.hasOwnProperty('results')) {
                             if (response.results.res_type === 'GenericResource') {
@@ -1962,6 +1964,7 @@
                     if (!response.success) {
                         showResLoadingStatus(false, response.message);
                         hideMainLoadAnim();
+                        $footerInfoAddRes.addClass('hidden');
                     } else {
                         if (response.hasOwnProperty('results')) {
                             if (response.results.hasOwnProperty('res_layers_obj_list')) {
@@ -2468,7 +2471,7 @@
         if ($('#chkbx-res-auto-close').is(':checked')) {
             $modalLoadRes.modal('hide');
         }
-        deleteTempfiles()
+        deleteTempfiles();
     };
 
     setupSymbologyLabelsState = function (layerCssStyles) {

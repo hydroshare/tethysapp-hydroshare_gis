@@ -115,7 +115,7 @@
     var createExportCanvas;
     var createLayerListItem;
     var displaySymbologyModalError;
-    // var deletePublicTempfiles;
+    var deleteTempfiles;
     var drawLayersInListOrder;
     var drawPointSymbologyPreview;
     var editLayerDisplayName;
@@ -154,6 +154,7 @@
     var processSaveNewProjectResponse;
     var redrawDataTable;
     var reprojectExtents;
+    var setStateAfterLastResource;
     var setupSymbologyLabelsState;
     var setupSymbologyModalState;
     var setupSymbologyPointState;
@@ -274,10 +275,7 @@
         });
 
         if (isLastResource) {
-            hideMainLoadAnim();
-            showResLoadingStatus(true, 'Resource(s) added successfully!');
-            $footerInfoAddRes.addClass('hidden');
-            $btnAddRes.prop('disabled', false);
+            setStateAfterLastResource();
         }
     };
 
@@ -373,6 +371,7 @@
             layerAttributes = "None";
         }
         if (resType === 'RasterResource' && results.band_info) {
+            bandInfo = results.band_info;
             if (typeof bandInfo === "string") {
                 try {
                     bandInfo = JSON.parse(bandInfo);
@@ -406,10 +405,16 @@
                     opacity: 0
                 };
             }
+            if (bandInfo.min === 'Unknown') {
+                bandInfo.min = 0;
+            }
             cssStyles['color-map'][bandInfo.min] = {
                 color: '#000000',
                 opacity: 1
             };
+            if (bandInfo.max === 'Unknown') {
+                bandInfo.max = 10000;
+            }
             cssStyles['color-map'][bandInfo.max] = {
                 color: '#ffffff',
                 opacity: 1
@@ -459,10 +464,7 @@
         zoomToLayer(layerExtents, map.getSize(), resType);
 
         if (isLastResource) {
-            hideMainLoadAnim();
-            showResLoadingStatus(true, 'Resource(s) added successfully!');
-            $footerInfoAddRes.addClass('hidden');
-            $btnAddRes.prop('disabled', false);
+            setStateAfterLastResource();
         }
     };
 
@@ -1205,12 +1207,12 @@
         }, 7000);
     };
 
-    // deletePublicTempfiles = function () {
-    //     $.ajax({
-    //         url: '/apps/hydroshare-gis/delete-public-tempfiles',
-    //         async: true
-    //     });
-    // };
+    deleteTempfiles = function () {
+        $.ajax({
+            url: '/apps/hydroshare-gis/delete-tempfiles',
+            async: true
+        });
+    };
 
     drawLayersInListOrder = function () {
         var i;
@@ -1898,9 +1900,6 @@
                         if (response.hasOwnProperty('results')) {
                             processAddHSResResults(response.results, isLastResource, additionalResources);
                         }
-                        if ($('#chkbx-res-auto-close').is(':checked')) {
-                            $modalLoadRes.modal('hide');
-                        }
                     }
                 }
             }
@@ -2304,8 +2303,8 @@
             imageUrl += '&SLD_BODY=' + encodeURIComponent(SLD_TEMPLATES.getSldString(cssStyles, geomType, layerId, hide255, true));
         }
         $('#img-legend').attr('src', imageUrl);
-        $('#legend-var').text(variable);
-        $('#legend-units').text(units);
+        $('#legend-var').text(variable || "None");
+        $('#legend-units').text(units || "None");
 
         if (layerName.length >= 11) {
             layerName = layerName.slice(0, 11) + '...';
@@ -2461,6 +2460,17 @@
         return extents;
     };
 
+    setStateAfterLastResource = function () {
+        hideMainLoadAnim();
+        showResLoadingStatus(true, 'Resource(s) added successfully!');
+        $footerInfoAddRes.addClass('hidden');
+        $btnAddRes.prop('disabled', false);
+        if ($('#chkbx-res-auto-close').is(':checked')) {
+            $modalLoadRes.modal('hide');
+        }
+        deleteTempfiles()
+    };
+
     setupSymbologyLabelsState = function (layerCssStyles) {
         var color;
 
@@ -2484,8 +2494,8 @@
             'min': $lyrListItem.data('band-min'),
             'max': $lyrListItem.data('band-max'),
             'nd': $lyrListItem.data('band-nd'),
-            'variable': $lyrListItem.data('band-variable'),
-            'units': $lyrListItem.data('band-units')
+            'variable': $lyrListItem.data('band-variable') || "None",
+            'units': $lyrListItem.data('band-units') || "None"
         };
         var optionsHtmlString = '';
         var layerCssStyles;

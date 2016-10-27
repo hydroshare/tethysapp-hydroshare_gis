@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 
 from utilities import get_hs_res_object, get_oauth_hs, get_hs_res_list, get_geoserver_url, \
-    process_local_file, save_new_project, save_project, generate_attribute_table, \
+    process_local_file, save_new_project, save_project, generate_attribute_table, delete_tempfiles, \
     get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file
 
 from model import ResourceLayersCount
@@ -149,11 +149,11 @@ def ajax_get_geoserver_url(request):
     return get_geoserver_url(request)
 
 
-# def ajax_delete_public_tempfiles(request):
-#     if request.is_ajax and request.method == 'GET':
-#         delete_public_tempfiles(username=request.user.username)
-#
-#     return JsonResponse({'success': True})
+def ajax_delete_tempfiles(request):
+    if request.is_ajax and request.method == 'GET':
+        delete_tempfiles(username=request.user.username)
+
+    return JsonResponse({'success': True})
 
 
 # def ajax_get_generic_files(request):
@@ -201,8 +201,7 @@ def ajax_get_generic_res_files_list(request):
                     return_obj['results']['res_layers_obj_list'] = res_layers_obj_list
                     return_obj['success'] = True
                 else:
-                    return_obj['results']['generic_res_files_list'] = get_res_files_list(hs=hs, res_id=res_id)
-                    return_obj['success'] = True
+                    return_obj = get_res_files_list(hs=hs, res_id=res_id)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="GET")
 

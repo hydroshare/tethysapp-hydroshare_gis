@@ -6,7 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from model import Layer
 
 import hs_restclient as hs_r
-from geoserver.catalog import FailedRequestError
+# from geoserver.catalog import FailedRequestError
 
 import requests
 # from requests import auth
@@ -69,10 +69,11 @@ def upload_file_to_geoserver(res_id, res_type, res_file, file_index=None):
         if res_type == 'RasterResource':
             is_image_pyramid = check_if_image_pyramid(res_file)
             coverage_type = 'imagepyramid' if is_image_pyramid else 'geotiff'
-            coverage_name = store_id if is_zip else None
             if file_index:
                 store_id = '%s_%s' % (res_id, file_index)
                 full_store_id = '%s:%s' % (get_workspace(), store_id)
+
+            coverage_name = store_id if is_zip else None
 
             # Creates a resource from a file stored directly on the GeoServer
             # url = '{0}/rest/workspaces/{1}/coveragestores/{2}/external.{3}'.format(get_geoserver_url(), get_workspace(), res_id,
@@ -999,10 +1000,10 @@ def check_crs(res_type, fpath):
     return return_obj
 
 
-# def delete_public_tempfiles(username):
-#     public_tempdir = get_public_tempdir(username)
-#     if os.path.exists(public_tempdir):
-#         shutil.rmtree(public_tempdir)
+def delete_tempfiles(username):
+    hs_tempdir = get_hs_tempdir(username)
+    os.system('rm -rf %s' % hs_tempdir)
+
 
 
 def save_new_project(hs, project_info, res_title, res_abstract, res_keywords, username):
@@ -1201,6 +1202,12 @@ def res_has_been_updated(db_date, res_date):
 
 
 def get_res_files_list(hs, res_id):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'results': {}
+    }
+
     sorted_res_files_list = []
     full_name_list = []
     name_list = []
@@ -1211,49 +1218,72 @@ def get_res_files_list(hs, res_id):
     rem_shp_file_exts.remove('.shp')
     files_processed_list = []
 
-    for res_file_dict in hs.getResourceFileList(res_id):
-        full_name_list.append(os.path.basename(res_file_dict['url']))
+    try:
+        res_file_dict_list = list(hs.getResourceFileList(res_id))
+        for res_file_dict in res_file_dict_list:
+            full_name_list.append(os.path.basename(res_file_dict['url']))
 
-    res_file_dict_list = hs.getResourceFileList(res_id)
+        for res_file_dict in res_file_dict_list:
+            basename = os.path.basename(res_file_dict['url'])
+            splitext = os.path.splitext(basename)
+            name = splitext[0]
+            ext = splitext[1]
+            size = res_file_dict['size']
+            if basename not in files_processed_list:
+                if ext in all_shp_file_exts:
+                    has_shp = '%s.shp' % name in full_name_list
+                    has_dbf = '%s.dbf' % name in full_name_list
+                    has_prj = '%s.prj' % name in full_name_list
+                    has_shx = '%s.shx' % name in full_name_list
 
-    for res_file_dict in res_file_dict_list:
-        basename = os.path.basename(res_file_dict['url'])
-        splitext = os.path.splitext(basename)
-        name = splitext[0]
-        ext = splitext[1]
-        size = res_file_dict['size']
-        if basename not in files_processed_list:
-            if ext in all_shp_file_exts:
-                has_shp = '%s.shp' % name in full_name_list
-                has_dbf = '%s.dbf' % name in full_name_list
-                has_prj = '%s.prj' % name in full_name_list
-                has_shx = '%s.shx' % name in full_name_list
+                    if has_shp and has_dbf and has_prj and has_shx:
+                        shp_file = '%s.shp' % name
 
-                if has_shp and has_dbf and has_prj and has_shx:
-                    shp_file = '%s.shp' % name
+                        for fext in rem_shp_file_exts:  # Add all associated shapefiles to files_processed_list
+                            f1 = "%s%s" % (name, fext)
+                            f2 = "%s%s" % (shp_file, fext)  # This is to catch the .shp.xml file if it exists
 
-                    for fext in rem_shp_file_exts:  # Add all associated shapefiles to files_processed_list
-                        f1 = "%s%s" % (name, fext)
-                        f2 = "%s%s" % (shp_file, fext)  # This is to catch the .shp.xml file if it exists
+                            if f1 in full_name_list:
+                                files_processed_list.append(f1)
+                            elif f2 in full_name_list:
+                                files_processed_list.append(f2)
 
-                        if f1 in full_name_list:
-                            files_processed_list.append(f1)
-                        elif f2 in full_name_list:
-                            files_processed_list.append(f2)
+                        if ext != '.shp':
+                            continue
 
-                    if ext != '.shp':
-                        continue
+                name_list.append(basename)
+                size_list.append(size)
 
-            name_list.append(basename)
-            size_list.append(size)
+        name_size_list = zip(name_list, size_list)
+        name_size_list_sorted = sorted(name_size_list, key=lambda tup: tup[1])
 
-    name_size_list = zip(name_list, size_list)
-    name_size_list_sorted = sorted(name_size_list, key=lambda tup: tup[1])
+        for item in name_size_list_sorted:
+            sorted_res_files_list.append(item[0])
 
-    for item in name_size_list_sorted:
-        sorted_res_files_list.append(item[0])
+        return_obj['results']['generic_res_files_list'] = sorted_res_files_list
+        return_obj['success'] = True
 
-    return sorted_res_files_list
+    except hs_r.HydroShareHTTPException:
+        return_obj['message'] = 'The HydroShare server appears to be down.'
+    except hs_r.HydroShareNotFound:
+        return_obj['message'] = 'This resource was not found on www.hydroshare.org'
+    except hs_r.HydroShareNotAuthorized:
+        return_obj['message'] = 'You are not authorized to access this resource.'
+    except Exception as e:
+        if gethostname() == 'ubuntu':
+            exc_type, exc_value, exc_traceback = exc_info()
+            msg = e.message if e.message else str(e)
+            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
+            print msg
+            return_obj['message'] = 'An unexpected error ocurred: %s' % msg
+        else:
+            return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
+            if not currently_testing:
+                msg = e.message if e.message else ''
+                msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+                email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
+
+    return return_obj
 
 
 def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
@@ -1357,7 +1387,7 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                         layer_extents = response['extents']
                         geom_type = response['geom_type']
 
-                        band_info_tif_path = os.path.join(hs_tempdir, '%s_%s.tif'.format(res_id, file_index))
+                        band_info_tif_path = os.path.join(hs_tempdir, '{0}_{1}.tif'.format(res_id, file_index))
                         band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
             results = {
@@ -1399,8 +1429,6 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                 msg = e.message if e.message else ''
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
-
-                # os.system('rm -rf %s' % hs_tempdir)
 
     return return_obj
 
@@ -1449,9 +1477,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             else:
                 kml_path = fpath
 
-            shp_fname = res_id + '%s.shp' % ('_' + str(file_index)
-                                             if file_index != 0
-                                             else '')
+            shp_fname = '%s_%s.shp' % (res_id, file_index)
             shp_output_path = os.path.join(hs_tempdir, shp_fname)
 
             os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(shp_output_path, kml_path))
@@ -1551,12 +1577,14 @@ def extract_band_info_from_file(raster_fpath):
                 band.SetNoDataValue(new_no_data)
                 minimum, maximum, _, _ = band.ComputeStatistics(False)
 
+            units = band.GetUnitType()
+            nd = band.GetNoDataValue()
             band_info = {
-                'variable': '',
-                'units': band.GetUnitType(),
-                'nd': band.GetNoDataValue(),
-                'max': maximum,
-                'min': minimum,
+                'variable': 'Unknown',
+                'units': units if units else 'Unknown',
+                'nd': nd if nd else 'Unknown',
+                'max': maximum if maximum else 'Unknown',
+                'min': minimum if minimum else 'Unknown',
             }
     else:
         band_info = None

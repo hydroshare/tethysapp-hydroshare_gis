@@ -397,6 +397,11 @@
         if (bandInfo === 'None') {
             cssStyles = 'Default';
         } else {
+            if (bandInfo.min && bandInfo.nd && bandInfo.nd > bandInfo.min) {
+                if (bandInfo.nd < 0) {
+                    bandInfo.min = 0;
+                }
+            }
             cssStyles = {'color-map': {}};
             cssStyles.method = 'ramp';
             if (bandInfo.nd || bandInfo.nd === 0) {
@@ -2004,6 +2009,8 @@
         var resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
         showMainLoadAnim();
+        $modalLoadRes.modal('hide');
+
         if (resType === "GenericResource") {
             loadGenericResource(resId);
         } else {

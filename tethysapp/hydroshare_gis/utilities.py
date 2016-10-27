@@ -862,7 +862,7 @@ def get_workspace():
 
 def get_hs_tempdir(username=None, file_index=None):
     hs_tempdir = '/tmp/hs_gis_files/%s' % (('%s/' % username) if username else '')
-    if file_index:
+    if file_index is not None:
         hs_tempdir = os.path.join(hs_tempdir, str(file_index))
     if not os.path.exists(hs_tempdir):
         os.makedirs(hs_tempdir)
@@ -1408,7 +1408,7 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
             if not project_info:
                 param_obj = prepare_result_for_layer_db(results)
                 Layer.add_layer_to_database(**param_obj)
-            
+
             return_obj['results'] = results
             return_obj['success'] = True
 

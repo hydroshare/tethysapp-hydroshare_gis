@@ -34,24 +34,53 @@ def Test_All_Resources(request):
                     res_count += 1
                     res_id = res['resource_id']
                     print "Currently testing resource %s of %s: %s" % (res_count, num_resources, res_id)
-                    response = get_hs_res_object(hs, res_id)
-                    if response['success']:
-                        num_success += 1
+                    if res['resource_type'] == 'GenericResource':
+                        response = get_res_files_list(hs, res_id)
+                        if response['success']:
+                            res_files_list = response['results']['generic_res_files_list']
+                            num_files_failed = 0
+                            for i, res_file in enumerate(res_files_list):
+                                response = get_res_layer_obj_from_generic_file(hs, res_id, res_file,
+                                                                               request.user.username, i)
+                                if response['success']:
+                                    pass
+                                else:
+                                    error_acceptable = False
+                                    for error in ACCEPTABLE_ERRORS_LIST:
+                                        if error in response['message']:
+                                            error_acceptable = True
+                                            break
+                                    if error_acceptable:
+                                        pass
+                                    else:
+                                        num_files_failed += 1
+                                        error_resource_list.append('https://www.hydroshare.org/resource/%s on file %s'
+                                                                   % (res_id, res_file))
+                                        print 'ERROR ENCOUNTERED:'
+                                        print 'RES_ID: %s' % res_id
+                                        print 'MESSAGE: %s' % response['message']
+                            if num_files_failed == 0:
+                                num_success += 1
+                            else:
+                                num_errors += 1
                     else:
-                        error_acceptable = False
-                        for error in ACCEPTABLE_ERRORS_LIST:
-                            if error in response['message']:
-                                error_acceptable = True
-                                break
-                        if error_acceptable:
+                        response = get_hs_res_object(hs, res_id)
+                        if response['success']:
                             num_success += 1
                         else:
-                            num_errors += 1
-                            error_resource_list.append('https://www.hydroshare.org/resource/%s' % res_id)
-                            print 'ERROR ENCOUNTERED:'
-                            print 'RES_ID: %s' % res_id
-                            print 'MESSAGE: %s' % response['message']
-                    delete_public_tempfiles(username=request.user.username)
+                            error_acceptable = False
+                            for error in ACCEPTABLE_ERRORS_LIST:
+                                if error in response['message']:
+                                    error_acceptable = True
+                                    break
+                            if error_acceptable:
+                                num_success += 1
+                            else:
+                                num_errors += 1
+                                error_resource_list.append('https://www.hydroshare.org/resource/%s' % res_id)
+                                print 'ERROR ENCOUNTERED:'
+                                print 'RES_ID: %s' % res_id
+                                print 'MESSAGE: %s' % response['message']
             except Exception as e:
                 num_errors += 1
                 error_resource_list.append('https://www.hydroshare.org/resource/%s' % res_id)

@@ -1537,7 +1537,8 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
 
         if is_full_generic:
             public_tempdir = get_public_tempdir(username=os.path.basename(os.path.normpath(hs_tempdir)))
-            hs.getResourceFile(res_id, res_file_name, destination=public_tempdir)
+            if not currently_testing:
+                hs.getResourceFile(res_id, res_file_name, destination=public_tempdir)
             res_fpath = None  # Generic resource files rely on public_fpath, not res_fpath
 
         results = {

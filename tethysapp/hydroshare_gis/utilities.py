@@ -1452,6 +1452,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
     res_type = 'GenericResource'
 
     if res_file_name == 'mapProject.json':
+        hs.getResourceFile(res_id, res_file_name, destination=hs_tempdir)
         results = {
             'res_filepath': res_fpath,
             'res_type': res_type,

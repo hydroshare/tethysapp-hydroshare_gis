@@ -887,6 +887,11 @@ def check_crs(res_type, fpath):
         'crsWasChanged': False,
         'new_wkt': None
     }
+
+    message_erroneous_proj = 'The file "%s" has erroneous or incomplete projection (coordinate reference system) ' \
+                             'information. An attempt has still been made to display it, though it is likely ' \
+                             'to be spatially incorrect.'
+
     if res_type == 'RasterResource':
         gdal_info = check_output('gdalinfo %s' % fpath, shell=True)
         start = 'Coordinate System is:'
@@ -894,8 +899,7 @@ def check_crs(res_type, fpath):
         end = 'Origin ='
         if gdal_info.find(start) == -1:
             print "NO PROJECTION INFO ASSOCIATED WITH FILE. WILL ATTEMPT TO FORCE TO EPSG 3857"
-            return_obj['message'] = 'The file %s has no projection (coordinate reference system) info associated with it. ' \
-                                    'An attempt has still been made to display it by assuming an EPSG:3857 projection.'
+            return_obj['message'] = message_erroneous_proj
             return_obj['crsWasChanged'] = True
             return_obj['code'] = 'EPSG:3857'
             return_obj['success'] = True
@@ -922,8 +926,6 @@ def check_crs(res_type, fpath):
                 raise Exception
             elif r.status_code == 200:
                 response = r.json()
-                print response
-                raw_input("PAUSED")
                 if 'errors' in response:
                     errs = response['errors']
                     if 'Invalid WKT syntax' in errs:
@@ -978,8 +980,10 @@ def check_crs(res_type, fpath):
                     return_obj['success'] = True
 
                 if flag_unhandled_error:
-                    return_obj['message'] = 'The file "%s" was not added due to erroneous or incomplete ' \
-                                            'projection (coordinate reference system) information.'
+                    return_obj['message'] = message_erroneous_proj
+                    return_obj['crsWasChanged'] = True
+                    return_obj['code'] = 'EPSG:3857'
+                    return_obj['success'] = True
                     break
             else:
                 params['mode'] = 'keywords'
@@ -1306,6 +1310,33 @@ def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
     return res_layers
 
 
+def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
+    generic_file_layer = None
+    db_generic_file_layer = Layer.get_generic_file_layer_by_res_id_and_res_fname(res_id, res_fname)
+
+    if db_generic_file_layer:
+        flag_reload_layer = res_has_been_updated(db_generic_file_layer.res_mod_date, get_res_mod_date(hs, res_id))
+
+        if flag_reload_layer:
+            Layer.remove_layer_by_res_id_and_res_fname(res_id, res_fname)
+            generic_file_layer = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, username, file_index)
+        else:
+            generic_file_layer = {
+                'res_id': res_id,
+                'res_type': db_generic_file_layer.associated_res_type,
+                'layer_name': db_generic_file_layer.name,
+                'layer_id': db_generic_file_layer.layer_id,
+                'layer_extents': loads(db_generic_file_layer.extents) if db_generic_file_layer.extents else None,
+                'layer_attributes': db_generic_file_layer.attributes,
+                'geom_type': db_generic_file_layer.geom_type,
+                'band_info': loads(db_generic_file_layer.band_info) if db_generic_file_layer.band_info else None,
+                'site_info': loads(db_generic_file_layer.site_info) if db_generic_file_layer.site_info else None,
+                'public_fname': db_generic_file_layer.associated_file_name
+            }
+
+    return generic_file_layer
+
+
 def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, file_index):
     return_obj = {
         'success': False,
@@ -1477,6 +1508,9 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             if os.path.exists(shp_output_path):
                 res_fpath = os.path.splitext(shp_output_path)[0]
                 res_type = 'GeographicFeatureResource'
+            else:
+                return_obj['message'] = 'The file %s did not contain any features and therefore cannot be viewed ' \
+                                        'on the map.' % os.path.basename(kml_path)
 
         elif fext == '.shp':
             is_shapefile = True
@@ -1599,3 +1633,19 @@ def get_file_mime_type(file_name):
         file_format_type = 'application/%s' % os.path.splitext(file_name)[1][1:]
 
     return file_format_type
+
+
+def validate_res_request(hs, res_id):
+    return_obj = {
+        'can_access': False,
+        'message': None
+    }
+    try:
+        hs.getScienceMetadata(res_id)
+        return_obj['can_access'] = True
+    except hs_r.HydroShareNotAuthorized:
+        return_obj['message'] = 'You are not authorized to access this resource.'
+    except hs_r.HydroShareNotFound:
+        return_obj['message'] = 'It appears that this resource does not exist on www.hydroshare.org'
+
+    return return_obj

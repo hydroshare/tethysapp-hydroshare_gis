@@ -57,6 +57,16 @@ class Layer(Base):
         return res_layers
 
     @staticmethod
+    def get_generic_file_layer_by_res_id_and_res_fname(res_id, res_fname):
+        session = SessionMaker()
+        generic_file_layer = session.query(Layer)\
+            .filter(Layer.associated_res_id == res_id)\
+            .filter(Layer.associated_file_name == res_fname).first()
+        session.close()
+
+        return generic_file_layer
+
+    @staticmethod
     def add_layer_to_database(res_id, res_type, layer_name, layer_id, layer_extents, layer_attributes, geom_type,
                               band_info, site_info, public_fname, res_mod_date):
 
@@ -70,6 +80,14 @@ class Layer(Base):
         session = SessionMaker()
         session.query(Layer).filter(Layer.associated_res_id == res_id).delete()
         session.commit()
+
+    @staticmethod
+    def remove_layer_by_res_id_and_res_fname(res_id, res_fname):
+        session = SessionMaker()
+        session.query(Layer)\
+            .filter(Layer.associated_res_id == res_id)\
+            .filter(Layer.associated_file_name == res_fname)\
+            .delete()
 
 
 class ResourceLayersCount:

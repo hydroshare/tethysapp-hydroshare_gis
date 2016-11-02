@@ -1997,9 +1997,7 @@
                         $footerInfoAddRes.addClass('hidden');
                     } else {
                         if (response.hasOwnProperty('results')) {
-                            if (response.results.hasOwnProperty('res_layers_obj_list')) {
-                                processAddHSResResults(response.results.res_layers_obj_list, true, null);
-                            } else if (response.results.hasOwnProperty('generic_res_files_list')) {
+                            if (response.results.hasOwnProperty('generic_res_files_list')) {
                                 processGenericResFiles(resId, response.results.generic_res_files_list);
                             }
                         }

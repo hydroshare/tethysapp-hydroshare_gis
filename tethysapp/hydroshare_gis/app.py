@@ -68,7 +68,10 @@ class HydroshareGis(TethysAppBase):
                             controller='hydroshare_gis.controllers_ajax.ajax_get_generic_res_files_list'),
                     url_map(name='add_generic_res_file',
                             url='hydroshare-gis/add-generic-res-file',
-                            controller='hydroshare_gis.controllers_ajax.ajax_add_generic_res_file')
+                            controller='hydroshare_gis.controllers_ajax.ajax_add_generic_res_file'),
+                    url_map(name='proxy_get_file',
+                            url='hydroshare-gis/proxy-get-file',
+                            controller='hydroshare_gis.controllers_ajax.ajax_proxy_get_file'),
                     )
         return url_maps
 

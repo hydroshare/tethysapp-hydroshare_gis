@@ -1,8 +1,10 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404, HttpResponse
+import hs_restclient
 
 from utilities import get_hs_res_object, get_oauth_hs, get_hs_res_list, get_geoserver_url, \
     process_local_file, save_new_project, save_project, generate_attribute_table, delete_tempfiles, \
-    get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file
+    get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file, \
+    get_file_mime_type
 
 from model import ResourceLayersCount
 
@@ -219,10 +221,10 @@ def ajax_add_generic_res_file(request):
             return_obj['message'] = message_template_param_unfilled.format(param='res_id')
         else:
             res_id = request.GET['res_id']
-            if not request.GET.get('res_file_name'):
-                return_obj['message'] = message_template_param_unfilled.format(param='res_file_name')
+            if not request.GET.get('res_fname'):
+                return_obj['message'] = message_template_param_unfilled.format(param='res_fname')
             else:
-                res_file_name = request.GET['res_file_name']
+                res_fname = request.GET['res_fname']
                 file_index = int(request.GET['file_index'])
 
                 hs = get_oauth_hs(request)
@@ -230,9 +232,22 @@ def ajax_add_generic_res_file(request):
                 if hs is None:
                     return_obj['message'] = message_oauth_failed
                 else:
-                    return_obj = get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, request.user.username,
+                    return_obj = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, request.user.username,
                                                                      file_index)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="GET")
 
     return JsonResponse(return_obj)
+
+
+def ajax_proxy_get_file(request):
+    hs = get_oauth_hs(request)
+    if hs is not None:
+        res_id = request.GET['res_id']
+        fname = request.GET['fname']
+        content_type = get_file_mime_type(fname)
+        response = HttpResponse(content_type=content_type)
+        for chunk in hs.getResourceFile(res_id, fname):
+            response.write(chunk)
+        return response
+    return Http404()

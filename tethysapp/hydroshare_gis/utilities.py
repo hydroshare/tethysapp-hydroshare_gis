@@ -24,6 +24,7 @@ from traceback import format_exception
 from socket import gethostname
 from subprocess import check_output
 from StringIO import StringIO
+from mimetypes import guess_type
 
 workspace_id = None
 spatial_dataset_engine = None
@@ -454,7 +455,7 @@ def process_local_file(file_list, proj_id, hs, username):
                         os.remove(tempfile)
                 return_obj['success'] = True
     else:
-        return_obj['message'] = 'Filetype that HydroShare GIS does not recognize was uploaded. Layer not added.'
+        return_obj['message'] = 'Unrecognized filetype was uploaded. Layer not added.'
 
 
     return return_obj
@@ -513,9 +514,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
             res_title = md['resource_title']
 
         response = process_res_by_type(hs, res_id, res_type, hs_tempdir)
-        if not response['success']:
-            return_obj['message'] = response['message']
-        else:
+        return_obj['message'] = response['message']
+        if response['success']:
             for r in response['results']:
                 result = {
                     'res_id': res_id,
@@ -560,30 +560,6 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
     os.system('rm -rf %s' % hs_tempdir)
 
     return return_obj
-
-
-# def check_geoserver_for_res(res_id):
-#     return_obj = {'isOnGeoserver': False}
-#     engine = None
-#     store_id = res_id
-#     try:
-#         engine = return_spatial_dataset_engine()
-#         response = engine.list_resources(store=store_id, workspace=get_workspace())
-#         if response['success']:
-#             results = response['result']
-#             assert len(results) == 1
-#             layer_name = response['result'][0]
-#             return_obj = {
-#                 'isOnGeoserver': True,
-#                 'layer_name': layer_name,
-#             }
-#     except AssertionError:
-#         if engine is not None:
-#             engine.delete_store(store_id=store_id, purge=True, recurse=True)
-#     except FailedRequestError:
-#         pass
-#
-#     return return_obj
 
 
 def download_res_from_hs(hs, res_id, tempdir):
@@ -655,9 +631,8 @@ def process_res_by_type(hs, res_id, res_type, hs_tempdir):
         else:
             res_contents_path = response['res_contents_path']
             response = get_info_from_res_files(res_id, res_type, res_contents_path)
-            if not response['success']:
-                return_obj['message'] = response['message']
-            else:
+            return_obj['message'] = response['message']
+            if response['success']:
                 error_occurred = False
                 for r in response['results']:
                     res_filepath = r['res_filepath'] if 'res_filepath' in r else None
@@ -749,6 +724,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
             res_fpath = os.path.join(res_contents_path, res_id)
             prj_path = res_fpath + '.prj'
             r = check_crs(res_type, prj_path)
+            return_obj['message'] = r['message'] % os.path.basename(prj_path) if r['message'] else None
             if r['success'] and r['crsWasChanged']:
                 with open(prj_path, 'w') as f:
                     f.seek(0)
@@ -770,8 +746,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                         tmp_fpath = os.path.join(res_contents_path, '%s.tif' % res_id)
                         os.rename(fpath, tmp_fpath)
                         r = check_crs(res_type, tmp_fpath)
+                        return_obj['message'] = r['message'] % res_fname if r['message'] else None
                         if not r['success']:
-                            return_obj['message'] = r['message']
                             return return_obj
                         else:
                             if r['crsWasChanged']:
@@ -917,8 +893,12 @@ def check_crs(res_type, fpath):
         length = len(start)
         end = 'Origin ='
         if gdal_info.find(start) == -1:
-            return_obj['message'] = 'There is no projection information associated with this resource.' \
-                                    '\nResource cannot be added to the map project.'
+            print "NO PROJECTION INFO ASSOCIATED WITH FILE. WILL ATTEMPT TO FORCE TO EPSG 3857"
+            return_obj['message'] = 'The file %s has no projection (coordinate reference system) info associated with it. ' \
+                                    'An attempt has still been made to display it by assuming an EPSG:3857 projection.'
+            return_obj['crsWasChanged'] = True
+            return_obj['code'] = 'EPSG:3857'
+            return_obj['success'] = True
             return return_obj
         start_index = gdal_info.find(start) + length
         end_index = gdal_info.find(end)
@@ -934,6 +914,7 @@ def check_crs(res_type, fpath):
         'terms': crs
     }
     crs_is_unknown = True
+    flag_unhandled_error = False
     try:
         while crs_is_unknown:
             r = requests.get(endpoint, params=params)
@@ -941,6 +922,8 @@ def check_crs(res_type, fpath):
                 raise Exception
             elif r.status_code == 200:
                 response = r.json()
+                print response
+                raw_input("PAUSED")
                 if 'errors' in response:
                     errs = response['errors']
                     if 'Invalid WKT syntax' in errs:
@@ -968,28 +951,36 @@ def check_crs(res_type, fpath):
                                 i = crs.rfind(',')
                                 crs = crs[:i] + crs[i+1:]
                             params['terms'] = crs
-                            return_obj['crsWasChanged'] = True
                         else:
-                            break
+                            flag_unhandled_error = True
                     else:
-                        break
+                        flag_unhandled_error = True
                 else:
                     crs_is_unknown = False
-                    if res_type == 'RasterResource':
-                        code = response['codes'][0]['code']
-                        if code not in crs:
-                            return_obj['crsWasChanged'] = True
-                        return_obj['code'] = 'EPSG:' + code
-                    else:
-                        r = requests.get(response['codes'][0]['url'])
-                        proj_json = r.json()
-                        raw_wkt = proj_json['wkt']
-                        tmp_list = []
-                        for seg in raw_wkt.split('\n'):
-                            tmp_list.append(seg.strip())
-                        return_obj['new_wkt'] = ''.join(tmp_list)
+                    codes = response['codes']
+                    # If there are no codes in the result, a match wasn't found. In that case, an attempt will still be
+                    # made to add the layer to GeoServer since this still works in some cases.
+                    if len(codes) != 0:
+                        if res_type == 'RasterResource':
+                            code = codes[0]['code']
+                            if code not in crs:
+                                return_obj['crsWasChanged'] = True
+                            return_obj['code'] = 'EPSG:' + code
+                        else:
+                            r = requests.get(response['codes'][0]['url'])
+                            proj_json = r.json()
+                            raw_wkt = proj_json['wkt']
+                            tmp_list = []
+                            for seg in raw_wkt.split('\n'):
+                                tmp_list.append(seg.strip())
+                            return_obj['new_wkt'] = ''.join(tmp_list)
 
                     return_obj['success'] = True
+
+                if flag_unhandled_error:
+                    return_obj['message'] = 'The file "%s" was not added due to erroneous or incomplete ' \
+                                            'projection (coordinate reference system) information.'
+                    break
             else:
                 params['mode'] = 'keywords'
                 continue
@@ -1349,9 +1340,8 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
     try:
 
         response = get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_index)
-        if not response['success']:
-            return_obj['message'] = response['message']
-        else:
+        return_obj['message'] = response['message']
+        if response['success']:
             results = response['results']
             res_filepath = results['res_filepath'] if 'res_filepath' in results else None
             res_type = results['res_type'] if 'res_type' in results else None
@@ -1471,7 +1461,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
         fext = fname_and_ext[1]
 
         if fext in kml_exts:
-            hs.getResourceFile(res_id, res_file_name, destination=fpath)
+            hs.getResourceFile(res_id, res_file_name, destination=hs_tempdir)
             # Openlayers KML Implementation
             if fext == '.kmz':
                 os.system('unzip -q -d %s %s' % (hs_tempdir, fpath))
@@ -1523,8 +1513,8 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             tmp_fpath = os.path.join(hs_tempdir, '%s_%s.tif' % (res_id, file_index))
             os.rename(fpath, tmp_fpath)
             r = check_crs(res_type, tmp_fpath)
+            return_obj['message'] = r['message'] % res_file_name
             if not r['success']:
-                return_obj['message'] = r['message']
                 return return_obj
             else:
                 if r['crsWasChanged']:
@@ -1536,10 +1526,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             is_full_generic = True
 
         if is_full_generic:
-            public_tempdir = get_public_tempdir(username=os.path.basename(os.path.normpath(hs_tempdir)))
-            if not currently_testing:
-                hs.getResourceFile(res_id, res_file_name, destination=public_tempdir)
-            res_fpath = None  # Generic resource files rely on public_fpath, not res_fpath
+            res_fpath = None  # Generic resource files rely on public_fname, not res_filepath
 
         results = {
             'public_fname': res_file_name,
@@ -1603,3 +1590,12 @@ def check_if_image_pyramid(fpath):
                 is_image_pyramid = True
 
     return is_image_pyramid
+
+
+def get_file_mime_type(file_name):
+    # The mimetypes module can't find all mime types
+    file_format_type = guess_type(file_name)[0]
+    if not file_format_type:
+        file_format_type = 'application/%s' % os.path.splitext(file_name)[1][1:]
+
+    return file_format_type

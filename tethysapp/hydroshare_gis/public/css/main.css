@@ -12,6 +12,9 @@
 #app-actions {
     display: none;
 }
+.exit-button {
+    cursor: pointer;
+}
 /*****************************************************/
 
 /*****************************************************/
@@ -81,7 +84,7 @@
 /*                 CURRENT LAYERS                    */
 #current-layers {
     width: 100%;
-    height: 300px;
+    height: 400px;
     background-color: #D3D3D3;
     overflow-y: auto;
 }
@@ -470,6 +473,32 @@ input[type="radio"] {
     border-radius: 50%;
     z-index: 1000;
     font-weight: bold;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                USER MESSAGES MODAL                */
+#modalUserMessages .modal-content {
+    position: static;
+}
+#modalUserMessages .modal-body {
+    position: static;
+}
+#modalUserMessages .modal-footer {
+    position: static;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                USER MESSAGES MODAL                */
+#modalLog .modal-content {
+    position: static;
+}
+#modalLog .modal-body {
+    position: static;
+}
+#modalLog .modal-footer {
+    position: static;
 }
 /*****************************************************/
 

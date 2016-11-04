@@ -24,22 +24,23 @@
     <li class="active">
         <button id="btn-show-modal-save-new-project" class="btn btn-warning btn-md">Save as...</button>
         <button id="btn-save-project" class="btn btn-warning btn-md" disabled>Save</button>
+        <div class="dropdown">
+            <button class="btn dropdown-toggle" type="button" id="dropdown-export" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                Export as...
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="dropdown-export">
+                <li class="option-export" id="optn-export-pdf" data-toggle="modal" data-target="#modalExportMap" value="PDF"><a>PDF</a></li>
+                <li class="option-export" value="PNG"><a id="btn-export-png" download="map.png">PNG</a></li>
+            </ul>
+        </div>
     </li>
-        <li class="active">
-            <div class="dropdown">
-                <button class="btn dropdown-toggle" type="button" id="dropdown-export" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                    Export as...
-                    <span class="caret"></span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="dropdown-export">
-                    <li class="option-export" id="optn-export-pdf" data-toggle="modal" data-target="#modalExportMap" value="PDF"><a>PDF</a></li>
-                    <li class="option-export" value="PNG"><a id="btn-export-png" download="map.png">PNG</a></li>
-                </ul>
-            </div>
-        </li>
+    <li class="active">
+
+    </li>
     <br>
     <li class="active"><button id="load-from-hs" class="btn btn-secondary import-btn" data-toggle="modal" data-target="#modalLoadRes">Add HydroShare Resource</button></li>
-    <li class="active"><button id="load-from-pc" class="btn btn-secondary import-btn" data-toggle="modal" data-target="#modalLoadFile" disabled>Add Local File</button></li>
+    <li class="active"><button id="load-from-pc" class="btn btn-secondary import-btn" data-toggle="modal" data-target="#modalLoadFile">Add Local File</button></li>
 {#    <li class="active"><a id="add-wms-layer" class="import-btn" data-toggle="modal" data-target="#modalAddWMS">Add WMS Layer</a></li>#}
     <br>
     <li class="active">
@@ -68,7 +69,6 @@
             </div>
         </div>
     </li>
-    <br>
 {% endblock %}
 
 {% block content_dependent_styles %}

@@ -105,7 +105,6 @@
     var addDefaultBehaviorToAjax;
     var addLoadResSelEvnt;
     var addInitialEventListeners;
-    var areValidFiles;
     var buildHSResTable;
     var changeBaseMap;
     var checkCsrfSafe;
@@ -164,12 +163,13 @@
     var showMainLoadAnim;
     var showResLoadingStatus;
     var updateSymbology;
-    var uploadFileButtonHandler;
+    var onClickAddFile;
     var zoomToLayer;
     var $btnApplySymbology;
 
     //  **********Query Selectors************
     var $btnAddRes;
+    var $btnAddFile;
     var $btnShowModalSaveNewProject;
     var $btnSaveNewProject;
     var $btnSaveProject;
@@ -183,7 +183,6 @@
     var $modalSaveNewProject;
     var $modalSymbology;
     var $modalViewFile;
-    var $uploadBtn;
 
     /******************************************************
      **************FUNCTION DECLARATIONS*******************
@@ -678,9 +677,13 @@
 
         $('.basemap-option').on('click', changeBaseMap);
 
-        $modalLoadFile.on('hidden.bs.modal', function () {
-            $('#input-files').val('');
-        });
+        $modalLoadFile
+            .on('hidden.bs.modal', function () {
+                $('#input-files').val('');
+            })
+            .on('shown.bs.modal', function () {
+                $('#projNotSavedInfo').prop('hidden', !$('#storeFiles-Proj').is(':checked') && !projectInfo.resId);
+            });
 
         $modalSaveNewProject.on('hidden.bs.modal', function () {
             $('#footer-info-saveProj').addClass('hidden');
@@ -689,21 +692,10 @@
 
         $btnAddRes.on('click', onClickAddHSRes);
 
-        $('#btn-upload-file').on('click', uploadFileButtonHandler);
+        $btnAddFile.on('click', onClickAddFile);
 
         $('#input-files').on('change', function () {
-            var files = this.files;
-            if (!areValidFiles(files)) {
-                $uploadBtn.prop('disabled', true);
-                $('#msg-file')
-                    .text("Invalid files. Include only one of the following 3 upload options below.")
-                    .removeClass('hidden');
-                setTimeout(function () {
-                    $('#msg-file').addClass('hidden');
-                }, 7000);
-            } else {
-                $uploadBtn.prop('disabled', false);
-            }
+            $btnAddFile.prop('disabled', this.files.length === 0 || !$('#projNotSavedInfo').prop('hidden'));
         });
 
         map.getLayers().on('add', function () {
@@ -1004,38 +996,27 @@
 
             observer.observe(target, config);
         }());
-    };
 
-    areValidFiles = function (files) {
-        var file;
-        var fileCount = 0;
-        var hasShp = false;
-        var hasShx = false;
-        var hasPrj = false;
-        var hasDbf = false;
-        var hasTif = false;
-        var hasZip = false;
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                if (++fileCount > 4) {
-                    return false;
-                }
-                if (files[file].name.endsWith('.shp')) {
-                    hasShp = true;
-                } else if (files[file].name.endsWith('.shx')) {
-                    hasShx = true;
-                } else if (files[file].name.endsWith('.prj')) {
-                    hasPrj = true;
-                } else if (files[file].name.endsWith('.dbf')) {
-                    hasDbf = true;
-                } else if (files[file].name.endsWith('.tif')) {
-                    hasTif = true;
-                } else if (files[file].name.endsWith('.zip')) {
-                    hasZip = true;
-                }
+        $('input[name=store-local-files]').on('change', function () {
+            var $projNotSavedInfo = $('#projNotSavedInfo');
+            $('#fields-newRes').toggleClass('hidden');
+            $projNotSavedInfo.prop('hidden', !$('#storeFiles-Proj').is(':checked') && !projectInfo.resId);
+            $btnAddFile.prop('disabled', $('#input-files')[0].files.length === 0 || !$projNotSavedInfo.prop('hidden'));
+        });
+
+        $('#resType').on('change', function () {
+            var resType = this.value;
+            var validFileTypes = "*";
+            switch (resType) {
+                case "RasterResource":
+                    validFileTypes = ".tif, .zip";
+                    break;
+                case "GeographicFeatureResource":
+                    validFileTypes = ".shp, .dbf, .shx, .prj, .sbn, .sbx, .cpg, .xml, .zip";
+                    break;
             }
-        }
-        return (((hasTif || hasZip) && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
+            $('#input-files').prop('accept', validFileTypes);
+        });
     };
 
     buildHSResTable = function (resList) {
@@ -1623,6 +1604,7 @@
 
     initializeJqueryVariables = function () {
         $btnAddRes = $('#btn-upload-res');
+        $btnAddFile = $('#btn-upload-file');
         $btnShowModalSaveNewProject = $('#btn-show-modal-save-new-project');
         $btnApplySymbology = $('#btn-apply-symbology');
         $btnSaveNewProject = $('#btn-save-new-project');
@@ -1637,7 +1619,6 @@
         $modalSaveNewProject = $('#modalSaveNewProject');
         $modalSymbology = $('#modalSymbology');
         $modalViewFile = $('#modalViewFile');
-        $uploadBtn = $('.btn-upload');
     };
 
     initializeLayersContextMenus = function () {
@@ -2024,8 +2005,7 @@
     };
 
     onClickAddHSRes = function () {
-
-        $uploadBtn.prop('disabled', true);
+        $btnAddRes.prop('disabled', true);
         var $rdoRes = $('.rdo-res:checked');
         var resId = $rdoRes.val();
         var resType = $rdoRes.parent().parent().find('.res_type').text();
@@ -2742,16 +2722,25 @@
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
     };
 
-    uploadFileButtonHandler = function () {
+    onClickAddFile = function () {
+        if ($('#storeFiles-Proj').is(':checked') && !projectInfo.resId) {
+            $('#projNotSavedInfo').removeClass('hidden');
+            return;
+        }
         var files = $('#input-files')[0].files;
         var data;
         var $footerInfoAddFile = $('#footer-info-addFile');
 
         $footerInfoAddFile.removeClass('hidden');
-        $uploadBtn.prop('disabled', true);
+        $btnAddFile.prop('disabled', true);
         showMainLoadAnim();
         data = prepareFilesForAjax(files);
         data.append('proj_id', projectInfo.resId);
+        data.append('res_type', $('#resType').val());
+        data.append('res_title', $('#resTitle').val() || 'Untitled Resource');
+        data.append('res_abstract', $('#resAbstract').val());
+        data.append('res_keywords', $('#resKeywords').val());
+        data.append('flag_create_resources', $('#storeFiles-Res').is(':checked'));
 
         $.ajax({
             url: '/apps/hydroshare-gis/add-local-file/',
@@ -2763,14 +2752,29 @@
             error: function (ignore, textStatus) {
                 $footerInfoAddFile.addClass('hidden');
                 showResLoadingStatus('error', textStatus);
+                $btnAddFile.prop('disabled', false);
             },
             success: function (response) {
+                var results, numResults, counter;
                 $footerInfoAddFile.addClass('hidden');
-                $('#btn-upload-file').prop('disabled', false);
+                $btnAddFile.prop('disabled', false);
                 if (response.hasOwnProperty('success')) {
                     if (response.success) {
-                        addLayerToUI(response.results, true);
                         $btnSaveProject.prop('disabled', false);
+                        results = response.results;
+                        numResults = results.length;
+                        counter = 0;
+                        response.results.forEach(function (result) {
+                            var isLastResource = counter === numResults - 1;
+
+                            if (result.res_type === 'GenericResource') {
+                                addGenericResToUI(result, isLastResource);
+                            } else {
+                                addLayerToUI(result, isLastResource);
+                            }
+
+                            counter += 1;
+                        });
                     }
                 }
                 if ($('#chkbx-file-auto-close').is(':checked')) {

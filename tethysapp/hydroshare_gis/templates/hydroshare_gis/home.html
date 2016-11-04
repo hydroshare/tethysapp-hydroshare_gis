@@ -22,18 +22,42 @@
                     <h4 class="modal-title">Add Local File</h4>
                 </div>
                 <div class="modal-body">
-                    <input id="input-files" type="file" multiple accept=".shp, .dbf, .shx, .prj, .tif, .zip">
+                    <h5>1. Choose where to store files:</h5>
+                    <div id="projNotSavedInfo" class="alert-danger" hidden>
+                        Your project is not currently saved. Please save the project or choose to store files in a
+                        unique resource.
+                    </div>
+                    <label for="storeFiles-Proj">In project resource (project must be saved)</label>
+                    <input type="radio" name="store-local-files" id="storeFiles-Proj" value="project">
+                    <label for="storeFiles-Res">In unique resource (create new resource)</label>
+                    <input type="radio" name="store-local-files" id="storeFiles-Res" value="resource" checked>
+                    <fieldset id="fields-newRes">
+                        <div class="form-group">
+                            <label for="resType" class="control-label">Resource Type:</label>
+                            <select id="resType">
+                                <option value="GenericResource">Generic</option>
+                                <option value="RasterResource">Raster</option>
+                                <option value="GeographicFeatureResource">Geographic Feature</option>
+                                <option value="ScriptResource">Script</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="resTitle" class="control-label">Resource Title:</label>
+                            <input type="text" class="form-control" id="resTitle">
+                        </div>
+                        <div class="form-group">
+                            <label for="resAbstract" class="control-label">Resource Abstract:</label>
+                            <textarea rows="6" cols="50" id="resAbstract" class="form-control"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="resKeywords" class="control-label">Resource Keywords:</label>
+                            <input type="text" class="form-control" id="resKeywords">
+                        </div>
+                    </fieldset>
+                    <h5>2. Choose files:</h5>
+                    <input id="input-files" type="file" multiple>
                     <br>
                     <div id="msg-file" class="hidden"></div>
-                    <p><b>Note: All uploaded files will become part of your saved map project resource on HydroShare</b></p>
-                    <p>You have 3 upload options:</p>
-                    <ul>
-                        <li>A shapefile requiring a .shp, .dbf, .shx, and .prj file (select all 4 together).</li>
-                        <li>A raster requiring a .tif file</li>
-                        <li>A zipfile containing either of the above</li>
-                    </ul>
-                    <input type="checkbox" id="chkbx-file-auto-close" checked>
-                    <label for="chkbx-file-auto-close">Automatically close dialog when file is done loading</label>
                 </div>
                 <div class="modal-footer">
                     <div class="footer-info flex1-0 hidden" id="footer-info-addFile">
@@ -93,7 +117,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">Welcome, <span id="user" data-username="{{ user.username }}">{{ user.first_name|default:user.username }}</span>!</h4>
+                    <h4 class="modal-title">Help</h4>
                 </div>
                 <div class="modal-body">
                     <p><b>If you opened this app from a HydroShare Resource page "Open with..." link, your resource is loading in the background.
@@ -328,7 +352,7 @@
     </div>
     <!-- End modal -->
 
-    <!-- Save Project Modal -->
+    <!-- Export to PDF Modal -->
     <div id="modalExportMap" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <!-- Modal content-->

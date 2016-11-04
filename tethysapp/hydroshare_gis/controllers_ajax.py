@@ -64,12 +64,20 @@ def add_local_file(request):
     if request.is_ajax() and request.method == 'POST':
         file_list = request.FILES.getlist('files')
         proj_id = request.POST['proj_id']
+        res_type = request.POST['res_type'] if request.POST.get('res_type') else None
+        res_title = request.POST['res_title'] if request.POST.get('res_title') else None
+        res_abstract = request.POST['res_abstract'] if request.POST.get('res_abstract') else None
+        res_keywords = request.POST['res_keywords'] if request.POST.get('res_keywords') else None
+        flag_create_resources = request.POST['flag_create_resources'] == 'true'
+
         hs = get_oauth_hs(request)
         if hs is None:
             return_obj['message'] = message_oauth_failed
         else:
-            return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs,
-                                            username=request.user.username)
+            return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs, res_type=res_type,
+                                            username=request.user.username, flag_create_resources=flag_create_resources,
+                                            res_title=res_title, res_abstract=res_abstract,
+                                            res_keywords=res_keywords)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="POST")
 

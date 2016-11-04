@@ -503,6 +503,19 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
+/*                USER MESSAGES MODAL                */
+#modalExportMap .modal-content {
+    position: static;
+}
+#modalExportMap .modal-body {
+    position: static;
+}
+#modalExportMap .modal-footer {
+    position: static;
+}
+/*****************************************************/
+
+/*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading, #res-load-status, #export-canvas {
     position: fixed;

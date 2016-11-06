@@ -43,27 +43,23 @@
                         </div>
                         <div class="form-group">
                             <label for="resTitle" class="control-label">Resource Title:</label>
-                            <input type="text" class="form-control" id="resTitle">
+                            <input type="text" class="form-control resField" id="resTitle">
                         </div>
                         <div class="form-group">
                             <label for="resAbstract" class="control-label">Resource Abstract:</label>
-                            <textarea rows="6" cols="50" id="resAbstract" class="form-control"></textarea>
+                            <textarea rows="6" cols="50" id="resAbstract" class="form-control resField"></textarea>
                         </div>
                         <div class="form-group">
                             <label for="resKeywords" class="control-label">Resource Keywords:</label>
-                            <input type="text" class="form-control" id="resKeywords">
+                            <input type="text" class="form-control resField" id="resKeywords">
                         </div>
                     </fieldset>
                     <h5>2. Choose files:</h5>
-                    <input id="input-files" type="file" multiple>
+                    <input id="input-files" type="file">
                     <br>
                     <div id="msg-file" class="hidden"></div>
                 </div>
                 <div class="modal-footer">
-                    <div class="footer-info flex1-0 hidden" id="footer-info-addFile">
-                        Loading...&nbsp;
-                        <img src="/static/hydroshare_gis/images/loading-animation.gif" />
-                    </div>
                     <div class="button-group flex1-0">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                         <button type="button" id="btn-upload-file" class="btn btn-default btn-upload" disabled>Add</button>
@@ -95,10 +91,6 @@
                     <label for="chkbx-res-auto-close">Automatically close dialog when file is done loading</label>
                 </div>
                 <div class="modal-footer">
-                    <div class="footer-info flex1-0 hidden" id="footer-info-addRes">
-                        Loading...&nbsp;
-                        <img src="/static/hydroshare_gis/images/loading-animation.gif" />
-                    </div>
                     <div class="button-group flex1-0">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                         <button type="button" id="btn-upload-res" class="btn btn-default btn-upload hidden" disabled>Add</button>
@@ -536,7 +528,7 @@
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
                     <h4 class="modal-title">Log</h4>
                 </div>
-                <div class="modal-body" id="modalLog-entry"></div>
+                <div class="modal-body" id="logEntries"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                 </div>

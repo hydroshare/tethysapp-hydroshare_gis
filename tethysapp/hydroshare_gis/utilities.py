@@ -19,7 +19,6 @@ from sys import exc_info
 from traceback import format_exception
 from socket import gethostname
 from subprocess import check_output
-from StringIO import StringIO
 from mimetypes import guess_type
 
 workspace_id = None
@@ -375,8 +374,11 @@ def process_local_file(file_list, proj_id, hs, res_type, username, flag_create_r
         'results': []
     }
 
-    res_id = proj_id
     hs_tempdir = get_hs_tempdir(username)
+    res_id = None
+
+    if proj_id:
+        res_id = proj_id + '_mapProject'
 
     for f in file_list:
         f_name = f.name
@@ -386,50 +388,44 @@ def process_local_file(file_list, proj_id, hs, res_type, username, flag_create_r
             f_local.write(f.read())
 
         if not flag_create_resources:
-            hs.addResourceFile(pid=proj_id, resource_file=f_path)
+            add_file_to_res(hs, proj_id, f_path)
+
+    tempdir_file_list = os.listdir(hs_tempdir)
 
     if flag_create_resources:
         if res_type == 'GenericResource':
             done_once = False
-            for f in os.listdir(hs_tempdir):
-                res_fpath = str(os.path.join(hs_tempdir, f))
+            for f in tempdir_file_list:
+                res_fpath = os.path.join(hs_tempdir, f)
                 if not done_once:
                     done_once = True
                     res_id = hs.createResource(resource_type=res_type,
                                                title=res_title,
-                                               resource_file=res_fpath,
-                                               abstract=res_abstract if res_abstract else None,
-                                               keywords=res_keywords if res_keywords else None)
+                                               resource_file=str(res_fpath),
+                                               abstract=str(res_abstract) if res_abstract else None,
+                                               keywords=str(res_keywords).split(',') if res_keywords else None)
                 else:
-                    counter = 0
-                    failed = True
-                    while failed:
-                        if counter == 15:
-                            raise Exception
-
-                        try:
-                            hs.addResourceFile(pid=res_id, resource_file=res_fpath)
-                            failed = False
-                        except hs_r.HydroShareHTTPException as e:
-                            if 'with method POST and params None' in str(e):
-                                failed = True
-                                counter += 1
-                            else:
-                                raise e
+                    add_file_to_res(hs, res_id, res_fpath)
 
         else:
-            res_zipname = 'res_files.zip'
-            res_fpath = str(os.path.join(hs_tempdir, res_zipname))
-            os.system('zip %s %s*' % (res_fpath, hs_tempdir))
+            # In every non-Generic case there should only be one file, except a shapefile that is not zipped
+            if res_type == 'GeographicFeatureResource' and not tempdir_file_list[0].endswith('.zip'):
+                res_files = [os.path.join(hs_tempdir, f) for f in tempdir_file_list]
+                res_zipname = 'res_files.zip'
+                res_fpath = os.path.join(hs_tempdir, res_zipname)
+                zip_files(res_files, res_fpath)
+            else:
+                res_fpath = os.path.join(hs_tempdir, tempdir_file_list[0])
+
             res_id = hs.createResource(resource_type=res_type,
                                        title=res_title,
-                                       resource_file=res_fpath,
-                                       abstract=res_abstract if res_abstract else None,
-                                       keywords=res_keywords if res_keywords else None)
-
-    tempdir_file_list = os.listdir(hs_tempdir)
+                                       resource_file=str(res_fpath),
+                                       abstract=str(res_abstract) if res_abstract else None,
+                                       keywords=str(res_keywords).split(',') if res_keywords else None)
 
     return_obj['results'] = process_tempdir_file_list(tempdir_file_list, hs_tempdir, hs, res_id, res_type, username)
+    return_obj['message'] = ('Resource successfully created and added to project. View HydroShare resource landing page'
+                             ' <a href="https://www.hydroshare.org/resource/%s" target="_blank">here</a>.' % res_id)
     return_obj['success'] = True
 
     return return_obj
@@ -1298,7 +1294,7 @@ def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
     return generic_file_layer
 
 
-def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, file_index):
+def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, file_index=0):
     return_obj = {
         'success': False,
         'message': None,
@@ -1373,7 +1369,7 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                         band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
             results = {
-                'res_id': res_id,
+                'res_id': res_id.replace('_mapProject', ''),
                 'res_type': res_type,
                 'layer_name': layer_name,
                 'layer_id': layer_id,
@@ -1511,7 +1507,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             tmp_fpath = os.path.join(hs_tempdir, '%s_%s.tif' % (res_id, file_index))
             os.rename(fpath, tmp_fpath)
             r = check_crs(res_type, tmp_fpath)
-            return_obj['message'] = r['message'] % res_file_name
+            return_obj['message'] = r['message'] % res_file_name if r['message'] else None
             if not r['success']:
                 return return_obj
             else:
@@ -1637,15 +1633,43 @@ def process_tempdir_file_list(tempdir_file_list, hs_tempdir, hs, res_id, res_typ
         if is_zip:
             tmpdir_name = 'tmp'
             tmpdir_path = os.path.join(hs_tempdir, tmpdir_name)
+            f_path = os.path.join(hs_tempdir, f)
             os.mkdir(tmpdir_path)
-            os.system('unzip %s -d %s' % (f, tmpdir_path))
+            os.system('unzip %s -d %s' % (f_path, tmpdir_path))
             tmpdir_file_list = os.listdir(tmpdir_path)
             results += process_tempdir_file_list(tmpdir_file_list, hs_tempdir, hs, res_id, res_type, username)
 
         if should_process_file:
-            r = get_res_layer_obj_from_generic_file(hs, res_id, f, username, None)
+            r = get_res_layer_obj_from_generic_file(hs, res_id, f, username)
             if r['success']:
                 result = r['results']
                 results.append(result)
 
     return results
+
+
+def add_file_to_res(hs, res_id, fpath):
+    """
+    This function essentially wraps the call to hs_restclient.HydroShare.addResourceFile in a fail-proof loop that is
+    necessary due to the unstable behavior of the addResourceFile function. It will often fail for no explainable
+    reason, and simply trying again right after will succeed.
+    :param hs: hs_restclient.HydroShare object
+    :param res_id: the resource id of the HydroShare resource to which files will be added
+    :param fpath: the full path to the file that is to be added to an existing HydroShare resource
+    :return: Nothing is returned if successful. It may throw any one of the hs_restlient errors
+             that result from a failed call to hs_restclient.HydroShare.addResourceFile
+    """
+    counter = 0
+    failed = True
+    while failed:
+        if counter == 15:
+            raise Exception
+        try:
+            hs.addResourceFile(pid=res_id, resource_file=str(fpath))
+            failed = False
+        except hs_r.HydroShareHTTPException as e:
+            if 'with method POST and params None' in str(e):
+                failed = True
+                counter += 1
+            else:
+                raise e

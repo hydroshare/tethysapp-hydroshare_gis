@@ -22,8 +22,17 @@
 #btn-app-help {
     margin-left: 100px;
 }
+.dropdown {
+    display: inline-block;
+}
+#dropdownExportAs {
+    min-width: inherit;
+}
 #dropdown-export:hover {
     background-color: #949494;
+}
+#chkbx-show-inset-map {
+    margin: 0 0 0 10px;
 }
 .option-export {
     cursor: pointer;
@@ -490,7 +499,7 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
-/*                USER MESSAGES MODAL                */
+/*                LOG MODAL                */
 #modalLog .modal-content {
     position: static;
 }
@@ -561,9 +570,9 @@ input[type="radio"] {
 
 /****************************************************/
 /*                  GENERAL STYLING                 */
-label {
-    margin: 10px;
-}
+/*label {*/
+    /*margin: 10px;*/
+/*}*/
 .error {
     background-color: red;
     color: white;

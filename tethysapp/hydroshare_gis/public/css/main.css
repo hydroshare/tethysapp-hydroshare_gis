@@ -12,6 +12,9 @@
 #app-actions {
     display: none;
 }
+.exit-button {
+    cursor: pointer;
+}
 /*****************************************************/
 
 /*****************************************************/
@@ -19,8 +22,17 @@
 #btn-app-help {
     margin-left: 100px;
 }
+.dropdown {
+    display: inline-block;
+}
+#dropdownExportAs {
+    min-width: inherit;
+}
 #dropdown-export:hover {
     background-color: #949494;
+}
+#chkbx-show-inset-map {
+    margin: 0 0 0 10px;
 }
 .option-export {
     cursor: pointer;
@@ -81,7 +93,7 @@
 /*                 CURRENT LAYERS                    */
 #current-layers {
     width: 100%;
-    height: 300px;
+    height: 400px;
     background-color: #D3D3D3;
     overflow-y: auto;
 }
@@ -474,6 +486,45 @@ input[type="radio"] {
 /*****************************************************/
 
 /*****************************************************/
+/*                USER MESSAGES MODAL                */
+#modalUserMessages .modal-content {
+    position: static;
+}
+#modalUserMessages .modal-body {
+    position: static;
+}
+#modalUserMessages .modal-footer {
+    position: static;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                LOG MODAL                */
+#modalLog .modal-content {
+    position: static;
+}
+#modalLog .modal-body {
+    position: static;
+}
+#modalLog .modal-footer {
+    position: static;
+}
+/*****************************************************/
+
+/*****************************************************/
+/*                USER MESSAGES MODAL                */
+#modalExportMap .modal-content {
+    position: static;
+}
+#modalExportMap .modal-body {
+    position: static;
+}
+#modalExportMap .modal-footer {
+    position: static;
+}
+/*****************************************************/
+
+/*****************************************************/
 /*                 MAIN LOADING DIV                  */
 #div-loading, #res-load-status, #export-canvas {
     position: fixed;
@@ -519,9 +570,9 @@ input[type="radio"] {
 
 /****************************************************/
 /*                  GENERAL STYLING                 */
-label {
-    margin: 10px;
-}
+/*label {*/
+    /*margin: 10px;*/
+/*}*/
 .error {
     background-color: red;
     color: white;

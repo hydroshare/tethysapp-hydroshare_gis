@@ -1,8 +1,9 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404, HttpResponse
 
 from utilities import get_hs_res_object, get_oauth_hs, get_hs_res_list, get_geoserver_url, \
     process_local_file, save_new_project, save_project, generate_attribute_table, delete_tempfiles, \
-    get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file
+    get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file, \
+    get_file_mime_type, validate_res_request, get_generic_file_layer_from_db
 
 from model import ResourceLayersCount
 
@@ -36,13 +37,17 @@ def add_hs_res(request):
             if hs is None:
                 return_obj['message'] = message_oauth_failed
             else:
-                res_layers_obj_list = get_res_layers_from_db(hs, res_id, res_type, res_title, request.user.username)
-                if res_layers_obj_list:
-                    return_obj['results'] = res_layers_obj_list
-                    return_obj['success'] = True
+                r = validate_res_request(hs, res_id)
+                if not r['can_access']:
+                    return_obj['message'] = r['message']
                 else:
-                    return_obj = get_hs_res_object(hs=hs, res_id=res_id, res_type=res_type, res_title=res_title,
-                                                   username=request.user.username)
+                    res_layers_obj_list = get_res_layers_from_db(hs, res_id, res_type, res_title, request.user.username)
+                    if res_layers_obj_list:
+                        return_obj['results'] = res_layers_obj_list
+                        return_obj['success'] = True
+                    else:
+                        return_obj = get_hs_res_object(hs=hs, res_id=res_id, res_type=res_type, res_title=res_title,
+                                                       username=request.user.username)
 
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="GET")
@@ -59,12 +64,20 @@ def add_local_file(request):
     if request.is_ajax() and request.method == 'POST':
         file_list = request.FILES.getlist('files')
         proj_id = request.POST['proj_id']
+        res_type = request.POST['res_type'] if request.POST.get('res_type') else None
+        res_title = request.POST['res_title'] if request.POST.get('res_title') else None
+        res_abstract = request.POST['res_abstract'] if request.POST.get('res_abstract') else None
+        res_keywords = request.POST['res_keywords'] if request.POST.get('res_keywords') else None
+        flag_create_resources = request.POST['flag_create_resources'] == 'true'
+
         hs = get_oauth_hs(request)
         if hs is None:
             return_obj['message'] = message_oauth_failed
         else:
-            return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs,
-                                            username=request.user.username)
+            return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs, res_type=res_type,
+                                            username=request.user.username, flag_create_resources=flag_create_resources,
+                                            res_title=res_title, res_abstract=res_abstract,
+                                            res_keywords=res_keywords)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="POST")
 
@@ -196,12 +209,7 @@ def ajax_get_generic_res_files_list(request):
             if hs is None:
                 return_obj['message'] = message_oauth_failed
             else:
-                res_layers_obj_list = get_res_layers_from_db(hs, res_id, 'GenericResource', None, request.user.username)
-                if res_layers_obj_list:
-                    return_obj['results']['res_layers_obj_list'] = res_layers_obj_list
-                    return_obj['success'] = True
-                else:
-                    return_obj = get_res_files_list(hs=hs, res_id=res_id)
+                return_obj = get_res_files_list(hs=hs, res_id=res_id)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="GET")
 
@@ -219,10 +227,10 @@ def ajax_add_generic_res_file(request):
             return_obj['message'] = message_template_param_unfilled.format(param='res_id')
         else:
             res_id = request.GET['res_id']
-            if not request.GET.get('res_file_name'):
-                return_obj['message'] = message_template_param_unfilled.format(param='res_file_name')
+            if not request.GET.get('res_fname'):
+                return_obj['message'] = message_template_param_unfilled.format(param='res_fname')
             else:
-                res_file_name = request.GET['res_file_name']
+                res_fname = request.GET['res_fname']
                 file_index = int(request.GET['file_index'])
 
                 hs = get_oauth_hs(request)
@@ -230,9 +238,32 @@ def ajax_add_generic_res_file(request):
                 if hs is None:
                     return_obj['message'] = message_oauth_failed
                 else:
-                    return_obj = get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, request.user.username,
+                    r = validate_res_request(hs, res_id)
+                    if not r['can_access']:
+                        return_obj['message'] = r['message']
+                    else:
+                        generic_file_layer_obj = get_generic_file_layer_from_db(hs, res_id, res_fname, file_index,
+                                                                                request.user.username)
+                        if generic_file_layer_obj:
+                            return_obj['results'] = generic_file_layer_obj
+                            return_obj['success'] = True
+                        else:
+                            return_obj = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, request.user.username,
                                                                      file_index)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="GET")
 
     return JsonResponse(return_obj)
+
+
+def ajax_proxy_get_file(request):
+    hs = get_oauth_hs(request)
+    if hs is not None:
+        res_id = request.GET['res_id']
+        fname = request.GET['fname']
+        content_type = get_file_mime_type(fname)
+        response = HttpResponse(content_type=content_type)
+        for chunk in hs.getResourceFile(res_id, fname):
+            response.write(chunk)
+        return response
+    return Http404()

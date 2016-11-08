@@ -23,8 +23,7 @@ def home(request):
         'stroke_width_options': stroke_width_options,
         'point_shape_options': point_shape_options,
         'font_size_options': font_size_options,
-        'num_gradient_colors_options': num_gradient_colors_options,
-        'user': request.user
+        'num_gradient_colors_options': num_gradient_colors_options
     }
 
     if 'add-to-project' in request.path_info:

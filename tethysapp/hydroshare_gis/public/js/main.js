@@ -60,7 +60,7 @@
  protocol, publicFname, public_fname, push, query_layers, radius, random,
  remove, removeAt, removeAttr, removeClass, removeControl, render,
  renderSync, replace, request, resAbstract, resId, resKeywords, resTitle,
- resType, res_dict_string, res_file_name, res_id, res_layers_obj_list, res_list, res_title, res_type, results,
+ resType, res_dict_string, res_fname, res_id, res_layers_obj_list, res_list, res_title, res_type, results,
  rules, save, scrollCollapse, scrollLeft, scrollY, search, select,
  serverType, service, set, setAlpha, setCenter, setError, setInterval,
  setLineDash, setPending, setPosition, setRequestHeader, setSuccess,
@@ -92,7 +92,6 @@
     var layersContextMenuVector;
     var layersContextMenuTimeSeries;
     var layerCount;
-    var loadGenericFilesStatus;
     var map;
     var mapPopup;
     var projectInfo;
@@ -106,7 +105,6 @@
     var addDefaultBehaviorToAjax;
     var addLoadResSelEvnt;
     var addInitialEventListeners;
-    var areValidFiles;
     var buildHSResTable;
     var changeBaseMap;
     var checkCsrfSafe;
@@ -119,6 +117,7 @@
     var drawLayersInListOrder;
     var drawPointSymbologyPreview;
     var editLayerDisplayName;
+    var errorsOrWarningsInLog;
     var generateAttributeTable;
     var generateResourceList;
     var getCookie;
@@ -127,15 +126,17 @@
     var getGeoserverUrl;
     var getRandomColor;
     var hideMainLoadAnim;
+    var handleProjNotSavedInfo;
     var initializeJqueryVariables;
     var initializeLayersContextMenus;
     var initializeMap;
     var loadProjectFile;
-    var loadNonGenericResource;
-    var loadGenericResFile;
-    var loadGenericResource;
+    var addNonGenericRes;
+    var addGenericResFile;
+    var addGenericRes;
+    var modifyLayoutCSS;
     var modifyDataTableDisplay;
-    var onClickAddHSRes;
+    var onClickAddRes;
     var onClickAddToExistingProject;
     var onClickAddToNewProject;
     var onClickDeleteLayer;
@@ -165,26 +166,26 @@
     var showMainLoadAnim;
     var showResLoadingStatus;
     var updateSymbology;
-    var uploadFileButtonHandler;
+    var onClickAddFile;
     var zoomToLayer;
     var $btnApplySymbology;
 
     //  **********Query Selectors************
     var $btnAddRes;
+    var $btnAddFile;
     var $btnShowModalSaveNewProject;
     var $btnSaveNewProject;
     var $btnSaveProject;
     var $currentLayersList;
-    var $footerInfoAddRes;
     var $mapPopup;
     var $modalAttrTbl;
     var $modalLegend;
-    var $modalLoadFile;
-    var $modalLoadRes;
+    var $modalAddFile;
+    var $modalAddRes;
+    var $modalLog;
     var $modalSaveNewProject;
     var $modalSymbology;
     var $modalViewFile;
-    var $uploadBtn;
 
     /******************************************************
      **************FUNCTION DECLARATIONS*******************
@@ -383,7 +384,7 @@
         } else {
             bandInfo = "None";
         }
-        displayName = results.layer_name;
+
         layerId = results.layer_id || results.res_id;
         rawLayerExtents = results.layer_extents;
 
@@ -402,28 +403,35 @@
                     bandInfo.min = 0;
                 }
             }
+
             cssStyles = {'color-map': {}};
             cssStyles.method = 'ramp';
+
             if (bandInfo.nd || bandInfo.nd === 0) {
                 cssStyles['color-map'][bandInfo.nd] = {
                     color: '#000000',
                     opacity: 0
                 };
             }
+
             if (bandInfo.min === 'Unknown') {
                 bandInfo.min = 0;
             }
+
             cssStyles['color-map'][bandInfo.min] = {
                 color: '#000000',
                 opacity: 1
             };
+
             if (bandInfo.max === 'Unknown') {
                 bandInfo.max = 10000;
             }
+
             cssStyles['color-map'][bandInfo.max] = {
                 color: '#ffffff',
                 opacity: 1
             };
+
             if (bandInfo.min > 255 || bandInfo.max < 255) {
                 hide255 = true;
             }
@@ -441,6 +449,14 @@
         });
 
         layerIndex = layerCount.get();
+
+        displayName = results.layer_name;
+        // Check if a layer with the same name exists. If so, tack on a modifier
+        var modifier = 1;
+        while (projectInfo.map.layers[displayName] !== undefined) {
+            displayName = displayName + ' (' + modifier + ')';
+            modifier += 1;
+        }
 
         // Add layer data to project info
         projectInfo.map.layers[displayName] = {
@@ -480,6 +496,7 @@
             $layerNameSpan.addClass('hidden');
             $layerNameInput = $listItem.find('input[type=text]');
             $layerNameInput
+                .val($layerNameSpan.text())
                 .removeClass('hidden')
                 .select()
                 .on('keyup', function (e) {
@@ -522,7 +539,7 @@
     };
 
     addLoadResSelEvnt = function () {
-        $modalLoadRes.find('tbody tr').on('click', function () {
+        $modalAddRes.find('tbody tr').on('click', function () {
             $btnAddRes.prop('disabled', false);
             $(this)
                 .css({
@@ -663,32 +680,28 @@
 
         $('.basemap-option').on('click', changeBaseMap);
 
-        $modalLoadFile.on('hidden.bs.modal', function () {
-            $('#input-files').val('');
-        });
+        $modalAddFile
+            .on('hidden.bs.modal', function () {
+                $('#input-files').val('');
+                $('.resField').val('');
+                $('#resType').val('GenericResource');
+            })
+            .on('shown.bs.modal', function () {
+                $('#resType').trigger('change');
+                handleProjNotSavedInfo();
+            });
 
         $modalSaveNewProject.on('hidden.bs.modal', function () {
             $('#footer-info-saveProj').addClass('hidden');
             $('#res-title').val('');
         });
 
-        $btnAddRes.on('click', onClickAddHSRes);
+        $btnAddRes.on('click', onClickAddRes);
 
-        $('#btn-upload-file').on('click', uploadFileButtonHandler);
+        $btnAddFile.on('click', onClickAddFile);
 
         $('#input-files').on('change', function () {
-            var files = this.files;
-            if (!areValidFiles(files)) {
-                $uploadBtn.prop('disabled', true);
-                $('#msg-file')
-                    .text("Invalid files. Include only one of the following 3 upload options below.")
-                    .removeClass('hidden');
-                setTimeout(function () {
-                    $('#msg-file').addClass('hidden');
-                }, 7000);
-            } else {
-                $uploadBtn.prop('disabled', false);
-            }
+            $btnAddFile.prop('disabled', this.files.length === 0 || !$('#projNotSavedInfo').prop('hidden'));
         });
 
         map.getLayers().on('add', function () {
@@ -706,7 +719,7 @@
             projectInfo.map.layers[displayName].visible = $(this).is(':checked');
         });
 
-        $modalLoadRes.on('shown.bs.modal', function () {
+        $modalAddRes.on('shown.bs.modal', function () {
             if (dataTableLoadRes) {
                 redrawDataTable(dataTableLoadRes, $(this));
             }
@@ -818,11 +831,7 @@
         });
 
         $(window).on('resize', function () {
-            $('#map').css({
-                'height': $('#app-content').height(),
-                'max-height': $('#app-content').height(),
-                'width': '100%'
-            });
+            modifyLayoutCSS();
             map.render();
         });
 
@@ -989,38 +998,42 @@
 
             observer.observe(target, config);
         }());
-    };
 
-    areValidFiles = function (files) {
-        var file;
-        var fileCount = 0;
-        var hasShp = false;
-        var hasShx = false;
-        var hasPrj = false;
-        var hasDbf = false;
-        var hasTif = false;
-        var hasZip = false;
-        for (file in files) {
-            if (files.hasOwnProperty(file)) {
-                if (++fileCount > 4) {
-                    return false;
-                }
-                if (files[file].name.endsWith('.shp')) {
-                    hasShp = true;
-                } else if (files[file].name.endsWith('.shx')) {
-                    hasShx = true;
-                } else if (files[file].name.endsWith('.prj')) {
-                    hasPrj = true;
-                } else if (files[file].name.endsWith('.dbf')) {
-                    hasDbf = true;
-                } else if (files[file].name.endsWith('.tif')) {
-                    hasTif = true;
-                } else if (files[file].name.endsWith('.zip')) {
-                    hasZip = true;
-                }
+        $('input[name=store-local-files]').on('change', function () {
+            if ($('#storeFiles-Proj').is(':checked')) {
+                $('#input-files')
+                    .prop('accept', '*')
+                    .prop('multiple', true);
+            } else {
+                $('#resType').trigger('change');
             }
-        }
-        return (((hasTif || hasZip) && fileCount === 1) || (hasShp && hasShx && hasPrj && hasDbf));
+            var $projNotSavedInfo = $('#projNotSavedInfo');
+            $('#fields-newRes').toggleClass('hidden');
+            handleProjNotSavedInfo();
+            $btnAddFile.prop('disabled', $('#input-files')[0].files.length === 0 || !$projNotSavedInfo.prop('hidden'));
+        });
+
+        $('#resType').on('change', function () {
+            var resType = this.value;
+            var validFileTypes = "*";
+            var hasMultipleFiles = false;
+            switch (resType) {
+                case "GenericResource":
+                    validFileTypes = "*";
+                    hasMultipleFiles = true;
+                    break;
+                case "RasterResource":
+                    validFileTypes = ".tif";
+                    break;
+                case "GeographicFeatureResource":
+                    validFileTypes = ".shp, .dbf, .shx, .prj, .sbn, .sbx, .cpg, .xml, .zip";
+                    hasMultipleFiles = true;
+                    break;
+            }
+            $('#input-files')
+                .prop('accept', validFileTypes)
+                .prop('multiple', hasMultipleFiles);
+        });
     };
 
     buildHSResTable = function (resList) {
@@ -1039,7 +1052,7 @@
                 '</tr>';
         });
         resTableHtml += '</tbody></table>';
-        $modalLoadRes.find('.modal-body').html(resTableHtml);
+        $modalAddRes.find('.modal-body').html(resTableHtml);
         addLoadResSelEvnt();
         dataTableLoadRes = $('#tbl-resources').DataTable({
             'order': [[1, 'asc']],
@@ -1054,7 +1067,6 @@
                 footer: true
             }
         });
-        redrawDataTable(dataTableLoadRes, $modalLoadRes);
     };
 
     changeBaseMap = function () {
@@ -1107,12 +1119,14 @@
 
         params = getSearchParameters();
 
-        if (params.res_id) {
+        if (params.res_id && params.res_type) {
             showMainLoadAnim();
-            if (params.res_type === "GenericResource") {
-                loadGenericResource(params.res_id);
+            if (params.res_fname) {
+                addGenericResFile(params.res_id, params.res_fname, 0, true);
+            } else if (params.res_type === "GenericResource") {
+                addGenericRes(params.res_id);
             } else {
-                loadNonGenericResource(params.res_id, params.res_type, null, true, null);
+                addNonGenericRes(params.res_id, params.res_type, null, true, null);
             }
         }
     };
@@ -1352,15 +1366,35 @@
         var nameB4Change = $layerNameSpan.text();
         if (e.which === 13) {  // Enter key
             newDisplayName = $layerNameInput.val();
-            $layerNameSpan.text(newDisplayName);
-            projectInfo.map.layers[nameB4Change].displayName = newDisplayName;
-            projectInfo.map.layers[newDisplayName] = projectInfo.map.layers[nameB4Change];
-            delete projectInfo.map.layers[nameB4Change];
-            $btnSaveProject.prop('disabled', false);
-            closeLyrEdtInpt($layerNameSpan, $layerNameInput);
+            if (nameB4Change !== newDisplayName) {
+                // Make sure the user does not rename a layer the same name as an existing layer
+                if (projectInfo.map.layers[newDisplayName] !== undefined) {
+                    $('#modalUserMessages-messsage').text('A layer already exists with that name. Please choose a different name');
+                    $('#modalUserMessages').modal('show');
+                } else {
+                    $layerNameSpan.text(newDisplayName);
+                    projectInfo.map.layers[nameB4Change].displayName = newDisplayName;
+                    projectInfo.map.layers[newDisplayName] = projectInfo.map.layers[nameB4Change];
+                    delete projectInfo.map.layers[nameB4Change];
+                    $btnSaveProject.prop('disabled', false);
+                    closeLyrEdtInpt($layerNameSpan, $layerNameInput);
+                }
+            } else {
+                closeLyrEdtInpt($layerNameSpan, $layerNameInput);
+            }
         } else if (e.which === 27) {  // Esc key
             closeLyrEdtInpt($layerNameSpan, $layerNameInput);
         }
+    };
+
+    errorsOrWarningsInLog = function () {
+        if ($modalLog.find('.alert-warning').length > 1) {
+            return true;
+        } else if ($modalLog.find('.alert-danger').length > 1) {
+            return true;
+        }
+
+        return false;
     };
 
     generateAttributeTable = function (layerId, layerAttributes, layerName) {
@@ -1433,13 +1467,13 @@
                     numRequests += 1;
                     setTimeout(generateResourceList, 3000, numRequests);
                 } else {
-                    $modalLoadRes.find('.modal-body').html('<div class="error">An unexpected error was encountered while attempting to load resorces.</div>');
+                    $modalAddRes.find('.modal-body').html('<div class="error">An unexpected error was encountered while attempting to load resorces.</div>');
                 }
             },
             success: function (response) {
                 if (response.hasOwnProperty('success')) {
                     if (!response.success) {
-                        $modalLoadRes.find('.modal-body').html('<div class="error">' + response.message + '</div>');
+                        $modalAddRes.find('.modal-body').html('<div class="error">' + response.message + '</div>');
                     } else {
                         if (response.hasOwnProperty('res_list')) {
                             buildHSResTable(response.res_list);
@@ -1594,23 +1628,38 @@
         $('#div-loading').addClass('hidden');
     };
 
+    handleProjNotSavedInfo = function () {
+        var $projNotSavedInfo = $('#projNotSavedInfo');
+        var hideProjNotSavedInfo = false;
+
+        if ($('#storeFiles-Proj').is(':checked')) {
+            if (projectInfo.resId) {
+                hideProjNotSavedInfo = true;
+            }
+        } else {
+            hideProjNotSavedInfo = true;
+        }
+
+        $projNotSavedInfo.prop('hidden', hideProjNotSavedInfo);
+    };
+
     initializeJqueryVariables = function () {
         $btnAddRes = $('#btn-upload-res');
+        $btnAddFile = $('#btn-upload-file');
         $btnShowModalSaveNewProject = $('#btn-show-modal-save-new-project');
         $btnApplySymbology = $('#btn-apply-symbology');
         $btnSaveNewProject = $('#btn-save-new-project');
         $btnSaveProject = $('#btn-save-project');
         $currentLayersList = $('#current-layers-list');
-        $footerInfoAddRes = $('#footer-info-addRes');
         $mapPopup = $('#map-popup');
         $modalAttrTbl = $('#modalAttrTbl');
         $modalLegend = $('#modalLegend');
-        $modalLoadFile = $('#modalLoadFile');
-        $modalLoadRes = $('#modalLoadRes');
+        $modalAddFile = $('#modalLoadFile');
+        $modalAddRes = $('#modalLoadRes');
+        $modalLog = $('#modalLog');
         $modalSaveNewProject = $('#modalSaveNewProject');
         $modalSymbology = $('#modalSymbology');
         $modalViewFile = $('#modalViewFile');
-        $uploadBtn = $('.btn-upload');
     };
 
     initializeLayersContextMenus = function () {
@@ -1775,21 +1824,6 @@
         var contextMenu;
         var $newLayerListItem;
 
-        // var downloadGenericFiles = function (resDownloadDict) {
-        //     if (Object.keys(resDownloadDict).length !== 0) {
-        //         loadGenericFilesStatus.setPending();
-        //         $.ajax({
-        //             type: 'GET',
-        //             url: '/apps/hydroshare-gis/get-generic-files',
-        //             data: {
-        //                 res_dict_string: JSON.stringify(resDownloadDict)
-        //             },
-        //             error: loadGenericFilesStatus.setError,
-        //             success: loadGenericFilesStatus.setSuccess
-        //         });
-        //     }
-        // };
-
         projectInfo = fileProjectInfo;
 
         $('.basemap-option[value="' + fileProjectInfo.map.baseMap + '"]').trigger('click');
@@ -1875,7 +1909,7 @@
         // downloadGenericFiles(resDownloadDict);
     };
 
-    loadNonGenericResource = function (resId, resType, resTitle, isLastResource, additionalResources) {
+    addNonGenericRes = function (resId, resType, resTitle, isLastResource, additionalResources) {
         var data = {'res_id': resId};
 
         if (resType) {
@@ -1885,15 +1919,12 @@
             data.res_title = resTitle;
         }
 
-        $footerInfoAddRes.removeClass('hidden');
-
         $.ajax({
             type: 'GET',
             url: '/apps/hydroshare-gis/add-hs-res',
             dataType: 'json',
             data: data,
             error: function () {
-                $footerInfoAddRes.addClass('hidden');
                 $btnAddRes.prop('disabled', false);
             },
             success: function (response) {
@@ -1901,7 +1932,6 @@
                     if (!response.success) {
                         showResLoadingStatus(false, response.message);
                         hideMainLoadAnim();
-                        $footerInfoAddRes.addClass('hidden');
                     } else {
                         if (response.hasOwnProperty('results')) {
                             processAddHSResResults(response.results, isLastResource, additionalResources);
@@ -1912,10 +1942,10 @@
         });
     };
 
-    loadGenericResFile = function (resId, resFileName, index, isLastFile){
+    addGenericResFile = function (resId, resFileName, index, isLastFile){
         var data = {
             'res_id': resId,
-            'res_file_name': resFileName,
+            'res_fname': resFileName,
             'file_index': index
         };
         $.ajax({
@@ -1925,12 +1955,25 @@
             dataType: 'json',
             contentType: 'json',
             success: function (response) {
+                var message;
                 if (response.hasOwnProperty('success')) {
+                    if (response.hasOwnProperty('message')) {
+                        message = response.message;
+                    }
                     if (!response.success) {
-                        showResLoadingStatus(false, response.message);
-                        hideMainLoadAnim();
-                        $footerInfoAddRes.addClass('hidden');
+                        if (!message) {
+                            message = 'An unexpected error ocurred while processing the following file: ' + resFileName;
+                        }
+
+                        $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+
+                        if (isLastFile) {
+                            setStateAfterLastResource();
+                        }
                     } else {
+                        if (message) {
+                            $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                        }
                         if (response.hasOwnProperty('results')) {
                             if (response.results.res_type === 'GenericResource') {
                                 if (response.results.project_info) {
@@ -1953,10 +1996,8 @@
         });
     };
 
-    loadGenericResource = function (resId) {
+    addGenericRes = function (resId) {
         var data = {'res_id': resId};
-
-        $footerInfoAddRes.removeClass('hidden');
 
         $.ajax({
             url: '/apps/hydroshare-gis/get-generic-res-files-list',
@@ -1969,12 +2010,9 @@
                     if (!response.success) {
                         showResLoadingStatus(false, response.message);
                         hideMainLoadAnim();
-                        $footerInfoAddRes.addClass('hidden');
                     } else {
                         if (response.hasOwnProperty('results')) {
-                            if (response.results.hasOwnProperty('res_layers_obj_list')) {
-                                processAddHSResResults(response.results.res_layers_obj_list, true, null);
-                            } else if (response.results.hasOwnProperty('generic_res_files_list')) {
+                            if (response.results.hasOwnProperty('generic_res_files_list')) {
                                 processGenericResFiles(resId, response.results.generic_res_files_list);
                             }
                         }
@@ -1982,9 +2020,20 @@
                 }
             },
             error: function () {
-                $footerInfoAddRes.addClass('hidden');
                 $btnAddRes.prop('disabled', false);
             }
+        });
+    };
+
+    modifyLayoutCSS = function () {
+        $('#app-content, #inner-app-content').css('max-height', $(window).height() - 100);
+        $('#map').css({
+            'height': $('#app-content').height(),
+            'max-height': $('#app-content').height(),
+            'width': '100%'
+        });
+        $modalAddFile.find('.modal-body').css({
+            'max-height': $(window).height() * 0.75
         });
     };
 
@@ -2000,21 +2049,19 @@
         redrawDataTable(dataTable, $modal);
     };
 
-    onClickAddHSRes = function () {
-
-        $uploadBtn.prop('disabled', true);
+    onClickAddRes = function () {
         var $rdoRes = $('.rdo-res:checked');
         var resId = $rdoRes.val();
         var resType = $rdoRes.parent().parent().find('.res_type').text();
         var resTitle = $rdoRes.parent().parent().find('.res_title').text();
 
         showMainLoadAnim();
-        $modalLoadRes.modal('hide');
+        $modalAddRes.modal('hide');
 
         if (resType === "GenericResource") {
-            loadGenericResource(resId);
+            addGenericRes(resId);
         } else {
-            loadNonGenericResource(resId, resType, resTitle, true, null);
+            addNonGenericRes(resId, resType, resTitle, true, null);
         }
     };
 
@@ -2039,7 +2086,7 @@
                 'title': $li.data('title')
             });
         });
-        loadNonGenericResource(resId, 'GenericResource', resTitle, false, additionalResources);
+        addNonGenericRes(resId, 'GenericResource', resTitle, false, additionalResources);
     };
 
     onClickAddToNewProject = function () {
@@ -2058,7 +2105,7 @@
             });
         });
         firstResource = additionalResources.shift();
-        loadNonGenericResource(firstResource.id, firstResource.type, firstResource.title, (additionalResources.length === 0), additionalResources);
+        addNonGenericRes(firstResource.id, firstResource.type, firstResource.title, (additionalResources.length === 0), additionalResources);
     };
 
     onClickDeleteLayer = function (e) {
@@ -2154,62 +2201,52 @@
         var $lyrListItem = $(clickedElement).parent().parent();
         var fName = $lyrListItem.data('public-fname');
         var resType = $lyrListItem.data('res-type');
-        var url;
         var location = window.location;
         var validImgTypes = ['png', 'jpg', 'gif'];
         var validMovieTypes = ['mov', 'mp4', 'webm', 'ogg'];
         var validTextTypes = ['txt', 'py', 'r', 'matlab', 'm', 'sh', 'xml', 'wml', 'gml', 'kml'];
         var resId = $lyrListItem.data('res-id');
         var $loading = $('#view-file-loading');
+        var fileUrl = '/apps/hydroshare-gis/proxy-get-file/?' + 'fname=' + fName + '&res_id=' + resId;
 
         $('.view-file').addClass('hidden');
+
         if (resType === 'RefTimeSeriesResource') {
             $loading.removeClass('hidden');
-            url = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
+            fileUrl = location.protocol + '//' + location.host + '/apps/timeseries-viewer/?src=hydroshare&res_id=' + resId;
             $('#iframe-container')
                 .empty()
-                .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');
+                .append('<iframe id="iframe-js-viewer" src="' + fileUrl + '" allowfullscreen></iframe>');
             $('#iframe-js-viewer').one('load', function () {
                 $loading.addClass('hidden');
                 $('#iframe-container').removeClass('hidden');
             });
         } else {
-            if (loadGenericFilesStatus.get() === 'Pending') {
-                $('#view-file-status')
-                    .text('This file is still being obtained from HydroShare. Sorry for the delay. Please try again in a moment.')
+            if (fName.toLowerCase().indexOf('.pdf') !== -1) {
+                $('#iframe-container')
+                    .empty()
+                    .append('<iframe id="iframe-js-viewer" src="' + fileUrl + '" allowfullscreen></iframe>')
                     .removeClass('hidden');
-            } else if (loadGenericFilesStatus.get() === 'Error') {
-                $('#view-file-status')
-                    .text('This file was not found on HydroShare. Please ensure that the file name as stored in the HydroShare resource has not changed since this Map Project was last saved.')
+            } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                $('#img-viewer').attr('src', fileUrl).removeClass('hidden');
+            } else if (validMovieTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                $('#iframe-container')
+                    .empty()
+                    .append('<video id="iframe-js-viewer" src="' + fileUrl + '" controls></video>')
                     .removeClass('hidden');
+            } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                fileUrl = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                $loading.removeClass('hidden');
+                $('#iframe-container')
+                    .empty()
+                    .append('<iframe id="iframe-js-viewer" src="' + fileUrl + '" allowfullscreen></iframe>');
+                $('#iframe-js-viewer').one('load', function () {
+                    $loading.addClass('hidden');
+                    $('#iframe-container').removeClass('hidden');
+                });
             } else {
-                url = location.protocol + '//' + location.host + '/static/hydroshare_gis/temp/' + $('#user').data('username') + '/' + fName;
-                if (fName.toLowerCase().indexOf('.pdf') !== -1) {
-                    $('#iframe-container')
-                        .empty()
-                        .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>')
-                        .removeClass('hidden');
-                } else if (validImgTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                    $('#img-viewer').attr('src', url).removeClass('hidden');
-                } else if (validMovieTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                    $('#iframe-container')
-                        .empty()
-                        .append('<video id="iframe-js-viewer" src="' + url + '" controls></video>')
-                        .removeClass('hidden');
-                } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                    url = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
-                    $loading.removeClass('hidden');
-                    $('#iframe-container')
-                        .empty()
-                        .append('<iframe id="iframe-js-viewer" src="' + url + '" allowfullscreen></iframe>');
-                    $('#iframe-js-viewer').one('load', function () {
-                        $loading.addClass('hidden');
-                        $('#iframe-container').removeClass('hidden');
-                    });
-                } else {
-                    $('#link-download-file').attr('href', url);
-                    $('#unviewable-file').attr('src', url).removeClass('hidden');
-                }
+                $('#link-download-file').attr('href', fileUrl);
+                $('#unviewable-file').attr('src', fileUrl).removeClass('hidden');
             }
         }
 
@@ -2365,7 +2402,7 @@
                 numAdditionalResources = additionalResources.length;
                 for (j = 0; j < numAdditionalResources; j += 1) {
                     resource = additionalResources[j];
-                    loadNonGenericResource(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
+                    addNonGenericRes(resource.id, resource.type, resource.title, (j === numAdditionalResources - 1), null);
                 }
             }
 
@@ -2399,7 +2436,7 @@
             if (i === numFiles - 1) {
                 isLastFile = true;
             }
-            loadGenericResFile(resId, resFilesList[i], i, isLastFile);
+            addGenericResFile(resId, resFilesList[i], i, isLastFile);
         }
     };
 
@@ -2473,10 +2510,12 @@
     setStateAfterLastResource = function () {
         hideMainLoadAnim();
         showResLoadingStatus(true, 'Resource(s) added successfully!');
-        $footerInfoAddRes.addClass('hidden');
+        if (errorsOrWarningsInLog()) {
+            $modalLog.modal('show');
+        }
         $btnAddRes.prop('disabled', false);
         if ($('#chkbx-res-auto-close').is(':checked')) {
-            $modalLoadRes.modal('hide');
+            $modalAddRes.modal('hide');
         }
         deleteTempfiles();
     };
@@ -2726,16 +2765,21 @@
         map.getLayers().item(layerIndex).getSource().updateParams({'SLD_BODY': sldString});
     };
 
-    uploadFileButtonHandler = function () {
+    onClickAddFile = function () {
         var files = $('#input-files')[0].files;
         var data;
-        var $footerInfoAddFile = $('#footer-info-addFile');
 
-        $footerInfoAddFile.removeClass('hidden');
-        $uploadBtn.prop('disabled', true);
+        $modalAddFile.modal('hide');
+
+        $btnAddFile.prop('disabled', true);
         showMainLoadAnim();
         data = prepareFilesForAjax(files);
         data.append('proj_id', projectInfo.resId);
+        data.append('res_type', $('#resType').val());
+        data.append('res_title', $('#resTitle').val() || 'Untitled Resource');
+        data.append('res_abstract', $('#resAbstract').val());
+        data.append('res_keywords', $('#resKeywords').val());
+        data.append('flag_create_resources', $('#storeFiles-Res').is(':checked'));
 
         $.ajax({
             url: '/apps/hydroshare-gis/add-local-file/',
@@ -2745,20 +2789,38 @@
             processData: false,
             contentType: false,
             error: function (ignore, textStatus) {
-                $footerInfoAddFile.addClass('hidden');
                 showResLoadingStatus('error', textStatus);
+                $btnAddFile.prop('disabled', false);
             },
             success: function (response) {
-                $footerInfoAddFile.addClass('hidden');
-                $('#btn-upload-file').prop('disabled', false);
+                var results, numResults, counter;
+                $btnAddFile.prop('disabled', false);
                 if (response.hasOwnProperty('success')) {
-                    if (response.success) {
-                        addLayerToUI(response.results, true);
+                    if (response.message !== null) {
+                        $modalLog.find('#logEntries').append(response.message);
+                    }
+                    if (!response.success) {
+                        $modalLog.modal('show');
+                    } else {
                         $btnSaveProject.prop('disabled', false);
+                        results = response.results;
+                        numResults = results.length;
+                        counter = 0;
+                        response.results.forEach(function (result) {
+                            var isLastResource = counter === numResults - 1;
+
+                            if (result.res_type === 'GenericResource') {
+                                addGenericResToUI(result, isLastResource);
+                            } else {
+                                addLayerToUI(result, isLastResource);
+                            }
+
+                            counter += 1;
+                        });
                     }
                 }
                 if ($('#chkbx-file-auto-close').is(':checked')) {
-                    $modalLoadFile.modal('hide');
+                    $modalAddFile.modal('hide');
                 }
             }
         });
@@ -2781,12 +2843,8 @@
      ----------------------------------------------*/
 
     $(function () {
-        $('#app-content, #inner-app-content').css('max-height', $(window).height() - 100);
-        $('#map').css({
-            'height': $('#app-content').height(),
-            'max-height': $('#app-content').height()
-        });
         initializeJqueryVariables();
+        modifyLayoutCSS();
         checkURLForParameters();
         addDefaultBehaviorToAjax();
         initializeMap();
@@ -2796,6 +2854,8 @@
         if (window.location.pathname.indexOf('add-to-project') > -1) {
             $('#modalAddToProject').modal('show');
         }
+
+        $('.app-title').css({'width': '435px'});
 
         $currentLayersList.sortable({
             placeholder: "ui-state-highlight",
@@ -2838,24 +2898,4 @@
             }
         };
     }());
-
-    loadGenericFilesStatus = (function () {
-        var status = 'None';
-        return {
-            'setSuccess': function () {
-                status = 'Success';
-            },
-            'setError': function () {
-                status = 'Error';
-            },
-            'setPending': function () {
-                status = 'Pending';
-            },
-            'get': function () {
-                return status;
-            }
-        };
-    }());
-
-    // window.onbeforeunload = deletePublicTempfiles;
 }());

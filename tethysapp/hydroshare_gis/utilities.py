@@ -1145,8 +1145,11 @@ def get_res_mod_date(hs, res_id):
 
 
 def res_has_been_updated(db_date, res_date):
-    db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%X.%f')
-    res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%X.%f')
+    #db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%X.%f')
+    db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+    #res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%X.%f')
+    res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+    
     if db_date_obj < res_date_obj:
         return True
 

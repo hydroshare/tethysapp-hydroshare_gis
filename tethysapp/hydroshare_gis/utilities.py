@@ -1145,9 +1145,13 @@ def get_res_mod_date(hs, res_id):
 
 
 def res_has_been_updated(db_date, res_date):
-    db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%X.%f')
-    res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%X.%f')
-    if db_date_obj < res_date_obj:
+    try:
+        db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%X.%f')
+        res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%X.%f')
+        if db_date_obj < res_date_obj:
+            return True
+    except Exception as e:
+        email_admin('Minor Error Report', exc_info(), str(e))
         return True
 
     return False
@@ -1246,7 +1250,7 @@ def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
         for res_layer in db_res_layers:
             flag_reload_layer = res_has_been_updated(res_layer.res_mod_date, get_res_mod_date(hs, res_id))
             if flag_reload_layer:
-                Layer.remove_layer_by_res_id(res_id)
+                Layer.remove_layers_by_res_id(res_id)
                 res_layers = process_hs_res(hs, res_id, res_type, res_title, username)
                 break
             else:

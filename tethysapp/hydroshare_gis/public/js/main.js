@@ -136,6 +136,7 @@
     var addGenericRes;
     var modifyLayoutCSS;
     var modifyDataTableDisplay;
+    var onClickAddFile;
     var onClickAddRes;
     var onClickAddToExistingProject;
     var onClickAddToNewProject;
@@ -164,9 +165,8 @@
     var setupSymbologyRasterState;
     var setupSymbologyStrokeState;
     var showMainLoadAnim;
-    var showResLoadingStatus;
+    var showLoadingCompleteStatus;
     var updateSymbology;
-    var onClickAddFile;
     var zoomToLayer;
     var $btnApplySymbology;
 
@@ -606,11 +606,11 @@
                     },
                     error: function () {
                         hideMainLoadAnim();
-                        showResLoadingStatus(false, 'A problem occured while saving. Project not saved.');
+                        showLoadingCompleteStatus(false, 'A problem occured while saving. Project not saved.');
                     },
                     success: function () {
                         hideMainLoadAnim();
-                        showResLoadingStatus(true, 'Project saved successfully!');
+                        showLoadingCompleteStatus(true, 'Project saved successfully!');
                         $btnSaveProject.prop('disabled', true);
                     }
                 });
@@ -707,6 +707,7 @@
         map.getLayers().on('add', function () {
             layerCount.increase();
         });
+
         map.getLayers().on('remove', function () {
             layerCount.decrease();
         });
@@ -1819,7 +1820,6 @@
         var numLayers = Object.keys(layers).length;
         var key;
         var layerIndex;
-        var resDownloadDict = {};
         var disabled;
         var contextMenu;
         var $newLayerListItem;
@@ -1869,13 +1869,6 @@
                                 layers[key].attributes, true,
                                 layers[key].displayName, layers[key].bandInfo,
                                 layers[key].hsResId, layers[key].filename, disabled);
-                            if (layers[key].resType !== 'RefTimeSeriesResource') {
-                                if (resDownloadDict.hasOwnProperty(layers[key].hsResId)) {
-                                    resDownloadDict[layers[key].hsResId].push(layers[key].filename);
-                                } else {
-                                    resDownloadDict[layers[key].hsResId] = [layers[key].filename];
-                                }
-                            }
                         }
                         $newLayerListItem = $currentLayersList.find(':last-child');
                         addListenersToListItem($newLayerListItem, layers[key].index);
@@ -1905,8 +1898,6 @@
         window.setTimeout(function () {
             $btnSaveProject.prop('disabled', true);
         }, 100);
-
-        // downloadGenericFiles(resDownloadDict);
     };
 
     addNonGenericRes = function (resId, resType, resTitle, isLastResource, additionalResources) {
@@ -1930,7 +1921,7 @@
             success: function (response) {
                 if (response.hasOwnProperty('success')) {
                     if (!response.success) {
-                        showResLoadingStatus(false, response.message);
+                        showLoadingCompleteStatus(false, response.message);
                         hideMainLoadAnim();
                     } else {
                         if (response.hasOwnProperty('results')) {
@@ -1978,7 +1969,7 @@
                             if (response.results.res_type === 'GenericResource') {
                                 if (response.results.project_info) {
                                     loadProjectFile(JSON.parse(response.results.project_info));
-                                    showResLoadingStatus(true, 'Project loaded successfully!');
+                                    showLoadingCompleteStatus(true, 'Project loaded successfully!');
                                     hideMainLoadAnim();
                                 } else if (response.results.public_fname !== null) {
                                     addGenericResToUI(response.results, isLastFile);
@@ -2008,7 +1999,7 @@
             success: function (response) {
                 if (response.hasOwnProperty('success')) {
                     if (!response.success) {
-                        showResLoadingStatus(false, response.message);
+                        showLoadingCompleteStatus(false, response.message);
                         hideMainLoadAnim();
                     } else {
                         if (response.hasOwnProperty('results')) {
@@ -2411,7 +2402,7 @@
             if (result.res_type === 'GenericResource') {
                 if (result.project_info) {
                     loadProjectFile(JSON.parse(result.project_info));
-                    showResLoadingStatus(true, 'Project loaded successfully!');
+                    showLoadingCompleteStatus(true, 'Project loaded successfully!');
                     hideMainLoadAnim();
                 } else if (result.public_fname !== null) {
                     addGenericResToUI(result, isLastResource && i === numResults - 1);
@@ -2509,7 +2500,7 @@
 
     setStateAfterLastResource = function () {
         hideMainLoadAnim();
-        showResLoadingStatus(true, 'Resource(s) added successfully!');
+        showLoadingCompleteStatus(true, 'Resource(s) added successfully!');
         if (errorsOrWarningsInLog()) {
             $modalLog.modal('show');
         }
@@ -2732,7 +2723,7 @@
         $('#div-loading').removeClass('hidden');
     };
 
-    showResLoadingStatus = function (success, message) {
+    showLoadingCompleteStatus = function (success, message) {
         var successClass = success ? 'success' : 'error';
         var $resLoadingStatus = $('#res-load-status');
         var $statusText = $('#status-text');
@@ -2789,7 +2780,7 @@
             processData: false,
             contentType: false,
             error: function (ignore, textStatus) {
-                showResLoadingStatus('error', textStatus);
+                showLoadingCompleteStatus('error', textStatus);
                 $btnAddFile.prop('disabled', false);
             },
             success: function (response) {

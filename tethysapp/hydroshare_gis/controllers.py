@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
-from utilities import get_oauth_hs
-
+#from utilities import get_oauth_hs
+from tethys_services.backends.hs_restclient_helper import get_oauth_hs
 
 @login_required()
 def home(request):

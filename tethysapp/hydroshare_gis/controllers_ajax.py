@@ -1,9 +1,10 @@
 from django.http import JsonResponse, Http404, HttpResponse
 
-from utilities import get_hs_res_object, get_oauth_hs, get_hs_res_list, get_geoserver_url, \
+from utilities import get_hs_res_object, get_hs_res_list, get_geoserver_url, \
     process_local_file, save_new_project, save_project, generate_attribute_table, delete_tempfiles, \
     get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file, \
     get_file_mime_type, validate_res_request, get_generic_file_layer_from_db
+from tethys_services.backends.hs_restclient_helper import get_oauth_hs
 
 from model import ResourceLayersCount
 

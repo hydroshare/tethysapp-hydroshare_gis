@@ -79,8 +79,6 @@ class HydroshareGis(TethysAppBase):
         """
         stores = [PersistentStore(name='hydroshare_gis_layers',
                                   initializer='hydroshare_gis.init_stores.init_hydroshare_gis_layers_db',
-                                  spatial=False
-                                  )
-                  ]
+                                  spatial=False)]
 
         return stores

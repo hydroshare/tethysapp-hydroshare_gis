@@ -152,7 +152,7 @@
     var onClickZoomToLayer;
     var prepareFilesForAjax;
     var processAddHSResResults;
-    var processGenericResFiles;
+    var addGenericResFiles;
     var processSaveNewProjectResponse;
     var redrawDataTable;
     var reprojectExtents;
@@ -540,7 +540,6 @@
 
     addLoadResSelEvnt = function () {
         $modalAddRes.find('tbody tr').on('click', function () {
-            $btnAddRes.prop('disabled', false);
             $(this)
                 .css({
                     'background-color': '#1abc9c',
@@ -1123,7 +1122,7 @@
         if (params.res_id && params.res_type) {
             showMainLoadAnim();
             if (params.res_fname) {
-                addGenericResFile(params.res_id, params.res_fname, 0, true);
+                addGenericResFile(params.res_id, params.res_fname, 0, 1);
             } else if (params.res_type === "GenericResource") {
                 addGenericRes(params.res_id);
             } else {
@@ -1389,13 +1388,7 @@
     };
 
     errorsOrWarningsInLog = function () {
-        if ($modalLog.find('.alert-warning').length > 1) {
-            return true;
-        } else if ($modalLog.find('.alert-danger').length > 1) {
-            return true;
-        }
-
-        return false;
+        return $modalLog.find('.alert-warning').add($modalLog.find('.alert-danger')).length > 0;
     };
 
     generateAttributeTable = function (layerId, layerAttributes, layerName) {
@@ -1916,14 +1909,30 @@
             dataType: 'json',
             data: data,
             error: function () {
-                $btnAddRes.prop('disabled', false);
+                setStateAfterLastResource();
             },
             success: function (response) {
+                var message;
+
                 if (response.hasOwnProperty('success')) {
+                    if (response.hasOwnProperty('message')) {
+                        message = response.message;
+                    }
+
                     if (!response.success) {
-                        showLoadingCompleteStatus(false, response.message);
-                        hideMainLoadAnim();
+                        if (!message) {
+                            message = 'An unexpected error ocurred while processing the following resource ' +
+                                '<a href="https://www.hydroshare.org/resource/' + resId + '" target="_blank">' +
+                                resId + '</a>. An app admin has been notified.';
+                        }
+
+                        $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+
+                        setStateAfterLastResource();
                     } else {
+                        if (message) {
+                            $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                        }
                         if (response.hasOwnProperty('results')) {
                             processAddHSResResults(response.results, isLastResource, additionalResources);
                         }
@@ -1933,7 +1942,7 @@
         });
     };
 
-    addGenericResFile = function (resId, resFileName, index, isLastFile){
+    addGenericResFile = function (resId, resFileName, index, numFiles, numFilesProcessed){
         var data = {
             'res_id': resId,
             'res_fname': resFileName,
@@ -1947,6 +1956,13 @@
             contentType: 'json',
             success: function (response) {
                 var message;
+                var isLastFile = true;
+
+                if (numFilesProcessed) {
+                    numFilesProcessed.increase();
+                    isLastFile = numFilesProcessed.get() === numFiles;
+                }
+
                 if (response.hasOwnProperty('success')) {
                     if (response.hasOwnProperty('message')) {
                         message = response.message;
@@ -1981,8 +1997,16 @@
                     }
                 }
             },
-            error: function (error) {
-                console.error(error);
+            error: function () {
+                var message = 'An unexpected error ocurred while processing the following file: ' + resFileName;
+                $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+
+                if (numFilesProcessed) {
+                    numFilesProcessed.increase();
+                    if (numFilesProcessed.get() === numFiles || numFiles === 1) {
+                        setStateAfterLastResource();
+                    }
+                }
             }
         });
     };
@@ -2004,14 +2028,11 @@
                     } else {
                         if (response.hasOwnProperty('results')) {
                             if (response.results.hasOwnProperty('generic_res_files_list')) {
-                                processGenericResFiles(resId, response.results.generic_res_files_list);
+                                addGenericResFiles(resId, response.results.generic_res_files_list);
                             }
                         }
                     }
                 }
-            },
-            error: function () {
-                $btnAddRes.prop('disabled', false);
             }
         });
     };
@@ -2414,20 +2435,29 @@
         $btnSaveProject.prop('disabled', false);
     };
 
-    processGenericResFiles = function (resId, resFilesList) {
+    addGenericResFiles = function (resId, resFilesList) {
         if (typeof resFilesList === 'string') {
             resFilesList = resFilesList.split(',');
         }
 
         var numFiles = resFilesList.length;
         var i;
-        var isLastFile = false;
+
+        var numFilesProcessed = (function () {
+            var counter = 0;
+
+            return {
+                'increase': function () {
+                    counter += 1;
+                },
+                'get': function () {
+                    return counter;
+                }
+            };
+        }());
 
         for (i = 0; i < numFiles; i += 1) {
-            if (i === numFiles - 1) {
-                isLastFile = true;
-            }
-            addGenericResFile(resId, resFilesList[i], i, isLastFile);
+            addGenericResFile(resId, resFilesList[i], i, numFiles, numFilesProcessed);
         }
     };
 
@@ -2500,13 +2530,10 @@
 
     setStateAfterLastResource = function () {
         hideMainLoadAnim();
-        showLoadingCompleteStatus(true, 'Resource(s) added successfully!');
         if (errorsOrWarningsInLog()) {
             $modalLog.modal('show');
-        }
-        $btnAddRes.prop('disabled', false);
-        if ($('#chkbx-res-auto-close').is(':checked')) {
-            $modalAddRes.modal('hide');
+        } else {
+            showLoadingCompleteStatus(true, 'Resource(s) added successfully!');
         }
         deleteTempfiles();
     };
@@ -2784,7 +2811,10 @@
                 $btnAddFile.prop('disabled', false);
             },
             success: function (response) {
-                var results, numResults, counter;
+                var results;
+                var numResults;
+                var counter;
+
                 $btnAddFile.prop('disabled', false);
                 if (response.hasOwnProperty('success')) {
                     if (response.message !== null) {
@@ -2809,9 +2839,6 @@
                             counter += 1;
                         });
                     }
-                }
-                if ($('#chkbx-file-auto-close').is(':checked')) {
-                    $modalAddFile.modal('hide');
                 }
             }
         });

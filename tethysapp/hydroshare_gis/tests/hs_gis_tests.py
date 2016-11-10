@@ -20,7 +20,8 @@ def Test_All_Resources(request):
         auth = HydroShareAuthBasic(username='test', password='test')
         hs = HydroShare(auth=auth)
 
-        valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'GenericResource']
+        valid_res_types = ['GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource',
+                           'GenericResource', 'ScriptResource']
         resource_list = hs.getResourceList(types=valid_res_types)
         num_resources = 0
         for res in hs.getResourceList(types=valid_res_types):

@@ -5,15 +5,13 @@ from utilities import get_hs_res_object, get_oauth_hs, get_hs_res_list, get_geos
     get_features_on_click, get_res_files_list, get_res_layers_from_db, get_res_layer_obj_from_generic_file, \
     get_file_mime_type, validate_res_request, get_generic_file_layer_from_db
 
-from model import ResourceLayersCount
 
-generic_geoserver_layers_count = ResourceLayersCount()
-
-message_oauth_failed = 'You must be signed in with your HydroShare account. ' \
-                       'If you thought you had already done so, your login likely timed out. ' \
-                       'In that case, please log in again'
+message_oauth_failed = ('You must be signed in with your HydroShare account. '
+                        'If you thought you had already done so, your login likely timed out. '
+                        'In that case, please log in again')
 message_template_wrong_req_method = 'This request can only be made through a "{method}" AJAX call.'
 message_template_param_unfilled = 'The required "{param}" parameter was not fulfilled.'
+
 
 def ajax_add_hs_res(request):
     return_obj = {

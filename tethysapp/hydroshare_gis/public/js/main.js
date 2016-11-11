@@ -540,7 +540,7 @@
 
     addListenersToHsResTable = function () {
         $modalAddRes.find('tbody tr').on('click', function () {
-            $('#btn-upload-res').prop('disabled', false);
+            $btnAddRes.prop('disabled', false);
             $(this)
                 .css({
                     'background-color': '#1abc9c',
@@ -1910,6 +1910,12 @@
             dataType: 'json',
             data: data,
             error: function () {
+                message = 'An unexpected error ocurred while processing the following resource ' +
+                    '<a href="https://www.hydroshare.org/resource/' + resId + '" target="_blank">' +
+                    resId + '</a>. An app admin has been notified.';
+
+                $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+
                 setStateAfterLastResource();
             },
             success: function (response) {

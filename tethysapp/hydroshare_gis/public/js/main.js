@@ -103,7 +103,7 @@
     var addLayerToUI;
     var addListenersToListItem;
     var addDefaultBehaviorToAjax;
-    var addLoadResSelEvnt;
+    var addListenersToHsResTable;
     var addInitialEventListeners;
     var buildHSResTable;
     var changeBaseMap;
@@ -538,8 +538,9 @@
         });
     };
 
-    addLoadResSelEvnt = function () {
+    addListenersToHsResTable = function () {
         $modalAddRes.find('tbody tr').on('click', function () {
+            $('#btn-upload-res').prop('disabled', false);
             $(this)
                 .css({
                     'background-color': '#1abc9c',
@@ -1053,7 +1054,7 @@
         });
         resTableHtml += '</tbody></table>';
         $modalAddRes.find('.modal-body').html(resTableHtml);
-        addLoadResSelEvnt();
+        addListenersToHsResTable();
         dataTableLoadRes = $('#tbl-resources').DataTable({
             'order': [[1, 'asc']],
             'columnDefs': [{

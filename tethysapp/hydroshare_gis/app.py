@@ -30,12 +30,12 @@ class HydroshareGis(TethysAppBase):
                     url_map(name='add_to_project',
                             url='hydroshare-gis/add-to-project',
                             controller='hydroshare_gis.controllers.home'),
-                    url_map(name='add_local_file',
+                    url_map(name='ajax_add_local_file',
                             url='hydroshare-gis/add-local-file',
-                            controller='hydroshare_gis.controllers_ajax.add_local_file'),
-                    url_map(name='add_hs_res',
+                            controller='hydroshare_gis.controllers_ajax.ajax_add_local_file'),
+                    url_map(name='ajax_add_hs_res',
                             url='hydroshare-gis/add-hs-res',
-                            controller='hydroshare_gis.controllers_ajax.add_hs_res'),
+                            controller='hydroshare_gis.controllers_ajax.ajax_add_hs_res'),
                     url_map(name='get_hs_res_list',
                             url='hydroshare-gis/get-hs-res-list',
                             controller='hydroshare_gis.controllers_ajax.ajax_get_hs_res_list'),
@@ -79,8 +79,6 @@ class HydroshareGis(TethysAppBase):
         """
         stores = [PersistentStore(name='hydroshare_gis_layers',
                                   initializer='hydroshare_gis.init_stores.init_hydroshare_gis_layers_db',
-                                  spatial=False
-                                  )
-                  ]
+                                  spatial=False)]
 
         return stores

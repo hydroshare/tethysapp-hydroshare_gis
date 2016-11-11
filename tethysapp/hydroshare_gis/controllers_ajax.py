@@ -6,17 +6,15 @@ from utilities import get_hs_res_object, get_hs_res_list, get_geoserver_url, \
     get_file_mime_type, validate_res_request, get_generic_file_layer_from_db
 from tethys_services.backends.hs_restclient_helper import get_oauth_hs
 
-from model import ResourceLayersCount
 
-generic_geoserver_layers_count = ResourceLayersCount()
-
-message_oauth_failed = 'You must be signed in with your HydroShare account. ' \
-                       'If you thought you had already done so, your login likely timed out. ' \
-                       'In that case, please log in again'
+message_oauth_failed = ('You must be signed in with your HydroShare account. '
+                        'If you thought you had already done so, your login likely timed out. '
+                        'In that case, please log in again')
 message_template_wrong_req_method = 'This request can only be made through a "{method}" AJAX call.'
 message_template_param_unfilled = 'The required "{param}" parameter was not fulfilled.'
 
-def add_hs_res(request):
+
+def ajax_add_hs_res(request):
     return_obj = {
         'success': False,
         'message': None,
@@ -56,7 +54,7 @@ def add_hs_res(request):
     return JsonResponse(return_obj)
 
 
-def add_local_file(request):
+def ajax_add_local_file(request):
     return_obj = {
         'success': False,
         'message': None,
@@ -117,6 +115,7 @@ def ajax_generate_attribute_table(request):
         return_obj = generate_attribute_table(layer_id, layer_attributes)
         return JsonResponse(return_obj)
 
+
 def ajax_save_new_project(request):
     return_obj = {
         'success': False,
@@ -168,23 +167,6 @@ def ajax_delete_tempfiles(request):
         delete_tempfiles(username=request.user.username)
 
     return JsonResponse({'success': True})
-
-
-# def ajax_get_generic_files(request):
-#     return_obj = {
-#         'success': False,
-#         'message': None
-#     }
-#
-#     if request.is_ajax and request.method == 'GET':
-#         res_dict_string = request.GET['res_dict_string']
-#         hs = get_oauth_hs(request)
-#         if hs is None:
-#             return_obj['message'] = message_oauth_failed
-#         else:
-#             return_obj = get_generic_files(hs=hs, res_dict_string=res_dict_string, username=request.user.username)
-#
-#         return JsonResponse(return_obj)
 
 
 def ajax_get_features_on_click(request):

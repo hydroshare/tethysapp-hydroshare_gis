@@ -20,7 +20,10 @@ from traceback import format_exception
 from socket import gethostname
 from subprocess import check_output
 from mimetypes import guess_type
+from logging import getLogger
 
+
+logger = getLogger('Hydroshare_GIS')
 workspace_id = None
 spatial_dataset_engine = None
 currently_testing = False
@@ -336,8 +339,8 @@ def get_band_info(hs, res_id, res_type, raster_fpath=None):
         except KeyError:
             pass
         except Exception as e:
-            print 'Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id
-            print str(e)
+            logger('Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id)
+            logger(str(e))
 
         if band_info is None and raster_fpath and os.path.exists(raster_fpath):
             band_info = extract_band_info_from_file(raster_fpath)
@@ -393,7 +396,7 @@ def process_local_file(file_list, proj_id, hs, res_type, username, flag_create_r
 
         else:
             # In every non-Generic case there should only be one file, except a shapefile that is not zipped
-            if res_type == 'GeographicFeatureResource' and not tempdir_file_list[0].endswith('.zip'):
+            if res_type == 'GeographicFeatureResource' and not tempdir_file_list[0].lower().endswith('.zip'):
                 res_files = [os.path.join(hs_tempdir, f) for f in tempdir_file_list]
                 res_zipname = 'res_files.zip'
                 res_fpath = os.path.join(hs_tempdir, res_zipname)
@@ -423,7 +426,7 @@ def get_hs_res_object(hs, res_id, res_type=None, res_title=None, username=None):
     }
 
     '''
-        Each result in results has these options
+        Each result in results has these key-value pairs
         {
                 'res_id': res_id,
                 'res_type': res_type,
@@ -501,8 +504,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
         if gethostname() == 'ubuntu':
             exc_type, exc_value, exc_traceback = exc_info()
             msg = e.message if e.message else str(e)
-            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
-            print msg
+            logger(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+            logger(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
@@ -510,8 +513,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
                 msg = e.message if e.message else ''
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
-
-    os.system('rm -rf %s' % hs_tempdir)
+    finally:
+        os.system('rm -rf %s' % hs_tempdir)
 
     return return_obj
 
@@ -696,7 +699,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
             for res_fname in res_files_list:
                 fpath = os.path.join(res_contents_path, res_fname)
                 if num_files == 2:
-                    if res_fname.endswith('.tif'):
+                    if res_fname.lower().endswith('.tif'):
                         tmp_fpath = os.path.join(res_contents_path, '%s.tif' % res_id)
                         os.rename(fpath, tmp_fpath)
                         r = check_crs(res_type, tmp_fpath)
@@ -710,7 +713,7 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                             res_fpath = tmp_fpath.replace('tif', 'zip')
                             zip_files(tmp_fpath, res_fpath)
                             break
-                elif res_fname.endswith('.vrt'):
+                elif res_fname.lower().endswith('.vrt'):
                     vrt_path = fpath
                     break
 
@@ -755,7 +758,7 @@ def get_hs_res_list(hs):
             # except hs_r.HydroShareNotAuthorized:
             #     continue
             # except Exception as e:
-            #     print str(e)
+            #     logger(str(e))
 
             res_list.append({
                 'title': res['resource_title'],
@@ -771,7 +774,7 @@ def get_hs_res_list(hs):
     except hs_r.HydroShareHTTPException:
         return_obj['message'] = 'The HydroShare server appears to be down.'
     except Exception as e:
-        print e
+        logger(e)
         return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
         if gethostname() != 'ubuntu' and not currently_testing:
             email_admin('Error Report', traceback=exc_info())
@@ -791,13 +794,19 @@ def get_workspace():
 
 
 def get_hs_tempdir(username=None, file_index=None):
-    hs_tempdir = '/tmp/hs_gis_files/%s' % (('%s/' % username) if username else '')
+    hs_tempdir = '/tmp/hs_gis_files'
+
+    if username is not None:
+        hs_tempdir = os.path.join(hs_tempdir, str(username))
+
     if file_index is not None:
         hs_tempdir = os.path.join(hs_tempdir, str(file_index))
+
     if not os.path.exists(hs_tempdir):
         os.makedirs(hs_tempdir)
 
     return hs_tempdir
+
 
 def get_public_tempdir(username=None):
     public_tempdir = os.path.join(getfile(currentframe()).replace('utilities.py', 'public/temp/'),
@@ -852,7 +861,6 @@ def check_crs(res_type, fpath):
         length = len(start)
         end = 'Origin ='
         if gdal_info.find(start) == -1:
-            print "NO PROJECTION INFO ASSOCIATED WITH FILE. WILL ATTEMPT TO FORCE TO EPSG 3857"
             return_obj['message'] = message_erroneous_proj
             return_obj['crsWasChanged'] = True
             return_obj['code'] = 'EPSG:3857'
@@ -1007,7 +1015,7 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords, us
             return_obj['success'] = 'Resource created successfully.'
             return_obj['res_id'] = res_id
     except Exception as e:
-        print str(e)
+        logger(str(e))
         if res_id:
             hs.deleteResource(pid=res_id)
         return_obj['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
@@ -1052,7 +1060,7 @@ def save_project(hs, res_id, project_info):
         return_obj['success'] = True
 
     except Exception as e:
-        print str(e)
+        logger(str(e))
         return_obj['message'] = 'An unknown/unexpected error was encountered. Project not saved.'
 
     return return_obj
@@ -1123,16 +1131,19 @@ def get_res_mod_date(hs, res_id):
                 date_modified = date_obj['dcterms:modified']['rdf:value']
 
     except Exception as e:
-        print str(e)
+        logger(str(e))
 
     return date_modified
 
 
 def res_has_been_updated(db_date, res_date):
-    db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
-    res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
-    
-    if db_date_obj < res_date_obj:
+    try:
+        db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+        res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+        if db_date_obj < res_date_obj:
+            return True
+    except Exception as e:
+        email_admin('Minor Error Report', exc_info(), str(e))
         return True
 
     return False
@@ -1164,7 +1175,7 @@ def get_res_files_list(hs, res_id):
             basename = os.path.basename(res_file_dict['url'])
             splitext = os.path.splitext(basename)
             name = splitext[0]
-            ext = splitext[1]
+            ext = splitext[1].lower()
             size = res_file_dict['size']
             if basename not in files_processed_list:
                 if ext in all_shp_file_exts:
@@ -1210,8 +1221,8 @@ def get_res_files_list(hs, res_id):
         if gethostname() == 'ubuntu':
             exc_type, exc_value, exc_traceback = exc_info()
             msg = e.message if e.message else str(e)
-            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
-            print msg
+            logger(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+            logger(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
@@ -1231,7 +1242,8 @@ def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
         for res_layer in db_res_layers:
             flag_reload_layer = res_has_been_updated(res_layer.res_mod_date, get_res_mod_date(hs, res_id))
             if flag_reload_layer:
-                Layer.remove_layer_by_res_id(res_id)
+                Layer.remove_layers_by_res_id(res_id)
+                remove_layer_from_geoserver(res_id, None)
                 res_layers = process_hs_res(hs, res_id, res_type, res_title, username)
                 break
             else:
@@ -1261,6 +1273,7 @@ def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
 
         if flag_reload_layer:
             Layer.remove_layer_by_res_id_and_res_fname(res_id, res_fname)
+            remove_layer_from_geoserver(res_id)
             generic_file_layer = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, username, file_index)
         else:
             generic_file_layer = {
@@ -1385,8 +1398,8 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
         if gethostname() == 'ubuntu':
             exc_type, exc_value, exc_traceback = exc_info()
             msg = e.message if e.message else str(e)
-            print ''.join(format_exception(exc_type, exc_value, exc_traceback))
-            print msg
+            logger(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+            logger(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
@@ -1394,6 +1407,8 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
                 msg = e.message if e.message else ''
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
+    finally:
+        os.system('rm -rf %s' % hs_tempdir)
 
     return return_obj
 
@@ -1603,14 +1618,14 @@ def process_tempdir_file_list(tempdir_file_list, hs_tempdir, hs, res_id, res_typ
         is_zip = False
 
         if res_type == 'GeographicFeatureResource':
-            if f.endswith('.shp'):
+            if f.lower().endswith('.shp'):
                 should_process_file = True
-            elif f.endswith('.zip'):
+            elif f.lower().endswith('.zip'):
                 is_zip = True
         elif res_type == 'RasterResource':
-            if f.endswith('.tif'):
+            if f.lower().endswith('.tif'):
                 should_process_file = True
-            elif f.endswith('.zip'):
+            elif f.lower().endswith('.zip'):
                 is_zip = True
         else:
             should_process_file = True
@@ -1658,3 +1673,12 @@ def add_file_to_res(hs, res_id, fpath):
                 counter += 1
             else:
                 raise e
+
+def remove_layer_from_geoserver(res_id, file_index=None):
+    if file_index:
+        store_id = '{0}:{1}_{2}'.format(get_workspace(), res_id, file_index)
+    else:
+        store_id = '{0}:{1}'.format(get_workspace(), res_id)
+
+    engine = return_spatial_dataset_engine()
+    engine.delete_store(store_id, purge=True, recurse=True, debug=get_debug_val())

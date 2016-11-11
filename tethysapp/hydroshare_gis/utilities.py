@@ -21,7 +21,7 @@ from mimetypes import guess_type
 from logging import getLogger
 
 
-logger = getLogger('Hydroshare_GIS')
+logger = getLogger('django')
 workspace_id = None
 spatial_dataset_engine = None
 currently_testing = False
@@ -337,8 +337,8 @@ def get_band_info(hs, res_id, res_type, raster_fpath=None):
         except KeyError:
             pass
         except Exception as e:
-            logger('Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id)
-            logger(str(e))
+            logger.error('Unexpected, though not fatal, error occurred in get_band_info while processing res: %s' % res_id)
+            logger.error(str(e))
 
         if band_info is None and raster_fpath and os.path.exists(raster_fpath):
             band_info = extract_band_info_from_file(raster_fpath)
@@ -502,8 +502,8 @@ def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
         if gethostname() == 'ubuntu':
             exc_type, exc_value, exc_traceback = exc_info()
             msg = e.message if e.message else str(e)
-            logger(''.join(format_exception(exc_type, exc_value, exc_traceback)))
-            logger(msg)
+            logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+            logger.error(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
@@ -756,7 +756,7 @@ def get_hs_res_list(hs):
             # except hs_r.HydroShareNotAuthorized:
             #     continue
             # except Exception as e:
-            #     logger(str(e))
+            #     logger.error(str(e))
 
             res_list.append({
                 'title': res['resource_title'],
@@ -772,7 +772,7 @@ def get_hs_res_list(hs):
     except hs_r.HydroShareHTTPException:
         return_obj['message'] = 'The HydroShare server appears to be down.'
     except Exception as e:
-        logger(e)
+        logger.error(e)
         return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
         if gethostname() != 'ubuntu' and not currently_testing:
             email_admin('Error Report', traceback=exc_info())
@@ -1013,7 +1013,7 @@ def save_new_project(hs, project_info, res_title, res_abstract, res_keywords, us
             return_obj['success'] = 'Resource created successfully.'
             return_obj['res_id'] = res_id
     except Exception as e:
-        logger(str(e))
+        logger.error(str(e))
         if res_id:
             hs.deleteResource(pid=res_id)
         return_obj['error'] = 'An unknown/unexpected error was encountered. Project not saved.'
@@ -1058,7 +1058,7 @@ def save_project(hs, res_id, project_info):
         return_obj['success'] = True
 
     except Exception as e:
-        logger(str(e))
+        logger.error(str(e))
         return_obj['message'] = 'An unknown/unexpected error was encountered. Project not saved.'
 
     return return_obj
@@ -1129,7 +1129,7 @@ def get_res_mod_date(hs, res_id):
                 date_modified = date_obj['dcterms:modified']['rdf:value']
 
     except Exception as e:
-        logger(str(e))
+        logger.error(str(e))
 
     return date_modified
 
@@ -1219,8 +1219,8 @@ def get_res_files_list(hs, res_id):
         if gethostname() == 'ubuntu':
             exc_type, exc_value, exc_traceback = exc_info()
             msg = e.message if e.message else str(e)
-            logger(''.join(format_exception(exc_type, exc_value, exc_traceback)))
-            logger(msg)
+            logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+            logger.error(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
@@ -1396,8 +1396,8 @@ def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, fil
         if gethostname() == 'ubuntu':
             exc_type, exc_value, exc_traceback = exc_info()
             msg = e.message if e.message else str(e)
-            logger(''.join(format_exception(exc_type, exc_value, exc_traceback)))
-            logger(msg)
+            logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+            logger.error(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'

@@ -28,22 +28,6 @@ workspace_id = None
 spatial_dataset_engine = None
 currently_testing = False
 
-def get_oauth_hs(request):
-    hs = None
-    hs_hostname = 'www.hydroshare.org'
-    try:
-        client_id = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_KEY', 'None')
-        client_secret = getattr(settings, 'SOCIAL_AUTH_HYDROSHARE_SECRET', 'None')
-        token = request.user.social_auth.get(provider='hydroshare').extra_data['token_dict']
-        auth = hs_r.HydroShareAuthOAuth2(client_id, client_secret, token=token)
-        hs = hs_r.HydroShare(auth=auth, hostname=hs_hostname)
-    except ObjectDoesNotExist:
-        if '127.0.0.1' in request.get_host() or 'localhost' in request.get_host():
-            auth = hs_r.HydroShareAuthBasic(username='test', password='test')
-            hs = hs_r.HydroShare(auth=auth, hostname=hs_hostname)
-    return hs
-
-
 def get_json_response(response_type, message):
     return JsonResponse({response_type: message})
 
@@ -1154,8 +1138,8 @@ def get_res_mod_date(hs, res_id):
 
 def res_has_been_updated(db_date, res_date):
     try:
-        db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%X.%f')
-        res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%X.%f')
+        db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+        res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
         if db_date_obj < res_date_obj:
             return True
     except Exception as e:

@@ -1,8 +1,6 @@
 from django.http import JsonResponse
-from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from tethys_sdk.services import get_spatial_dataset_engine
-from django.core.exceptions import ObjectDoesNotExist
 from model import Layer
 
 import hs_restclient as hs_r
@@ -1273,7 +1271,7 @@ def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
 
         if flag_reload_layer:
             Layer.remove_layer_by_res_id_and_res_fname(res_id, res_fname)
-            remove_layer_from_geoserver(res_id)
+            remove_layer_from_geoserver(res_id, file_index)
             generic_file_layer = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, username, file_index)
         else:
             generic_file_layer = {

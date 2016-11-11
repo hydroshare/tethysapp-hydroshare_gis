@@ -76,7 +76,7 @@ class Layer(Base):
         session.commit()
 
     @staticmethod
-    def remove_layer_by_res_id(res_id):
+    def remove_layers_by_res_id(res_id):
         session = SessionMaker()
         session.query(Layer).filter(Layer.associated_res_id == res_id).delete()
         session.commit()

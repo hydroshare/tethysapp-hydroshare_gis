@@ -1245,7 +1245,8 @@ def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
                 remove_layer_from_geoserver(res_id, None)
                 response = process_hs_res(hs, res_id, res_type, res_title, username)
                 if response['success']:
-                    res_layers = response['results']
+                    for result in response['results']:
+                        res_layers.append(result)
                 break
             else:
                 res_layer = {

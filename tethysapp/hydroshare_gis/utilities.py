@@ -1134,7 +1134,7 @@ def get_res_mod_date(hs, res_id):
     return date_modified
 
 
-def res_has_been_updated(db_date, res_date):
+def res_was_updated(db_date, res_date):
     try:
         db_date_obj = datetime.strptime(db_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
         res_date_obj = datetime.strptime(res_date.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
@@ -1238,11 +1238,14 @@ def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
 
     if db_res_layers:
         for res_layer in db_res_layers:
-            flag_reload_layer = res_has_been_updated(res_layer.res_mod_date, get_res_mod_date(hs, res_id))
+            flag_reload_layer = res_was_updated(res_layer.res_mod_date, get_res_mod_date(hs, res_id))
+
             if flag_reload_layer:
                 Layer.remove_layers_by_res_id(res_id)
                 remove_layer_from_geoserver(res_id, None)
-                res_layers = process_hs_res(hs, res_id, res_type, res_title, username)
+                response = process_hs_res(hs, res_id, res_type, res_title, username)['results']
+                if response['success']:
+                    res_layers = response['results']
                 break
             else:
                 res_layer = {
@@ -1267,12 +1270,14 @@ def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
     db_generic_file_layer = Layer.get_generic_file_layer_by_res_id_and_res_fname(res_id, res_fname)
 
     if db_generic_file_layer:
-        flag_reload_layer = res_has_been_updated(db_generic_file_layer.res_mod_date, get_res_mod_date(hs, res_id))
+        flag_reload_layer = res_was_updated(db_generic_file_layer.res_mod_date, get_res_mod_date(hs, res_id))
 
         if flag_reload_layer:
             Layer.remove_layer_by_res_id_and_res_fname(res_id, res_fname)
             remove_layer_from_geoserver(res_id, file_index)
-            generic_file_layer = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, username, file_index)
+            response = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, username, file_index)
+            if response['success']:
+                generic_file_layer = response['results']
         else:
             generic_file_layer = {
                 'res_id': res_id,

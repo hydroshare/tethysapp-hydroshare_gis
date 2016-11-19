@@ -224,18 +224,29 @@
         var disabled = true;
 
         if (siteInfo) {
-            layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
-            addLayerToMap({
-                cssStyles: 'Default',
-                geomType: 'None',
-                resType: resType,
-                lyrExtents: layerExtents,
-                siteInfo: siteInfo,
-                url: projectInfo.map.geoserverUrl + '/wms',
-                lyrId: 'None'
-            });
-            layerIndex = layerCount.get();
-            disabled = false;
+            if (typeof siteInfo === 'string') {
+                try {
+                    siteInfo = JSON.parse(siteInfo);
+                } catch (_) {
+                    var message = 'The spatial metadata was in an unrecognizable format and so the location of the data is not shown on the map.';
+                    $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                }
+            }
+            
+            if (typeof siteInfo === 'object') {
+                layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
+                addLayerToMap({
+                    cssStyles: 'Default',
+                    geomType: 'None',
+                    resType: resType,
+                    lyrExtents: layerExtents,
+                    siteInfo: siteInfo,
+                    url: projectInfo.map.geoserverUrl + '/wms',
+                    lyrId: 'None'
+                });
+                layerIndex = layerCount.get();
+                disabled = false;
+            }
         }
 
         // Add layer data to project info

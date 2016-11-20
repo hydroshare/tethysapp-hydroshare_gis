@@ -402,7 +402,17 @@
 
         if (resType.indexOf('TimeSeriesResource') > -1) {
             siteInfo = results.site_info;
-            layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
+            if (typeof siteInfo === 'string') {
+                try {
+                    siteInfo = JSON.parse(siteInfo);
+                } catch (_) {
+                    var message = 'The spatial metadata was in an unrecognizable format and so the location of the data is not shown on the map.';
+                    addLogEntry('warning', message);
+                }
+            }
+            if (typeof siteInfo === 'object') {
+                layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
+            }
         } else {
             layerExtents = reprojectExtents(rawLayerExtents);
         }

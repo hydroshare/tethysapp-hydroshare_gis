@@ -538,12 +538,12 @@ def process_res_by_type(hs, res_id, res_type, hs_tempdir):
         site_info = extract_site_info_from_hs_metadata(hs, res_id)
         if not site_info:
             return_obj['message'] = 'Resource contains insufficient geospatial information to place on the map.'
-            result = {
-                'res_type': res_type,
-                'site_info': site_info,
-            }
-            results.append(result)
-            return_obj['success'] = True
+        result = {
+            'res_type': res_type,
+            'site_info': site_info,
+        }
+        results.append(result)
+        return_obj['success'] = True
     else:
         response = download_res_from_hs(hs, res_id, hs_tempdir)
         if not response['success']:

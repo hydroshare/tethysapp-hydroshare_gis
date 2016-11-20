@@ -3,15 +3,15 @@ from django.http import JsonResponse, Http404, HttpResponse
 from utilities import process_nongeneric_res, get_hs_res_list, get_geoserver_url, \
     process_local_file, save_new_project, save_project, generate_attribute_table, delete_tempfiles, \
     get_features_on_click, get_res_files_list, get_res_layers_from_db, process_generic_res_file, \
-    get_file_mime_type, validate_res_request, get_generic_file_layer_from_db
-from tethys_services.backends.hs_restclient_helper import get_oauth_hs
+    get_file_mime_type, validate_res_request, get_generic_file_layer_from_db, get_hs_auth_obj
 
 
-message_oauth_failed = ('You must be signed in with your HydroShare account. '
+message_need_to_login = ('You must be signed in with your HydroShare account. '
                         'If you thought you had already done so, your login likely timed out. '
                         'In that case, please log in again')
 message_template_wrong_req_method = 'This request can only be made through a "{method}" AJAX call.'
 message_template_param_unfilled = 'The required "{param}" parameter was not fulfilled.'
+message_multiple_logins = 'It looks like someone is already logged in to this app with your HydroShare account.'
 
 
 def ajax_add_hs_res(request):
@@ -31,17 +31,13 @@ def ajax_add_hs_res(request):
                 res_type = request.GET['res_type']
             if request.GET.get('res_title'):
                 res_title = request.GET['res_title']
-            try:
-                hs = get_oauth_hs(request)
-            except Exception:
-                hs = None
-            if hs is None and '127.0.0.1' not in request.get_host():
-                return_obj['message'] = message_oauth_failed
-            else:
-                if '127.0.0.1' in request.get_host():
-                    from hs_restclient import HydroShareAuthBasic, HydroShare
-                    hs = HydroShare(auth=HydroShareAuthBasic(username='test', password='test'))
 
+            r = get_hs_auth_obj(request)
+            if not r['success']:
+                return_obj['message'] = r['message']
+                return return_obj
+            else:
+                hs = r['hs_obj']
                 r = validate_res_request(hs, res_id)
                 if not r['can_access']:
                     return_obj['message'] = r['message']
@@ -66,18 +62,21 @@ def ajax_add_local_file(request):
         'results': {}
     }
     if request.is_ajax() and request.method == 'POST':
+        params = request.POST
         file_list = request.FILES.getlist('files')
-        proj_id = request.POST['proj_id']
-        res_type = request.POST['res_type'] if request.POST.get('res_type') else None
-        res_title = request.POST['res_title'] if request.POST.get('res_title') else None
-        res_abstract = request.POST['res_abstract'] if request.POST.get('res_abstract') else None
-        res_keywords = request.POST['res_keywords'] if request.POST.get('res_keywords') else None
-        flag_create_resources = request.POST['flag_create_resources'] == 'true'
+        proj_id = params['proj_id']
+        res_type = params['res_type'] if params.get('res_type') else None
+        res_title = params['res_title'] if params.get('res_title') else None
+        res_abstract = params['res_abstract'] if params.get('res_abstract') else None
+        res_keywords = params['res_keywords'] if params.get('res_keywords') else None
+        flag_create_resources = params['flag_create_resources'] == 'true'
 
-        hs = get_oauth_hs(request)
-        if hs is None:
-            return_obj['message'] = message_oauth_failed
+        r = get_hs_auth_obj(request)
+        if not r['success']:
+            return_obj['message'] = r['message']
+            return return_obj
         else:
+            hs = r['hs_obj']
             return_obj = process_local_file(file_list=file_list, proj_id=proj_id, hs=hs, res_type=res_type,
                                             username=request.user.username, flag_create_resources=flag_create_resources,
                                             res_title=res_title, res_abstract=res_abstract,
@@ -96,16 +95,12 @@ def ajax_get_hs_res_list(request):
     }
 
     if request.is_ajax() and request.method == 'GET':
-        try:
-            hs = get_oauth_hs(request)
-        except Exception:
-            hs = None
-        if hs is None and '127.0.0.1' not in request.get_host():
-            return_obj['message'] = message_oauth_failed
+        r = get_hs_auth_obj(request)
+        if not r['success']:
+            return_obj['message'] = r['message']
+            return return_obj
         else:
-            if '127.0.0.1' in request.get_host():
-                from hs_restclient import HydroShareAuthBasic, HydroShare
-                hs = HydroShare(auth=HydroShareAuthBasic(username='test', password='test'))
+            hs = r['hs_obj']
             response = get_hs_res_list(hs)
             if not response['success']:
                 return_obj['message'] = response['message']
@@ -133,18 +128,20 @@ def ajax_save_new_project(request):
         'message': None,
         'res_id': None
     }
-    if request.is_ajax() and request.method == 'GET':
-        get_data = request.GET
-        project_info = get_data['projectInfo']
-        res_title = str(get_data['resTitle'])
-        res_abstract = str(get_data['resAbstract'])
-        res_keywords_raw = str(get_data['resKeywords'])
-        res_keywords = res_keywords_raw.split(',')
+    if request.is_ajax() and request.method == 'POST':
+        params = request.POST
+        project_info = str(params['projectInfo'])
+        res_title = str(params['resTitle'])
+        res_abstract = str(params['resAbstract'])
+        res_keywords_raw = str(params['resKeywords'])
+        res_keywords = str(res_keywords_raw).split(',')
 
-        hs = get_oauth_hs(request)
-        if hs is None:
-            return_obj['message'] = message_oauth_failed
+        r = get_hs_auth_obj(request)
+        if not r['success']:
+            return_obj['message'] = r['message']
+            return return_obj
         else:
+            hs = r['hs_obj']
             return_obj = save_new_project(hs=hs, project_info=project_info, res_title=res_title,
                                           res_abstract=res_abstract, res_keywords=res_keywords,
                                           username=request.user.username)
@@ -155,15 +152,17 @@ def ajax_save_new_project(request):
 def ajax_save_project(request):
     return_obj = {}
 
-    if request.is_ajax() and request.method == 'GET':
-        get_data = request.GET
-        res_id = get_data['res_id']
-        project_info = get_data['project_info']
+    if request.is_ajax() and request.method == 'POST':
+        post_data = request.POST
+        res_id = post_data['res_id']
+        project_info = post_data['project_info']
 
-        hs = get_oauth_hs(request)
-        if hs is None:
-            return_obj['message'] = message_oauth_failed
+        r = get_hs_auth_obj(request)
+        if not r['success']:
+            return_obj['message'] = r['message']
+            return return_obj
         else:
+            hs = r['hs_obj']
             return_obj = save_project(hs, res_id, project_info)
 
         return JsonResponse(return_obj)
@@ -199,16 +198,12 @@ def ajax_get_generic_res_files_list(request):
             return_obj['message'] = message_template_param_unfilled.format(param='res_id')
         else:
             res_id = request.GET['res_id']
-            try:
-                hs = get_oauth_hs(request)
-            except Exception:
-                hs = None
-            if hs is None and '127.0.0.1' not in request.get_host():
-                return_obj['message'] = message_oauth_failed
+            r = get_hs_auth_obj(request)
+            if not r['success']:
+                return_obj['message'] = r['message']
+                return return_obj
             else:
-                if '127.0.0.1' in request.get_host():
-                    from hs_restclient import HydroShareAuthBasic, HydroShare
-                    hs = HydroShare(auth=HydroShareAuthBasic(username='test', password='test'))
+                hs = r['hs_obj']
                 return_obj = get_res_files_list(hs=hs, res_id=res_id)
     else:
         return_obj['message'] = message_template_wrong_req_method.format(method="GET")
@@ -233,16 +228,12 @@ def ajax_add_generic_res_file(request):
                 res_fname = request.GET['res_fname']
                 file_index = int(request.GET['file_index'])
 
-                try:
-                    hs = get_oauth_hs(request)
-                except Exception:
-                    hs = None
-                if hs is None and '127.0.0.1' not in request.get_host():
-                    return_obj['message'] = message_oauth_failed
+                r = get_hs_auth_obj(request)
+                if not r['success']:
+                    return_obj['message'] = r['message']
+                    return return_obj
                 else:
-                    if '127.0.0.1' in request.get_host():
-                        from hs_restclient import HydroShareAuthBasic, HydroShare
-                        hs = HydroShare(auth=HydroShareAuthBasic(username='test', password='test'))
+                    hs = r['hs_obj']
                     r = validate_res_request(hs, res_id)
                     if not r['can_access']:
                         return_obj['message'] = r['message']
@@ -262,8 +253,9 @@ def ajax_add_generic_res_file(request):
 
 
 def ajax_proxy_get_file(request):
-    hs = get_oauth_hs(request)
-    if hs is not None:
+    r = get_hs_auth_obj(request)
+    if r['success']:
+        hs = r['hs_obj']
         res_id = request.GET['res_id']
         fname = request.GET['fname']
         content_type = get_file_mime_type(fname)

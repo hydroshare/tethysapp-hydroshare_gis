@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from django.core.files.uploadedfile import UploadedFile
 from tethys_sdk.services import get_spatial_dataset_engine
+from tethys_services.backends.hs_restclient_helper import get_oauth_hs
 from model import Layer
 
 import hs_restclient as hs_r
@@ -1664,3 +1665,32 @@ def lonlat_point_to_geojson(lon, lat):
             }
         }
     }
+
+def get_hs_auth_obj(request):
+    return_obj = {
+        'success': False,
+        'message': None,
+        'hs_obj': None
+    }
+    message_need_to_login = ('You must be signed in with your HydroShare account. '
+                             'If you thought you had already done so, your login likely timed out. '
+                             'In that case, please log in again')
+    message_multiple_logins = 'It looks like someone is already logged in to this app with your HydroShare account.'
+
+    if '127.0.0.1' in request.get_host():
+        hs = hs_r.HydroShare(auth=hs_r.HydroShareAuthBasic(username='test', password='test'))
+    else:
+        try:
+            hs = get_oauth_hs(request)
+        except Exception as e:
+            if "Not logged in through OAuth" in str(e):
+                return_obj['message'] = message_need_to_login
+                return return_obj
+            else:
+                return_obj['message'] = message_multiple_logins
+                return return_obj
+
+    return_obj['hs_obj'] = hs
+    return_obj['success'] = True
+
+    return return_obj

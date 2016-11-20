@@ -68,7 +68,7 @@
  showInset, showPalette, siteInfo, site_info, slice, sort, sortable, source,
  spectrum, splice, split, srs, stop, stopEvent, stopPropagation, stringify,
  stroke, style, styleSheets, substr, substring, success, target, targets,
- test, text, title, toDataURL, toHexString, toLonLat, toLowerCase,
+ test, text, title, toDataURL, toHexString, toISOString, toLonLat, toLowerCase,
  toRgbString, toString, toggleClass, top, trigger, triggerOn, trim, type,
  undefinedHTML, units, unshift, updateParams, updateSize, url, val, value,
  variable, version, view, visible, which, width, x, y, zoom, zoomLevel
@@ -95,6 +95,7 @@
     var map;
     var mapPopup;
     var projectInfo;
+    var showLog;
 
     //  *********FUNCTIONS***********
     var addContextMenuToListItem;
@@ -102,6 +103,7 @@
     var addLayerToMap;
     var addLayerToUI;
     var addListenersToListItem;
+    var addLogEntry;
     var addDefaultBehaviorToAjax;
     var addListenersToHsResTable;
     var addInitialEventListeners;
@@ -117,7 +119,6 @@
     var drawLayersInListOrder;
     var drawPointSymbologyPreview;
     var editLayerDisplayName;
-    var errorsOrWarningsInLog;
     var generateAttributeTable;
     var generateResourceList;
     var getCookie;
@@ -229,7 +230,7 @@
                     siteInfo = JSON.parse(siteInfo);
                 } catch (_) {
                     var message = 'The spatial metadata was in an unrecognizable format and so the location of the data is not shown on the map.';
-                    $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                    addLogEntry('warning', message);
                 }
             }
 
@@ -538,6 +539,37 @@
         });
     };
 
+    addLogEntry = function (type, message, show) {
+        var icon;
+        var timeStamp;
+
+        switch (type) {
+            case 'success':
+                icon = 'ok';
+                break;
+            case 'danger':
+                icon = 'remove';
+                showLog = true;
+                break;
+            default:
+                icon = type;
+                showLog = true;
+        }
+
+        timeStamp = new Date().toISOString();
+
+        $('#logEntries').prepend('<div class="alert-' + type + '">' +
+            '<span class="glyphicon glyphicon-' + icon + '-sign" aria-hidden="true"></span>  '
+            + timeStamp + ' *** \t'
+            + message +
+            '</div><br>');
+
+        if (show) {
+            $modalLog.modal('show');
+            showLog = false;
+        }
+    };
+
     addDefaultBehaviorToAjax = function () {
         // Add CSRF token to appropriate ajax requests
         $.ajaxSetup({
@@ -566,6 +598,10 @@
     };
 
     addInitialEventListeners = function () {
+        $('#btn-clearLog').on('click', function () {
+            $('#logEntries').html('');
+        });
+
         $('.modal').on('shown.bs.modal', function (event) {
             $(document).on('keyup.modal', function (e) {
                 if (e.which === 27) {
@@ -597,7 +633,9 @@
         });
 
         $btnSaveProject.on('click', function () {
+            var data = new FormData();
             var resId = projectInfo.resId;
+
             if (resId === null) {
                 $modalSaveNewProject.modal('show');
             } else {
@@ -606,15 +644,16 @@
                 projectInfo.map.center = map.getView().getCenter();
                 projectInfo.map.zoomLevel = map.getView().getZoom();
 
+                data.append('res_id', resId);
+                data.append('project_info', JSON.stringify(projectInfo));
+
                 $.ajax({
-                    type: 'GET',
-                    url: '/apps/hydroshare-gis/save-project',
+                    type: 'POST',
+                    url: '/apps/hydroshare-gis/save-project/',
                     dataType: 'json',
-                    contentType: 'json',
-                    data: {
-                        res_id: resId,
-                        project_info: JSON.stringify(projectInfo)
-                    },
+                    processData: false,
+                    contentType: false,
+                    data: data,
                     error: function () {
                         hideMainLoadAnim();
                         showLoadingCompleteStatus(false, 'A problem occured while saving. Project not saved.');
@@ -1399,10 +1438,6 @@
         }
     };
 
-    errorsOrWarningsInLog = function () {
-        return $modalLog.find('.alert-warning').add($modalLog.find('.alert-danger')).length > 0;
-    };
-
     generateAttributeTable = function (layerId, layerAttributes, layerName) {
         $.ajax({
             type: 'GET',
@@ -1899,7 +1934,6 @@
 
         $('#chkbx-show-inset-map').prop('checked', fileProjectInfo.map.showInset);
         $('#chkbx-show-inset-map').trigger('change');
-        $('#load-from-pc').prop('disabled', false);
         window.setTimeout(function () {
             $btnSaveProject.prop('disabled', true);
         }, 100);
@@ -1921,12 +1955,11 @@
             dataType: 'json',
             data: data,
             error: function () {
-                message = 'An unexpected error ocurred while processing the following resource ' +
+                var message = 'An unexpected error ocurred while processing the following resource ' +
                     '<a href="https://www.hydroshare.org/resource/' + resId + '" target="_blank">' +
                     resId + '</a>. An app admin has been notified.';
 
-                $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
-
+                addLogEntry('danger', message);
                 setStateAfterLastResource();
             },
             success: function (response) {
@@ -1944,12 +1977,11 @@
                                 resId + '</a>. An app admin has been notified.';
                         }
 
-                        $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
-
+                        addLogEntry('danger', message);
                         setStateAfterLastResource();
                     } else {
                         if (message) {
-                            $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                            addLogEntry('warning', message);
                         }
                         if (response.hasOwnProperty('results')) {
                             processAddHSResResults(response.results, isLastResource, additionalResources);
@@ -1990,14 +2022,14 @@
                             message = 'An unexpected error ocurred while processing the following file: ' + resFileName;
                         }
 
-                        $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                        addLogEntry('danger', message);
 
                         if (isLastFile) {
                             setStateAfterLastResource();
                         }
                     } else {
                         if (message) {
-                            $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+                            addLogEntry('warning', message);
                         }
                         if (response.hasOwnProperty('results')) {
                             if (response.results.res_type === 'GenericResource') {
@@ -2017,7 +2049,8 @@
             },
             error: function () {
                 var message = 'An unexpected error ocurred while processing the following file: ' + resFileName;
-                $('#logEntries').append('<div class="alert-danger"><span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
+
+                addLogEntry('danger', message);
 
                 if (numFilesProcessed) {
                     numFilesProcessed.increase();
@@ -2317,34 +2350,32 @@
     };
 
     onClickSaveNewProject = function () {
-        showMainLoadAnim();
-        var $footerInfoSaveProj = $('#footer-info-saveProj');
+        var data = new FormData();
 
-        $btnSaveProject.prop('disabled', true);
-        $footerInfoSaveProj
-            .html('Saving...<img src="/static/hydroshare_gis/images/loading-animation.gif" />')
-            .removeClass('hidden error success');
+        showMainLoadAnim();
+        $modalSaveNewProject.modal('hide');
 
         projectInfo.map.center = map.getView().getCenter();
         projectInfo.map.zoomLevel = map.getView().getZoom();
 
+        data.append('newResource', true);
+        data.append('projectInfo', JSON.stringify(projectInfo));
+        data.append('resTitle', $('#res-title').val());
+        data.append('resAbstract', $('#res-abstract').val());
+        data.append('resKeywords', $('#res-keywords').val());
+
         $.ajax({
-            type: 'GET',
-            url: '/apps/hydroshare-gis/save-new-project',
+            type: 'POST',
+            url: '/apps/hydroshare-gis/save-new-project/',
             dataType: 'json',
-            contentType: 'json',
-            data: {
-                'newResource': true,
-                'projectInfo': JSON.stringify(projectInfo),
-                'resTitle': $('#res-title').val(),
-                'resAbstract': $('#res-abstract').val(),
-                'resKeywords': $('#res-keywords').val()
-            },
+            processData: false,
+            contentType: false,
+            data: data,
             error: function () {
-                $footerInfoSaveProj
-                    .addClass('error')
-                    .html('An unexpected/unknown error occurred while attempting to save the project!');
+                var message = 'An unexpected error ocurred while saving your project';
+                addLogEntry('danger', message, true);
                 $btnSaveProject.prop('disabled', false);
+                hideMainLoadAnim();
             },
             success: processSaveNewProjectResponse
         });
@@ -2480,21 +2511,15 @@
     };
 
     processSaveNewProjectResponse = function (response) {
-        var $footerInfoSaveProj = $('#footer-info-saveProj');
         var resId;
         hideMainLoadAnim();
         if (response.hasOwnProperty('success')) {
             if (response.success) {
                 resId = response.res_id;
                 projectInfo.resId = resId;
-                $footerInfoSaveProj
-                    .addClass('success')
-                    .html('Save successful. Access resource <a target="_blank" href="https://www.hydroshare.org/resource/' + resId + '">here</a>.');
-                $('#load-from-pc').prop('disabled', false);
+                addLogEntry('success', 'Project successfully saved! View it on HydroShare <a href="https://www.hydroshare.org/resource/' + resId + '" target="_blank">here</a>.', true);
             } else {
-                $footerInfoSaveProj
-                    .addClass('error')
-                    .html(response.message);
+                addLogEntry('danger', response.message);
             }
         }
         $btnSaveProject.prop('disabled', true);
@@ -2548,8 +2573,9 @@
 
     setStateAfterLastResource = function () {
         hideMainLoadAnim();
-        if (errorsOrWarningsInLog()) {
+        if (showLog) {
             $modalLog.modal('show');
+            showLog = false;
         } else {
             showLoadingCompleteStatus(true, 'Resource(s) added successfully!');
         }
@@ -2832,15 +2858,22 @@
                 var results;
                 var numResults;
                 var counter;
+                var message;
 
                 $btnAddFile.prop('disabled', false);
                 if (response.hasOwnProperty('success')) {
                     if (response.message !== null) {
-                        $modalLog.find('#logEntries').append(response.message);
+                        message = response.message;
                     }
                     if (!response.success) {
-                        $modalLog.modal('show');
+                        if (!message) {
+                            message = 'An unexpected error ocurred while adding your file(s).';
+                        }
+                        addLogEntry('danger', message, true);
                     } else {
+                        if (message) {
+                            addLogEntry('warning', message);
+                        }
                         $btnSaveProject.prop('disabled', false);
                         results = response.results;
                         numResults = results.length;
@@ -2934,4 +2967,6 @@
             }
         };
     }());
+
+    showLog = false;
 }());

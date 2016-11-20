@@ -232,7 +232,7 @@
                     $('#logEntries').append('<div class="alert-warning"><span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>  ' + message + '</div><br>');
                 }
             }
-            
+
             if (typeof siteInfo === 'object') {
                 layerExtents = ol.proj.fromLonLat([siteInfo.lon, siteInfo.lat]);
                 addLayerToMap({
@@ -1135,7 +1135,7 @@
             showMainLoadAnim();
             if (params.res_fname) {
                 addGenericResFile(params.res_id, params.res_fname, 0, 1);
-            } else if (params.res_type === "GenericResource") {
+            } else if (params.res_type === "GenericResource" || params.res_type === "ScriptResource") {
                 addGenericRes(params.res_id);
             } else {
                 addNonGenericRes(params.res_id, params.res_type, null, true, null);

@@ -416,41 +416,7 @@ def process_local_file(file_list, proj_id, hs, res_type, username, flag_create_r
     return return_obj
 
 
-def get_hs_res_object(hs, res_id, res_type=None, res_title=None, username=None):
-    return_obj = {
-        'success': False,
-        'message': None,
-        'results': []
-    }
-
-    '''
-        Each result in results has these key-value pairs
-        {
-                'res_id': res_id,
-                'res_type': res_type,
-                'layer_name': res_title,
-                'layer_id': None,
-                'layer_extents': None,
-                'layer_attributes': None,
-                'geom_type': None,
-                'band_info': None,
-                'site_info': None,
-                'project_info': None,
-                'public_fname': None
-        }
-    '''
-
-    res_layers_obj_list = get_res_layers_from_db(hs, res_id, res_type, res_title, username)
-    if res_layers_obj_list:
-        return_obj['results'] = res_layers_obj_list
-        return_obj['success'] = True
-    else:
-        return_obj = process_hs_res(hs, res_id, res_type, res_title, username)
-
-    return return_obj
-
-
-def process_hs_res(hs, res_id, res_type=None, res_title=None, username=None):
+def process_nongeneric_res(hs, res_id, res_type=None, res_title=None, username=None):
     global currently_testing
     return_obj = {
         'success': False,
@@ -1241,7 +1207,7 @@ def get_res_layers_from_db(hs, res_id, res_type, res_title, username):
             if flag_reload_layer:
                 Layer.remove_layers_by_res_id(res_id)
                 remove_layer_from_geoserver(res_id, None)
-                response = process_hs_res(hs, res_id, res_type, res_title, username)
+                response = process_nongeneric_res(hs, res_id, res_type, res_title, username)
                 if response['success']:
                     res_layers = response['results']
                 break
@@ -1273,7 +1239,7 @@ def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
         if flag_reload_layer:
             Layer.remove_layer_by_res_id_and_res_fname(res_id, res_fname)
             remove_layer_from_geoserver(res_id, file_index)
-            response = get_res_layer_obj_from_generic_file(hs, res_id, res_fname, username, file_index)
+            response = process_generic_res_file(hs, res_id, res_fname, username, file_index)
             if response['success']:
                 generic_file_layer = response['results']
         else:
@@ -1293,7 +1259,7 @@ def get_generic_file_layer_from_db(hs, res_id, res_fname, file_index, username):
     return generic_file_layer
 
 
-def get_res_layer_obj_from_generic_file(hs, res_id, res_file_name, username, file_index=0):
+def process_generic_res_file(hs, res_id, res_file_name, username, file_index=0):
     return_obj = {
         'success': False,
         'message': None,
@@ -1641,7 +1607,7 @@ def process_tempdir_file_list(tempdir_file_list, hs_tempdir, hs, res_id, res_typ
             results += process_tempdir_file_list(tmpdir_file_list, hs_tempdir, hs, res_id, res_type, username)
 
         if should_process_file:
-            r = get_res_layer_obj_from_generic_file(hs, res_id, f, username)
+            r = process_generic_res_file(hs, res_id, f, username)
             if r['success']:
                 result = r['results']
                 results.append(result)
@@ -1683,3 +1649,18 @@ def remove_layer_from_geoserver(res_id, file_index=None):
 
     engine = return_spatial_dataset_engine()
     engine.delete_store(store_id, purge=True, recurse=True, debug=get_debug_val())
+
+def lonlat_point_to_geojson(lon, lat):
+    return {
+        "type": "Feature",
+        "geometry": {
+            "type": "Point",
+            "coordinates": [lon, lat]
+        },
+        "crs": {
+            "type": "name",
+            "properties": {
+                "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+            }
+        }
+    }

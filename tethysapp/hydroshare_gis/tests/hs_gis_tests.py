@@ -41,8 +41,8 @@ def Test_All_Resources(request):
                             res_files_list = response['results']['generic_res_files_list']
                             num_files_failed = 0
                             for i, res_file in enumerate(res_files_list):
-                                response = get_res_layer_obj_from_generic_file(hs, res_id, res_file,
-                                                                               request.user.username, i)
+                                response = process_generic_res_file(hs, res_id, res_file,
+                                                                    request.user.username, i)
                                 if response['success']:
                                     pass
                                 else:
@@ -65,7 +65,7 @@ def Test_All_Resources(request):
                             else:
                                 num_errors += 1
                     else:
-                        response = get_hs_res_object(hs, res_id)
+                        response = process_nongeneric_res(hs, res_id)
                         if response['success']:
                             num_success += 1
                         else:

@@ -133,8 +133,8 @@
     var initializeMap;
     var loadProjectFile;
     var addNonGenericRes;
-    var addGenericResFile;
-    var addGenericRes;
+    var addGenericResFilesInLoop;
+    var addGenericResFiles;
     var modifyLayoutCSS;
     var modifyDataTableDisplay;
     var onClickAddFile;
@@ -153,7 +153,6 @@
     var onClickZoomToLayer;
     var prepareFilesForAjax;
     var processAddHSResResults;
-    var addGenericResFiles;
     var processSaveNewProjectResponse;
     var redrawDataTable;
     var reprojectExtents;
@@ -1183,9 +1182,9 @@
         if (params.res_id && params.res_type) {
             showMainLoadAnim();
             if (params.res_fname) {
-                addGenericResFile(params.res_id, params.res_fname, 0, 1);
+                addGenericResFiles(params.res_id, params.res_fname);
             } else if (params.res_type === "GenericResource" || params.res_type === "ScriptResource") {
-                addGenericRes(params.res_id);
+                addGenericResFiles(params.res_id);
             } else {
                 addNonGenericRes(params.res_id, params.res_type, null, true, null);
             }
@@ -2002,11 +2001,16 @@
         });
     };
 
-    addGenericResFile = function (resId, resFileName, index, numFiles, numFilesProcessed){
+    addGenericResFilesInLoop = function (resId, resFilesList, fileIndex, isLastFile){
+        var resFileName = resFilesList[fileIndex];
+        var numFiles = resFilesList.length;
+        if (isLastFile === undefined) {
+            isLastFile = (fileIndex === numFiles - 1);
+        }
         var data = {
             'res_id': resId,
             'res_fname': resFileName,
-            'file_index': index
+            'file_index': fileIndex
         };
         $.ajax({
             url: '/apps/hydroshare-gis/add-generic-res-file',
@@ -2016,11 +2020,11 @@
             contentType: 'json',
             success: function (response) {
                 var message;
-                var isLastFile = true;
 
-                if (numFilesProcessed) {
-                    numFilesProcessed.increase();
-                    isLastFile = numFilesProcessed.get() === numFiles;
+                if (isLastFile) {
+                    isLastFile = true;
+                } else {
+                    addGenericResFilesInLoop(resId, resFilesList, fileIndex + 1);
                 }
 
                 if (response.hasOwnProperty('success')) {
@@ -2062,17 +2066,16 @@
 
                 addLogEntry('danger', message);
 
-                if (numFilesProcessed) {
-                    numFilesProcessed.increase();
-                    if (numFilesProcessed.get() === numFiles || numFiles === 1) {
-                        setStateAfterLastResource();
-                    }
+                if (isLastFile) {
+                    setStateAfterLastResource();
+                } else {
+                    addGenericResFilesInLoop(resId, resFilesList, fileIndex + 1);
                 }
             }
         });
     };
 
-    addGenericRes = function (resId) {
+    addGenericResFiles = function (resId, resFileName) {
         var data = {'res_id': resId};
 
         $.ajax({
@@ -2089,7 +2092,17 @@
                     } else {
                         if (response.hasOwnProperty('results')) {
                             if (response.results.hasOwnProperty('generic_res_files_list')) {
-                                addGenericResFiles(resId, response.results.generic_res_files_list);
+                                var resFilesList = response.results.generic_res_files_list;
+                                var index = 0;
+                                var isOnlyFile = false;
+                                if (typeof resFilesList === 'string') {
+                                    resFilesList = resFilesList.split(',');
+                                }
+                                if (resFileName) {
+                                    index = resFilesList.indexOf(resFileName);
+                                    isOnlyFile = true;
+                                }
+                                addGenericResFilesInLoop(resId, resFilesList, index, isOnlyFile);
                             }
                         }
                     }
@@ -2132,7 +2145,7 @@
         $modalAddRes.modal('hide');
 
         if (resType === "GenericResource") {
-            addGenericRes(resId);
+            addGenericResFiles(resId);
         } else {
             addNonGenericRes(resId, resType, resTitle, true, null);
         }
@@ -2492,32 +2505,6 @@
             }
         }
         $btnSaveProject.prop('disabled', false);
-    };
-
-    addGenericResFiles = function (resId, resFilesList) {
-        if (typeof resFilesList === 'string') {
-            resFilesList = resFilesList.split(',');
-        }
-
-        var numFiles = resFilesList.length;
-        var i;
-
-        var numFilesProcessed = (function () {
-            var counter = 0;
-
-            return {
-                'increase': function () {
-                    counter += 1;
-                },
-                'get': function () {
-                    return counter;
-                }
-            };
-        }());
-
-        for (i = 0; i < numFiles; i += 1) {
-            addGenericResFile(resId, resFilesList[i], i, numFiles, numFilesProcessed);
-        }
     };
 
     processSaveNewProjectResponse = function (response) {

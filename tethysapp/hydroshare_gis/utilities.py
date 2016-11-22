@@ -79,10 +79,6 @@ def upload_file_to_geoserver(res_id, res_type, res_file, file_index=None):
                                                        debug=get_debug_val())
 
         elif res_type == 'GeographicFeatureResource':
-            if file_index:
-                store_id = '%s_%s' % (res_id, file_index)
-                full_store_id = '%s:%s' % (get_workspace(), store_id)
-
             if is_zip is True:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_zip=res_file,
@@ -547,7 +543,7 @@ def process_res_by_type(hs, res_id, res_type, hs_tempdir):
             return_obj['message'] = response['message']
         else:
             res_contents_path = response['res_contents_path']
-            response = get_info_from_res_files(res_id, res_type, res_contents_path)
+            response = get_info_from_nongeneric_res_files(res_id, res_type, res_contents_path)
             return_obj['message'] = response['message']
             if response['success']:
                 error_occurred = False
@@ -614,7 +610,7 @@ def process_res_by_type(hs, res_id, res_type, hs_tempdir):
 
     return return_obj
 
-def get_info_from_res_files(res_id, res_type, res_contents_path):
+def get_info_from_nongeneric_res_files(res_id, res_type, res_contents_path):
     return_obj = {
         'success': False,
         'message': None,
@@ -853,6 +849,7 @@ def check_crs(res_type, fpath):
                 raise Exception
             elif r.status_code == 200:
                 response = r.json()
+                print response
                 if 'errors' in response:
                     errs = response['errors']
                     if 'Invalid WKT syntax' in errs:
@@ -890,8 +887,8 @@ def check_crs(res_type, fpath):
                     # If there are no codes in the result, a match wasn't found. In that case, an attempt will still be
                     # made to add the layer to GeoServer since this still works in some cases.
                     if len(codes) != 0:
+                        code = codes[0]['code']
                         if res_type == 'RasterResource':
-                            code = codes[0]['code']
                             if code not in crs:
                                 return_obj['crsWasChanged'] = True
                             return_obj['code'] = 'EPSG:' + code
@@ -902,7 +899,9 @@ def check_crs(res_type, fpath):
                             tmp_list = []
                             for seg in raw_wkt.split('\n'):
                                 tmp_list.append(seg.strip())
-                            return_obj['new_wkt'] = ''.join(tmp_list)
+                            if code not in crs:
+                                return_obj['crsWasChanged'] = True
+                                return_obj['new_wkt'] = ''.join(tmp_list)
 
                     return_obj['success'] = True
 
@@ -1444,23 +1443,42 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             is_shapefile = True
             try:
                 for ext in req_shp_file_exts:
-                    if not os.path.exists(os.path.join(hs_tempdir, '%s%s' % (fname, ext))):
-                        fname = '{name}{ext}'.format(name=fname, ext=ext)
-                        hs.getResourceFile(res_id, fname, destination=hs_tempdir)
-            except hs_r.HydroShareNotFound:
+                    f_name = '{name}{ext}'.format(name=fname, ext=ext)
+                    if not os.path.exists(os.path.join(hs_tempdir, fname)):
+                        print f_name
+                        hs.getResourceFile(res_id, f_name, destination=hs_tempdir)
+            except hs_r.HydroShareNotFound as e:
+                print "FILE NOT FOUND"
+                print str(e)
                 is_shapefile = False
 
             if is_shapefile:
                 shp_file_paths = []
+                prj_path = None
 
                 for ext in req_shp_file_exts:
-                    path = os.path.join(hs_tempdir, '%s%s' % (fname, ext))
+                    f_name = '{name}{ext}'.format(name=fname, ext=ext)
+                    path = os.path.join(hs_tempdir, f_name)
                     # Rename files to store_id
-                    tmp_fname = '{name}{ext}'.format(name=get_geoserver_store_id(res_id, file_index),
-                                                    ext=ext)
-                    tmp_fpath = os.path.join(hs_tempdir, tmp_fname)
-                    os.rename(path, tmp_fpath)
-                    shp_file_paths.append(tmp_fpath)
+                    new_fname = '{name}{ext}'.format(name=get_geoserver_store_id(res_id, file_index),
+                                                     ext=ext)
+                    new_fpath = os.path.join(hs_tempdir, new_fname)
+
+                    if ext == '.prj':
+                        prj_path = new_fpath
+
+                    os.rename(path, new_fpath)
+                    shp_file_paths.append(new_fpath)
+
+                r = check_crs(res_type, prj_path)
+                return_obj['message'] = r['message'] % os.path.basename(prj_path) if r['message'] else None
+                if r['success'] and r['crsWasChanged']:
+                    print "CRS WAS CHANGED"
+                    print r['new_wkt']
+                    with open(prj_path, 'w') as f:
+                        f.seek(0)
+                        f.write(r['new_wkt'])
+                        f.truncate()
 
                 # Rename zip to store_id just to be safe
                 zip_fname = '{name}.zip'.format(name=get_geoserver_store_id(res_id, file_index))
@@ -1476,18 +1494,18 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
                 hs.getResourceFile(res_id, res_file_name, destination=hs_tempdir)
             res_type = 'RasterResource'
             tif_name = '{name}.tif'.format(name=get_geoserver_store_id(res_id, file_index))
-            tmp_fpath = os.path.join(hs_tempdir, tif_name)
-            os.rename(fpath, tmp_fpath)
-            r = check_crs(res_type, tmp_fpath)
+            new_fpath = os.path.join(hs_tempdir, tif_name)
+            os.rename(fpath, new_fpath)
+            r = check_crs(res_type, new_fpath)
             return_obj['message'] = r['message'] % res_file_name if r['message'] else None
             if not r['success']:
                 return return_obj
             else:
                 if r['crsWasChanged']:
                     code = r['code']
-                    os.system('gdal_edit.py -a_srs {0} {1}'.format(code, tmp_fpath))
-                res_fpath = tmp_fpath.replace('tif', 'zip')
-                zip_files(tmp_fpath, res_fpath)
+                    os.system('gdal_edit.py -a_srs {0} {1}'.format(code, new_fpath))
+                res_fpath = new_fpath.replace('tif', 'zip')
+                zip_files(new_fpath, res_fpath)
         else:
             is_full_generic = True
 

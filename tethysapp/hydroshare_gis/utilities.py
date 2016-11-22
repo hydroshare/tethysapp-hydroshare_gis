@@ -43,18 +43,15 @@ def upload_file_to_geoserver(res_id, res_type, res_file, file_index=None):
     response = None
     results = return_obj['results']
     engine = return_spatial_dataset_engine()
-    store_id = res_id
-    full_store_id = '%s:%s' % (get_workspace(), store_id)
+    store_id = get_geoserver_store_id(res_id, file_index)
+    full_store_id = '{workspace}:{store_id}'.format(workspace=get_workspace(),
+                                                    store_id=store_id)
     is_zip = zipfile.is_zipfile(res_file)
 
     try:
         if res_type == 'RasterResource':
             is_image_pyramid = check_if_image_pyramid(res_file)
             coverage_type = 'imagepyramid' if is_image_pyramid else 'geotiff'
-            if file_index:
-                store_id = '%s_%s' % (res_id, file_index)
-                full_store_id = '%s:%s' % (get_workspace(), store_id)
-
             coverage_name = store_id if is_zip else None
 
             # Creates a resource from a file stored directly on the GeoServer
@@ -639,9 +636,12 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
         if res_type == 'GeographicFeatureResource':
             for f in res_files_list:
                 src = os.path.join(res_contents_path, f)
-                public_fpath = os.path.join(res_contents_path, res_id + os.path.splitext(f)[1])
-                os.rename(src, public_fpath)
-            res_fpath = os.path.join(res_contents_path, res_id)
+                new_fname = '{name}{ext}'.format(name=get_geoserver_store_id(res_id),
+                                                 ext=os.path.splitext(f)[1])
+                dst = os.path.join(res_contents_path, new_fname)
+                os.rename(src, dst)
+            res_fname = get_geoserver_store_id(res_id)
+            res_fpath = os.path.join(res_contents_path, res_fname)
             prj_path = res_fpath + '.prj'
             r = check_crs(res_type, prj_path)
             return_obj['message'] = r['message'] % os.path.basename(prj_path) if r['message'] else None
@@ -663,7 +663,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                 fpath = os.path.join(res_contents_path, res_fname)
                 if num_files == 2:
                     if res_fname.lower().endswith('.tif'):
-                        tmp_fpath = os.path.join(res_contents_path, '%s.tif' % res_id)
+                        tif_name = '{name}.tif'.format(name=get_geoserver_store_id(res_id))
+                        tmp_fpath = os.path.join(res_contents_path, tif_name)
                         os.rename(fpath, tmp_fpath)
                         r = check_crs(res_type, tmp_fpath)
                         return_obj['message'] = r['message'] % res_fname if r['message'] else None
@@ -681,7 +682,8 @@ def get_info_from_res_files(res_id, res_type, res_contents_path):
                     break
 
             if num_files > 2:
-                pyramid_dir_path = os.path.join(res_contents_path, '%s/' % res_id)
+                pyramid_dir_name = get_geoserver_store_id(res_id)
+                pyramid_dir_path = os.path.join(res_contents_path, pyramid_dir_name, '/')
                 res_fpath = '%s.zip' % pyramid_dir_path[:-1]
                 os.mkdir(pyramid_dir_path)
                 gdal_retile = 'gdal_retile.py -levels 9 -ps 2048 2048 -co "TILED=YES" -targetDir %s %s'
@@ -1330,8 +1332,8 @@ def process_generic_res_file(hs, res_id, res_file_name, username, file_index=0):
                         layer_attributes = response['attributes']
                         layer_extents = response['extents']
                         geom_type = response['geom_type']
-
-                        band_info_tif_path = os.path.join(hs_tempdir, '{0}_{1}.tif'.format(res_id, file_index))
+                        tif_file = '{store_id}.tif'.format(store_id=get_geoserver_store_id(res_id, file_index))
+                        band_info_tif_path = os.path.join(hs_tempdir, tif_file)
                         band_info = get_band_info(hs, res_id, res_type, band_info_tif_path)
 
             results = {
@@ -1426,7 +1428,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             else:
                 kml_path = fpath
 
-            shp_fname = '%s_%s.shp' % (res_id, file_index)
+            shp_fname = '{name}.shp'.format(name=get_geoserver_store_id(res_id, file_index))
             shp_output_path = os.path.join(hs_tempdir, shp_fname)
 
             os.system('ogr2ogr -f "ESRI Shapefile" {0} {1}'.format(shp_output_path, kml_path))
@@ -1443,7 +1445,8 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             try:
                 for ext in req_shp_file_exts:
                     if not os.path.exists(os.path.join(hs_tempdir, '%s%s' % (fname, ext))):
-                        hs.getResourceFile(res_id, '%s%s' % (fname, ext), destination=hs_tempdir)
+                        fname = '{name}{ext}'.format(name=fname, ext=ext)
+                        hs.getResourceFile(res_id, fname, destination=hs_tempdir)
             except hs_r.HydroShareNotFound:
                 is_shapefile = False
 
@@ -1452,16 +1455,16 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
 
                 for ext in req_shp_file_exts:
                     path = os.path.join(hs_tempdir, '%s%s' % (fname, ext))
-                    # Rename files to res_id base
-                    tmp_fpath = os.path.join(hs_tempdir,
-                                             '%s_%s%s' % (res_id, file_index, ext))
+                    # Rename files to store_id
+                    tmp_fname = '{name}{ext}'.format(name=get_geoserver_store_id(res_id, file_index),
+                                                    ext=ext)
+                    tmp_fpath = os.path.join(hs_tempdir, tmp_fname)
                     os.rename(path, tmp_fpath)
                     shp_file_paths.append(tmp_fpath)
 
-                # Rename zip to res_id base just to be safe
-                res_fpath = os.path.join(hs_tempdir,
-                                         '%s_%s.zip' % (res_id, file_index))
-
+                # Rename zip to store_id just to be safe
+                zip_fname = '{name}.zip'.format(name=get_geoserver_store_id(res_id, file_index))
+                res_fpath = os.path.join(hs_tempdir, zip_fname)
                 zip_files(shp_file_paths, res_fpath)
                 res_type = 'GeographicFeatureResource'
 
@@ -1472,7 +1475,8 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
             if not os.path.exists(res_fpath):
                 hs.getResourceFile(res_id, res_file_name, destination=hs_tempdir)
             res_type = 'RasterResource'
-            tmp_fpath = os.path.join(hs_tempdir, '%s_%s.tif' % (res_id, file_index))
+            tif_name = '{name}.tif'.format(name=get_geoserver_store_id(res_id, file_index))
+            tmp_fpath = os.path.join(hs_tempdir, tif_name)
             os.rename(fpath, tmp_fpath)
             r = check_crs(res_type, tmp_fpath)
             return_obj['message'] = r['message'] % res_file_name if r['message'] else None
@@ -1643,10 +1647,8 @@ def add_file_to_res(hs, res_id, fpath):
                 raise e
 
 def remove_layer_from_geoserver(res_id, file_index=None):
-    if file_index:
-        store_id = '{0}:{1}_{2}'.format(get_workspace(), res_id, file_index)
-    else:
-        store_id = '{0}:{1}'.format(get_workspace(), res_id)
+    store_id = '{workspace}:{store}'.format(workspace=get_workspace(),
+                                            store=get_geoserver_store_id(res_id, file_index))
 
     engine = return_spatial_dataset_engine()
     engine.delete_store(store_id, purge=True, recurse=True, debug=get_debug_val())
@@ -1694,3 +1696,8 @@ def get_hs_auth_obj(request):
     return_obj['success'] = True
 
     return return_obj
+
+
+def get_geoserver_store_id(res_id, file_index=None):
+    return 'gis_{res_id}{flag}'.format(res_id=res_id,
+                                       flag='_{0}'.format(file_index) if file_index else '')

@@ -2094,10 +2094,13 @@
                             if (response.results.hasOwnProperty('generic_res_files_list')) {
                                 var resFilesList = response.results.generic_res_files_list;
                                 var index = 0;
-                                var isOnlyFile = false;
+                                
                                 if (typeof resFilesList === 'string') {
                                     resFilesList = resFilesList.split(',');
                                 }
+                                
+                                var isOnlyFile = (resFilesList.length === 1);
+                                
                                 if (resFileName) {
                                     index = resFilesList.indexOf(resFileName);
                                     isOnlyFile = true;

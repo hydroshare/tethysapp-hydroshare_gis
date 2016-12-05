@@ -458,16 +458,15 @@ def process_nongeneric_res(hs, res_id, res_type=None, res_title=None, username=N
     except hs_r.HydroShareNotAuthorized:
         return_obj['message'] = 'You are not authorized to access this resource.'
     except Exception as e:
+        exc_type, exc_value, exc_traceback = exc_info()
+        msg = e.message if e.message else str(e)
+        logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+        logger.error(msg)
         if gethostname() == 'ubuntu':
-            exc_type, exc_value, exc_traceback = exc_info()
-            msg = e.message if e.message else str(e)
-            logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
-            logger.error(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             if not currently_testing:
-                msg = e.message if e.message else ''
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
     finally:
@@ -1182,16 +1181,15 @@ def get_res_files_list(hs, res_id):
     except hs_r.HydroShareNotAuthorized:
         return_obj['message'] = 'You are not authorized to access this resource.'
     except Exception as e:
+        exc_type, exc_value, exc_traceback = exc_info()
+        msg = e.message if e.message else str(e)
+        logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+        logger.error(msg)
         if gethostname() == 'ubuntu':
-            exc_type, exc_value, exc_traceback = exc_info()
-            msg = e.message if e.message else str(e)
-            logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
-            logger.error(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             if not currently_testing:
-                msg = e.message if e.message else ''
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
 
@@ -1364,16 +1362,15 @@ def process_generic_res_file(hs, res_id, res_file_name, username, file_index=0):
     except hs_r.HydroShareNotAuthorized:
         return_obj['message'] = 'You are not authorized to access this resource.'
     except Exception as e:
+        exc_type, exc_value, exc_traceback = exc_info()
+        msg = e.message if e.message else str(e)
+        logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
+        logger.error(msg)
         if gethostname() == 'ubuntu':
-            exc_type, exc_value, exc_traceback = exc_info()
-            msg = e.message if e.message else str(e)
-            logger.error(''.join(format_exception(exc_type, exc_value, exc_traceback)))
-            logger.error(msg)
             return_obj['message'] = 'An unexpected error ocurred: %s' % msg
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             if not currently_testing:
-                msg = e.message if e.message else ''
                 msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
     finally:

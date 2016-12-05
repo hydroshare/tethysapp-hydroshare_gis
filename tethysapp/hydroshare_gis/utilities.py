@@ -678,7 +678,7 @@ def get_info_from_nongeneric_res_files(res_id, res_type, res_contents_path):
 
             if num_files > 2:
                 pyramid_dir_name = get_geoserver_store_id(res_id)
-                pyramid_dir_path = os.path.join(res_contents_path, pyramid_dir_name, '/')
+                pyramid_dir_path = os.path.join(res_contents_path, pyramid_dir_name) + '/'
                 res_fpath = '%s.zip' % pyramid_dir_path[:-1]
                 os.mkdir(pyramid_dir_path)
                 gdal_retile = 'gdal_retile.py -levels 9 -ps 2048 2048 -co "TILED=YES" -targetDir %s %s'

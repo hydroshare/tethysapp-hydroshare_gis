@@ -249,6 +249,13 @@
             }
         }
 
+        // Check if a layer with the same name exists. If so, tack on a modifier
+        var modifier = 2;
+        while (projectInfo.map.layers[displayName] !== undefined) {
+            displayName = displayName + ' (' + modifier + ')';
+            modifier += 1;
+        }
+
         // Add layer data to project info
         projectInfo.map.layers[displayName] = {
             displayName: displayName,
@@ -473,7 +480,7 @@
 
         displayName = results.layer_name;
         // Check if a layer with the same name exists. If so, tack on a modifier
-        var modifier = 1;
+        var modifier = 2;
         while (projectInfo.map.layers[displayName] !== undefined) {
             displayName = displayName + ' (' + modifier + ')';
             modifier += 1;
@@ -2094,13 +2101,13 @@
                             if (response.results.hasOwnProperty('generic_res_files_list')) {
                                 var resFilesList = response.results.generic_res_files_list;
                                 var index = 0;
-                                
+
                                 if (typeof resFilesList === 'string') {
                                     resFilesList = resFilesList.split(',');
                                 }
-                                
+
                                 var isOnlyFile = (resFilesList.length === 1);
-                                
+
                                 if (resFileName) {
                                     index = resFilesList.indexOf(resFileName);
                                     isOnlyFile = true;
@@ -2147,7 +2154,7 @@
         showMainLoadAnim();
         $modalAddRes.modal('hide');
 
-        if (resType === "GenericResource") {
+        if (resType === "GenericResource" || resType === "ScriptResource") {
             addGenericResFiles(resId);
         } else {
             addNonGenericRes(resId, resType, resTitle, true, null);
@@ -2323,16 +2330,16 @@
                     .empty()
                     .append('<video id="iframe-js-viewer" src="' + fileUrl + '" controls></video>')
                     .removeClass('hidden');
-            } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
-                fileUrl = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
-                $loading.removeClass('hidden');
-                $('#iframe-container')
-                    .empty()
-                    .append('<iframe id="iframe-js-viewer" src="' + fileUrl + '" allowfullscreen></iframe>');
-                $('#iframe-js-viewer').one('load', function () {
-                    $loading.addClass('hidden');
-                    $('#iframe-container').removeClass('hidden');
-                });
+                // } else if (validTextTypes.indexOf(fName.toLowerCase().split('.')[1]) !== -1) {
+                //     fileUrl = location.protocol + '//' + location.host + '/apps/script-viewer/?src=hydroshare&res_id=' + resId;
+                //     $loading.removeClass('hidden');
+                //     $('#iframe-container')
+                //         .empty()
+                //         .append('<iframe id="iframe-js-viewer" src="' + fileUrl + '" allowfullscreen></iframe>');
+                //     $('#iframe-js-viewer').one('load', function () {
+                //         $loading.addClass('hidden');
+                //         $('#iframe-container').removeClass('hidden');
+                //     });
             } else {
                 $('#link-download-file').attr('href', fileUrl);
                 $('#unviewable-file').attr('src', fileUrl).removeClass('hidden');

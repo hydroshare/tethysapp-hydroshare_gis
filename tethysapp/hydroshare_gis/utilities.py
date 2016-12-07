@@ -1442,7 +1442,7 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
                     f_name = '{name}{ext}'.format(name=fname, ext=ext)
                     if not os.path.exists(os.path.join(hs_tempdir, fname)):
                         hs.getResourceFile(res_id, f_name, destination=hs_tempdir)
-            except hs_r.HydroShareNotFound as e:
+            except hs_r.HydroShareNotFound:
                 is_shapefile = False
 
             if is_shapefile:

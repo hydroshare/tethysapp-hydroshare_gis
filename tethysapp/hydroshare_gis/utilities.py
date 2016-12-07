@@ -79,12 +79,12 @@ def upload_file_to_geoserver(res_id, res_type, res_file, file_index=None):
                                                        debug=get_debug_val())
 
         elif res_type == 'GeographicFeatureResource':
-            if is_zip is True:
+            if is_zip:
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_zip=res_file,
                                                             overwrite=True,
                                                             debug=get_debug_val())
-            elif type(res_file) is not unicode:
+            elif isinstance(res_file, UploadedFile):
                 response = engine.create_shapefile_resource(store_id=full_store_id,
                                                             shapefile_upload=res_file,
                                                             overwrite=True,
@@ -144,7 +144,7 @@ def zip_files(res_files, zip_path):
         if type(res_files) is list:
             for f in res_files:
                 zip_object.write(f, os.path.basename(f))
-        elif type(res_files) == UploadedFile:
+        elif isinstance(res_files, UploadedFile):
             zip_object.writestr(os.path.basename(res_files), res_files.read())
         else:
             zip_object.write(res_files, os.path.basename(res_files))
@@ -848,7 +848,6 @@ def check_crs(res_type, fpath):
                 raise Exception
             elif r.status_code == 200:
                 response = r.json()
-                print response
                 if 'errors' in response:
                     errs = response['errors']
                     if 'Invalid WKT syntax' in errs:
@@ -1442,11 +1441,8 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
                 for ext in req_shp_file_exts:
                     f_name = '{name}{ext}'.format(name=fname, ext=ext)
                     if not os.path.exists(os.path.join(hs_tempdir, fname)):
-                        print f_name
                         hs.getResourceFile(res_id, f_name, destination=hs_tempdir)
-            except hs_r.HydroShareNotFound as e:
-                print "FILE NOT FOUND"
-                print str(e)
+            except hs_r.HydroShareNotFound:
                 is_shapefile = False
 
             if is_shapefile:
@@ -1470,8 +1466,6 @@ def get_info_from_generic_res_file(hs, res_id, res_file_name, hs_tempdir, file_i
                 r = check_crs(res_type, prj_path)
                 return_obj['message'] = r['message'] % os.path.basename(prj_path) if r['message'] else None
                 if r['success'] and r['crsWasChanged']:
-                    print "CRS WAS CHANGED"
-                    print r['new_wkt']
                     with open(prj_path, 'w') as f:
                         f.seek(0)
                         f.write(r['new_wkt'])

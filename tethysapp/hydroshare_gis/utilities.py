@@ -467,7 +467,9 @@ def process_nongeneric_res(hs, res_id, res_type=None, res_title=None, username=N
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             if not currently_testing:
-                msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+                user_info = hs.getUserInfo()
+                msg += '\nHost: {host} \nRes Id: {id} \nRes Type: {type} \nUsername: {name} \nEmail: {email}'.format(
+                    host=gethostname(), id=res_id, type=res_type, name=user_info['username'], email=user_info['email'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
     finally:
         os.system('rm -rf %s' % hs_tempdir)
@@ -1189,7 +1191,9 @@ def get_res_files_list(hs, res_id):
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             if not currently_testing:
-                msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+                user_info = hs.getUserInfo()
+                msg += '\nHost: {host} \nRes Id: {id} \nUsername: {name} \nEmail: {email}'.format(
+                    host=gethostname(), id=res_id, name=user_info['username'], email=user_info['email'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
 
     return return_obj
@@ -1288,6 +1292,7 @@ def process_generic_res_file(hs, res_id, res_file_name, username, file_index=0):
     band_info = None
     site_info = None
     project_info = None
+    res_type = None
 
     try:
 
@@ -1370,7 +1375,9 @@ def process_generic_res_file(hs, res_id, res_file_name, username, file_index=0):
         else:
             return_obj['message'] = 'An unexpected error ocurred. App admin has been notified.'
             if not currently_testing:
-                msg += '\nHost: %s \nResource ID: %s \nUser: %s' % (gethostname(), res_id, hs.getUserInfo()['username'])
+                user_info = hs.getUserInfo()
+                msg += '\nHost: {host} \nRes Id: {id} \nRes Type: {type} \nUsername: {name} \nEmail: {email}'.format(
+                    host=gethostname(), id=res_id, type=res_type, name=user_info['username'], email=user_info['email'])
                 email_admin('Error Report', traceback=exc_info(), custom_msg=msg)
     finally:
         os.system('rm -rf %s' % hs_tempdir)

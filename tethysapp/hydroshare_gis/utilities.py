@@ -23,8 +23,6 @@ from logging import getLogger
 
 
 logger = getLogger('django')
-#workspace_id = None
-#spatial_dataset_engine = None
 currently_testing = False
 
 def get_json_response(response_type, message):
@@ -156,8 +154,7 @@ def zip_files(res_files, zip_path):
 
 
 def return_spatial_dataset_engine():
-    #global spatial_dataset_engine
-    #if spatial_dataset_engine is None:
+
     spatial_dataset_engine = get_spatial_dataset_engine(name='default')
 
     return spatial_dataset_engine
@@ -745,8 +742,7 @@ def get_hs_res_list(hs):
 
 
 def get_workspace():
-    #global workspace_id
-    #if workspace_id is None:
+
     if 'apps.hydroshare' in gethostname():
         workspace_id = 'hydroshare_gis'
     else:

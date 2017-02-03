@@ -23,8 +23,8 @@ from logging import getLogger
 
 
 logger = getLogger('django')
-workspace_id = None
-spatial_dataset_engine = None
+#workspace_id = None
+#spatial_dataset_engine = None
 currently_testing = False
 
 def get_json_response(response_type, message):
@@ -156,9 +156,9 @@ def zip_files(res_files, zip_path):
 
 
 def return_spatial_dataset_engine():
-    global spatial_dataset_engine
-    if spatial_dataset_engine is None:
-        spatial_dataset_engine = get_spatial_dataset_engine(name='default')
+    #global spatial_dataset_engine
+    #if spatial_dataset_engine is None:
+    spatial_dataset_engine = get_spatial_dataset_engine(name='default')
 
     return spatial_dataset_engine
 
@@ -745,12 +745,12 @@ def get_hs_res_list(hs):
 
 
 def get_workspace():
-    global workspace_id
-    if workspace_id is None:
-        if 'apps.hydroshare' in gethostname():
-            workspace_id = 'hydroshare_gis'
-        else:
-            workspace_id = 'hydroshare_gis_testing'
+    #global workspace_id
+    #if workspace_id is None:
+    if 'apps.hydroshare' in gethostname():
+        workspace_id = 'hydroshare_gis'
+    else:
+        workspace_id = 'hydroshare_gis_testing'
 
     return workspace_id
 
@@ -1715,5 +1715,6 @@ def get_hs_auth_obj(request):
 
 
 def get_geoserver_store_id(res_id, file_index=None):
-    return 'gis_{res_id}{flag}'.format(res_id=res_id,
-                                       flag='_{0}'.format(file_index) if file_index else '')
+    return '{gis}_{res_id}{flag}'.format(gis=get_workspace(),
+                                         res_id=res_id,
+                                         flag='_{0}'.format(file_index) if file_index else '')

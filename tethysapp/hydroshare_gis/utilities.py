@@ -264,7 +264,7 @@ def extract_site_info_from_time_series(sqlite_fpath):
 def extract_site_info_from_hs_metadata(hs, res_id):
     site_info = None
     try:
-        md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
+        md_dict = xmltodict.parse(hs.getScienceMetadataRDF(res_id))
         if len(md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage']) == 1:
             site_info_list = md_dict['rdf:RDF']['rdf:Description'][0]['dc:coverage']['dcterms:point']['rdf:value'].split(';')
         else:
@@ -314,7 +314,7 @@ def get_band_info(hs, res_id, res_type, raster_fpath=None):
     band_info = None
     if res_type == 'RasterResource':
         try:
-            md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
+            md_dict = xmltodict.parse(hs.getScienceMetadataRDF(res_id))
             band_info_raw = md_dict['rdf:RDF']['rdf:Description'][0]['hsterms:BandInformation']['rdf:Description']
             band_info = {}
             if 'hsterms:minimumValue' in band_info_raw:
@@ -1088,7 +1088,7 @@ def get_res_mod_date(hs, res_id):
     date_modified = None
     try:
 
-        md_dict = xmltodict.parse(hs.getScienceMetadata(res_id))
+        md_dict = xmltodict.parse(hs.getScienceMetadataRDF(res_id))
 
         for date_obj in md_dict['rdf:RDF']['rdf:Description'][0]['dc:date']:
             if 'dcterms:modified' in date_obj:
@@ -1589,7 +1589,7 @@ def validate_res_request(hs, res_id):
         'message': None
     }
     try:
-        hs.getScienceMetadata(res_id)
+        hs.getScienceMetadataRDF(res_id)
         return_obj['can_access'] = True
     except hs_r.HydroShareNotAuthorized:
         return_obj['message'] = 'You are not authorized to access this resource.'

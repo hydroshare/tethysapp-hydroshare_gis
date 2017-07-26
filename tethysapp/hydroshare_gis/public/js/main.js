@@ -1190,7 +1190,7 @@
             showMainLoadAnim();
             if (params.res_fname) {
                 addGenericResFiles(params.res_id, params.res_fname);
-            } else if (params.res_type === "GenericResource" || params.res_type === "ScriptResource") {
+            } else if (["GenericResource", "ScriptResource", "CompositeResource"].indexOf(params.res_type) !== -1) {
                 addGenericResFiles(params.res_id);
             } else {
                 addNonGenericRes(params.res_id, params.res_type, null, true, null);
@@ -2154,7 +2154,7 @@
         showMainLoadAnim();
         $modalAddRes.modal('hide');
 
-        if (resType === "GenericResource" || resType === "ScriptResource") {
+        if (["GenericResource", "ScriptResource", "CompositeResource"].indexOf(resType) !== -1) {
             addGenericResFiles(resId);
         } else {
             addNonGenericRes(resId, resType, resTitle, true, null);

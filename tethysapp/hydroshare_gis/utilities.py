@@ -708,7 +708,10 @@ def get_hs_res_list(hs):
     res_list = []
 
     try:
-        valid_res_types = ['GenericResource', 'GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 'ScriptResource']
+        valid_res_types = [
+            'GenericResource', 'GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 
+            'ScriptResource', 'CompositeResource'
+        ]
         for res in hs.getResourceList(types=valid_res_types):
             res_id = res['resource_id']
             # This code calculates the cummulative files size of each resource. Comment out to improve performance.
@@ -1124,6 +1127,7 @@ def get_res_files_list(hs, res_id):
     full_name_list = []
     name_list = []
     size_list = []
+    ignore_exts = ['.vrt']
     req_shp_file_exts = ['.shp', '.prj', '.shx', '.dbf']
     all_shp_file_exts = req_shp_file_exts + ['.sbn', '.sbx', '.cpg', '.xml']
     rem_shp_file_exts = all_shp_file_exts[:]
@@ -1162,6 +1166,8 @@ def get_res_files_list(hs, res_id):
 
                         if ext != '.shp':
                             continue
+                elif ext in ignore_exts:
+                    continue
 
                 name_list.append(basename)
                 size_list.append(size)

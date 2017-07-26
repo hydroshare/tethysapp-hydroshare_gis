@@ -708,7 +708,10 @@ def get_hs_res_list(hs):
     res_list = []
 
     try:
-        valid_res_types = ['GenericResource', 'GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 'ScriptResource']
+        valid_res_types = [
+            'GenericResource', 'GeographicFeatureResource', 'RasterResource', 'RefTimeSeriesResource', 'TimeSeriesResource', 
+            'ScriptResource', 'CompositeResource'
+        ]
         for res in hs.getResourceList(types=valid_res_types):
             res_id = res['resource_id']
             # This code calculates the cummulative files size of each resource. Comment out to improve performance.

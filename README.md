@@ -56,3 +56,5 @@ $ git pull
 ```
 Restart the Apache Server:
 See: http://docs.tethysplatform.org/en/latest/production/installation.html#enable-site-and-restart-apache
+
+##Fin

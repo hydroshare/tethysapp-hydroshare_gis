@@ -1124,6 +1124,7 @@ def get_res_files_list(hs, res_id):
     full_name_list = []
     name_list = []
     size_list = []
+    ignore_exts = ['.vrt']
     req_shp_file_exts = ['.shp', '.prj', '.shx', '.dbf']
     all_shp_file_exts = req_shp_file_exts + ['.sbn', '.sbx', '.cpg', '.xml']
     rem_shp_file_exts = all_shp_file_exts[:]
@@ -1162,6 +1163,8 @@ def get_res_files_list(hs, res_id):
 
                         if ext != '.shp':
                             continue
+                elif ext in ignore_exts:
+                    continue
 
                 name_list.append(basename)
                 size_list.append(size)

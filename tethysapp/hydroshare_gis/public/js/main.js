@@ -1524,7 +1524,7 @@
                     numRequests += 1;
                     setTimeout(generateResourceList, 3000, numRequests);
                 } else {
-                    $modalAddRes.find('.modal-body').html('<div class="error">An unexpected error was encountered while attempting to load resorces.</div>');
+                    $modalAddRes.find('.modal-body').html('<div class="error">An unexpected error was encountered while attempting to load resources.</div>');
                 }
             },
             success: function (response) {

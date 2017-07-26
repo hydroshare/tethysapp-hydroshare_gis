@@ -1190,7 +1190,7 @@
             showMainLoadAnim();
             if (params.res_fname) {
                 addGenericResFiles(params.res_id, params.res_fname);
-            } else if (["GenericResource", "ScriptResource", "CompositeResource"].indexOf(params.resType) !== -1) {
+            } else if (["GenericResource", "ScriptResource", "CompositeResource"].indexOf(params.res_type) !== -1) {
                 addGenericResFiles(params.res_id);
             } else {
                 addNonGenericRes(params.res_id, params.res_type, null, true, null);
